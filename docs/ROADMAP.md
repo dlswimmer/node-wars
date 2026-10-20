@@ -73,6 +73,8 @@ checkpoints, and prestige come with the expanding world.
       150%); Quick Battle earns none
 - [ ] Command Tent: permanent upgrades bought with medals (starting troops, build speed, troop
       speed, shield, tanks), applied in campaign battles only
+- [ ] The Adjutant: an AI helper upgrade (auto-defend, then auto-expand and attack, then
+      auto-battle on levels you have mastered, for fewer medals)
 - [ ] Save progress on the device (versioned save, ready for zones later)
 - [ ] Bots check how fast medals come in and upgrades get bought
 

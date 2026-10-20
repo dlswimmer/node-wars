@@ -47,6 +47,40 @@ small to match ½-1½ medals per win (roughly 1, 2, 3, 5, 8 to start; tuned with
 
 Base-specific upgrades from [BASES.md](BASES.md) can join the tent later.
 
+### The Adjutant (AI helper)
+
+A special upgrade track: an AI officer that helps run your army. It starts cheap and simple
+and grows until it can fight battles on its own, but only battles you've already mastered.
+New and expanded battles always need the player.
+
+| Level | Name          | What it does                                                                                   |
+| ----- | ------------- | ---------------------------------------------------------------------------------------------- |
+| 1     | Defender      | Sends reinforcements to a base that's about to fall (small amounts, every few seconds at most) |
+| 2     | Quartermaster | Full bases send their extra troops toward the front instead of sitting idle                    |
+| 3     | Scout         | Grabs nearby gray bases it's sure to win                                                       |
+| 4     | Field Officer | Attacks enemy bases when the odds are clearly good                                             |
+| 5     | Commander     | **Auto-battle**: plays a whole battle by itself, at levels you've mastered                     |
+
+Rules that keep the player in charge:
+
+- **Never better than you.** The Adjutant uses the same brains as the test bots, set to a
+  careful, slower-than-a-kid pace, so a player who's paying attention always does better.
+  Each level makes it a bit quicker and smarter.
+- **Visible and switchable.** Its orders are drawn in a different color, and a toggle in
+  battle turns it on or off.
+- **Auto-battle only where you've proven yourself.** A level counts as mastered after you've
+  won it yourself several times (for example, 5 wins at that rank). Later, each zone works
+  the same way: master it, then the Adjutant can hold it and fight there, while the new
+  frontier still needs you.
+- **Auto-battles pay less**, for example half medals, so playing yourself is always the best
+  way to earn. Auto-battles are quick to watch (or skip once that exists), which makes them
+  a way to farm mastered levels, not a replacement for playing.
+
+Tuning with bots: on each rank, check the Adjutant's win rate alone at each level (it should
+be low until Commander, and only decent on mastered levels), and check that a player with
+the Adjutant on still wins noticeably more than the Adjutant alone, so "doing nothing" is
+never the best play.
+
 ### Tuning targets (checked with bots)
 
 - First upgrade after about 2 Recruit wins (or 1 Soldier win).
