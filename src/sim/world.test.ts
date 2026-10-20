@@ -164,7 +164,24 @@ describe('ties and shields', () => {
 describe('previewAttack', () => {
   it('predicts a win against a much weaker target', () => {
     const world = createWorld(tinyLevel());
-    expect(previewAttack(world, 'player', [0], 1, 0.5)).toEqual({ count: 10, outcome: 'win' });
+    expect(previewAttack(world, 'player', [0], 1, 0.5)).toEqual({
+      count: 10,
+      enRoute: 0,
+      outcome: 'win',
+    });
+  });
+
+  it('counts your own troops already flying at the target', () => {
+    const level = tinyLevel();
+    level.bases[1]!.troops = 15;
+    level.bases.push({ kind: 'barracks', x: 50, y: 30, owner: 'player', troops: 20 });
+    const world = createWorld(level);
+    // Neither base alone has enough: 10 vs 15.
+    expect(previewAttack(world, 'player', [3], 1, 0.5).outcome).toBe('lose');
+    sendTroops(world, 'player', 0, 1, 0.5); // the first wave of 10 is on its way
+    const second = previewAttack(world, 'player', [3], 1, 0.5);
+    expect(second.enRoute).toBe(10);
+    expect(second.outcome).toBe('win');
   });
 
   it('flags a narrow win as close', () => {

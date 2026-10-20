@@ -702,7 +702,10 @@ export class BattleScene extends Phaser.Scene {
     this.orderGfx.strokeCircle(target.x, target.y, r + 18);
 
     const size = Math.max(30, cssToWorld(22, this.cameras.main.zoom));
-    const label = `${preview.outcome === 'reinforce' ? '+' : ''}${preview.count}\n${style.word}`;
+    const sign = preview.outcome === 'reinforce' ? '+' : '';
+    // Show troops already on the way too, so a two-wave attack reads as one.
+    const onTheWay = preview.enRoute > 0 ? ` + ${preview.enRoute}` : '';
+    const label = `${sign}${preview.count}${onTheWay}\n${style.word}`;
     this.previewLabel
       .setText(label)
       .setStyle(textStyle(size, hexColor(style.color)))

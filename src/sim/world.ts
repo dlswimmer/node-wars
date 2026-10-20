@@ -114,6 +114,8 @@ export type AttackOutcome = 'reinforce' | 'win' | 'close' | 'lose' | 'shielded';
 export interface AttackPreview {
   /** Troops that would be sent. */
   count: number;
+  /** Troops of the same army already on their way to the target. */
+  enRoute: number;
   outcome: AttackOutcome;
 }
 
@@ -143,9 +145,12 @@ export function previewAttack(
     const s = b.kind === 'factory' ? speed * TANK_SPEED : speed;
     travel = Math.max(travel, Math.hypot(b.x - target.x, b.y - target.y) / s);
   }
-  if (!target) return { count, outcome: 'lose' };
-  if (target.owner === army) return { count, outcome: 'reinforce' };
-  if (isShielded(world, target.owner)) return { count, outcome: 'shielded' };
+  // Earlier orders still flying at the same target count toward this attack.
+  let enRoute = 0;
+  for (const u of world.units) if (u.owner === army && u.targetId === targetId) enRoute += u.power;
+  if (!target) return { count, enRoute, outcome: 'lose' };
+  if (target.owner === army) return { count, enRoute, outcome: 'reinforce' };
+  if (isShielded(world, target.owner)) return { count, enRoute, outcome: 'shielded' };
 
   let defenders = target.troops;
   const owner = target.owner;
@@ -156,9 +161,9 @@ export function previewAttack(
     for (const u of world.units)
       if (u.owner === owner && u.targetId === targetId) defenders += u.power;
   }
-  const power = count * getBonuses(world, army).attack;
+  const power = (count + enRoute) * getBonuses(world, army).attack;
   const outcome = power < defenders ? 'lose' : power < defenders + CLOSE_MARGIN ? 'close' : 'win';
-  return { count, outcome };
+  return { count, enRoute, outcome };
 }
 
 export function step(world: World, dt: number): void {
