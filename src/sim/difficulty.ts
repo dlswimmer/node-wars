@@ -51,7 +51,7 @@ export const DIFFICULTIES: Record<DifficultyId, Difficulty> = {
     aiMargin: 2,
     aiMaxSources: 1,
     shieldSeconds: 20,
-    enemyProduction: 1,
+    enemyProduction: 0.9,
     aiSnipeGuard: 8,
   },
   general: {
@@ -73,5 +73,11 @@ export const DIFFICULTY_ORDER: DifficultyId[] = ['recruit', 'soldier', 'general'
 
 /** World setup for a battle at this difficulty (shared by the game and the bot harness). */
 export function worldOptionsFor(d: Difficulty, seed: number): WorldOptions {
-  return { seed, handicap: { enemy: d.enemyProduction }, shield: { player: d.shieldSeconds } };
+  return {
+    seed,
+    handicap: { enemy: d.enemyProduction },
+    shield: { player: d.shieldSeconds },
+    // Kid-friendly: taking the enemy HQ wins; losing your own HQ doesn't end your game.
+    hqVictory: ['player'],
+  };
 }

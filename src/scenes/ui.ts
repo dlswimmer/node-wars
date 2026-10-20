@@ -32,8 +32,9 @@ export function makePressable(
     pressed = false;
     onHover?.(false);
   });
-  target.on('pointerup', () => {
-    const fire = pressed;
+  target.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+    // A touch the OS cancelled (notification, system swipe) is not a press.
+    const fire = pressed && !pointer.wasCanceled;
     pressed = false;
     onHover?.(false);
     if (fire) onClick();

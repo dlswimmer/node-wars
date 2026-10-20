@@ -7,11 +7,19 @@ export interface AiState {
   army: Army;
   settings: Difficulty;
   cooldown: number;
+  /** Seconds since the AI last found an attack it liked. */
+  idle: number;
 }
 
 export function createAi(army: Army, settings: Difficulty = DIFFICULTIES.soldier): AiState {
-  return { army, settings, cooldown: settings.aiInterval };
+  return { army, settings, cooldown: settings.aiInterval, idle: 0 };
 }
+
+/**
+ * After this long without a good attack, the AI pools all its bases into one, so a game
+ * where the player turtles behind a full HQ still comes to an end.
+ */
+const STALEMATE_SECONDS = 12;
 
 const SPECIAL_KINDS = new Set(['factory', 'radar', 'armory']);
 
@@ -19,6 +27,7 @@ const SPECIAL_KINDS = new Set(['factory', 'radar', 'armory']);
 export function updateAi(world: World, ai: AiState, dt: number): void {
   if (world.winner) return;
   ai.cooldown -= dt;
+  ai.idle += dt;
   if (ai.cooldown > 0) return;
   const s = ai.settings;
   ai.cooldown = s.aiInterval;
@@ -38,7 +47,7 @@ export function updateAi(world: World, ai: AiState, dt: number): void {
 
     const nearest = [...sources]
       .sort((a, b) => dist(a, target) - dist(b, target))
-      .slice(0, s.aiMaxSources);
+      .slice(0, ai.idle > STALEMATE_SECONDS ? sources.length : s.aiMaxSources);
 
     let power = 0;
     const used: Base[] = [];
@@ -62,6 +71,7 @@ export function updateAi(world: World, ai: AiState, dt: number): void {
   }
 
   if (!bestTarget) return;
+  ai.idle = 0;
   for (const src of bestSources) sendTroops(world, ai.army, src.id, bestTarget.id, s.aiCommit);
 }
 

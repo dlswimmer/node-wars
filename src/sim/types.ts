@@ -58,6 +58,8 @@ export interface World {
   handicap: Record<Army, number>;
   /** An army's bases can't be damaged until this time (opening grace period). */
   shieldUntil: Record<Army, number>;
+  /** Armies that win outright by capturing every enemy HQ. */
+  hqVictory: Army[];
   /** Events from the most recent step. */
   events: SimEvent[];
   nextUnitId: number;

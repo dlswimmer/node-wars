@@ -13,8 +13,8 @@ const level = LEVELS[0]!;
 
 const cases = [
   { difficulty: 'recruit', profile: 'newKid', min: 0.85, max: 1 },
-  { difficulty: 'soldier', profile: 'kid', min: 0.6, max: 0.9 },
-  { difficulty: 'soldier', profile: 'sharpKid', min: 0.8, max: 1 },
+  { difficulty: 'soldier', profile: 'kid', min: 0.75, max: 1 },
+  { difficulty: 'soldier', profile: 'newKid', min: 0.4, max: 0.85 },
   { difficulty: 'general', profile: 'kid', min: 0, max: 0.4 },
   { difficulty: 'general', profile: 'adult', min: 0.35, max: 0.75 },
 ] as const;

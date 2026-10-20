@@ -88,6 +88,24 @@ describe('AI', () => {
     expect(team.units.length).toBeGreaterThan(20);
   });
 
+  it('pools all its bases to break a stalemate', () => {
+    const level: LevelDef = {
+      ...duel(0, 0),
+      bases: [
+        { kind: 'hq', x: 50, y: 100, owner: 'player', troops: 80 },
+        { kind: 'barracks', x: 300, y: 50, owner: 'enemy', troops: 50 },
+        { kind: 'barracks', x: 300, y: 150, owner: 'enemy', troops: 50 },
+        { kind: 'hq', x: 350, y: 100, owner: 'enemy', troops: 80 },
+      ],
+    };
+    const world = createWorld(level);
+    const ai = createAi('enemy', fast({ aiMaxSources: 1 }));
+    for (let t = 0; t < 11; t++) updateAi(world, ai, 1);
+    expect(world.units).toHaveLength(0); // no single base can beat a full HQ
+    for (let t = 0; t < 3; t++) updateAi(world, ai, 1);
+    expect(new Set(world.units.map((u) => u.targetId))).toEqual(new Set([0]));
+  });
+
   it('plays a full Boot Camp match against itself without crashing', () => {
     const world = createWorld(LEVELS[0]!, { seed: 42 });
     const red = createAi('enemy', DIFFICULTIES.general);

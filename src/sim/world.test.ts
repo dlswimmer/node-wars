@@ -209,3 +209,29 @@ describe('basesAlongSegment', () => {
     expect(basesAlongSegment(world, 120, 20, 280, 20, 8)).toHaveLength(0);
   });
 });
+
+describe('HQ victory', () => {
+  const hqLevel = (): LevelDef => ({
+    ...tinyLevel(),
+    bases: [
+      { kind: 'hq', x: 50, y: 100, owner: 'player', troops: 40 },
+      { kind: 'outpost', x: 200, y: 50, owner: 'enemy', troops: 30 },
+      { kind: 'hq', x: 350, y: 100, owner: 'enemy', troops: 3 },
+    ],
+  });
+
+  it('wins as soon as the enemy HQ falls when enabled', () => {
+    const world = createWorld(hqLevel(), { hqVictory: ['player'] });
+    sendTroops(world, 'player', 0, 2, 0.5);
+    settle(world);
+    expect(world.winner).toBe('player');
+    expect(world.bases[1]!.owner).toBe('enemy'); // the outpost was never taken
+  });
+
+  it('keeps playing after taking the HQ when not enabled', () => {
+    const world = createWorld(hqLevel());
+    sendTroops(world, 'player', 0, 2, 0.5);
+    settle(world);
+    expect(world.winner).toBeNull();
+  });
+});

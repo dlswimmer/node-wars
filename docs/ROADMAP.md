@@ -21,6 +21,8 @@ These are decided now because changing them later would be expensive:
   that passed while the game was closed.
 - **Everything saves.** Progress is a versioned save file from the first persistent feature
   onward, so old saves keep working after updates.
+- **Difficulty ramps with scope.** Early phases lean easy so an 8-year-old wins most battles
+  and gets hooked; challenge grows as zones, factions, and upgrades arrive.
 - **One currency to start.** Money earned from held bases. More resources only if they make
   decisions more interesting for a kid.
 

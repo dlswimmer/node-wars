@@ -8,6 +8,8 @@ export interface WorldOptions {
   handicap?: Partial<Record<Army, number>>;
   /** Seconds from the start during which an army's bases can't be damaged. */
   shield?: Partial<Record<Army, number>>;
+  /** Armies that win outright by capturing every enemy HQ (instead of every base). */
+  hqVictory?: Army[];
 }
 
 export function createWorld(level: LevelDef, opts: WorldOptions = {}): World {
@@ -20,6 +22,7 @@ export function createWorld(level: LevelDef, opts: WorldOptions = {}): World {
     winner: null,
     handicap: { player: 1, enemy: 1, ...opts.handicap },
     shieldUntil: { player: 0, enemy: 0, ...opts.shield },
+    hqVictory: opts.hqVictory ?? [],
     events: [],
     nextUnitId: 1,
     nextSquadId: 1,
@@ -212,6 +215,12 @@ function isAlive(world: World, army: Army): boolean {
 function checkWinner(world: World): Army | null {
   if (!isAlive(world, 'enemy')) return 'player';
   if (!isAlive(world, 'player')) return 'enemy';
+  for (const army of world.hqVictory) {
+    const rival: Army = army === 'player' ? 'enemy' : 'player';
+    const rivalHasHq = world.bases.some((b) => b.kind === 'hq' && b.owner === rival);
+    const armyHasHq = world.bases.some((b) => b.kind === 'hq' && b.owner === army);
+    if (!rivalHasHq && armyHasHq) return army;
+  }
   return null;
 }
 

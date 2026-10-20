@@ -97,6 +97,10 @@ export class BattleScene extends Phaser.Scene {
   private box = new Phaser.Geom.Rectangle();
   private minZoom = 1;
   private maxZoom = 2;
+  /** Camera size at the last fit; Phaser resizes the camera before our resize handler runs. */
+  private camSize = { width: 0, height: 0 };
+  /** A non-player base the current press started on (-1 if none). */
+  private downBaseId = -1;
 
   constructor() {
     super('battle');
@@ -232,10 +236,11 @@ export class BattleScene extends Phaser.Scene {
    */
   private fitCamera(reset: boolean) {
     const cam = this.cameras.main;
-    const centerX = cam.scrollX + cam.width / 2;
-    const centerY = cam.scrollY + cam.height / 2;
+    const centerX = cam.scrollX + (this.camSize.width || cam.width) / 2;
+    const centerY = cam.scrollY + (this.camSize.height || cam.height) / 2;
     const zoom = cam.zoom;
     cam.setSize(this.scale.width, this.scale.height);
+    this.camSize = { width: cam.width, height: cam.height };
     this.minZoom = Math.min(cam.width / this.box.width, cam.height / this.box.height);
     this.maxZoom = Math.max(this.minZoom * 2.5, DPR * 1.3);
     if (reset) {
@@ -331,6 +336,7 @@ export class BattleScene extends Phaser.Scene {
     this.lastWorld = w;
     this.pointerWorld = w;
     this.moved = false;
+    this.downBaseId = -1;
     const base = baseAt(this.world, w.x, w.y, this.touchPadding());
 
     if (base?.owner === 'player') {
@@ -340,14 +346,10 @@ export class BattleScene extends Phaser.Scene {
       this.dragStartId = base.id;
       return;
     }
-    if (base && this.armed.size > 0) {
-      this.issueOrder([...this.armed], base.id);
-      this.armed.clear();
-      return;
-    }
-    if (base) this.hint(base, 'Drag from a BLUE base!', COLORS.textDim);
-    // Empty ground (or a base that isn't yours): dragging scrolls the map; a plain tap
-    // cancels a pending tap order when it's released.
+    // Empty ground or a base that isn't yours: dragging scrolls the map. What a plain tap
+    // does (send an armed order, show a hint, or cancel) is decided on release, so starting
+    // a scroll never fires an order by accident.
+    this.downBaseId = base?.id ?? -1;
     this.gesture = 'pan';
   }
 
@@ -384,17 +386,37 @@ export class BattleScene extends Phaser.Scene {
 
   private onPointerUp(p: Phaser.Input.Pointer) {
     if (this.gesture === 'pinch') {
-      if (this.activeTouches().length === 0) this.gesture = 'none';
+      const left = this.activeTouches();
+      if (left.length === 0) {
+        this.gesture = 'none';
+      } else if (left.length === 1) {
+        // One finger lifted: carry on scrolling with the other.
+        this.gesture = 'pan';
+        this.moved = true;
+        this.lastScreen = { x: left[0]!.x, y: left[0]!.y };
+      }
       return;
     }
-    // iOS cancels touches for system gestures and notifications; never act on those.
-    if (p.wasCanceled) {
+    // iOS cancels touches for system gestures and notifications; never act on those. And a
+    // drag released on a HUD button is a cancel, not an order to whatever is underneath.
+    if (p.wasCanceled || (this.gesture === 'drag' && this.hud()?.isOverUi(p))) {
       this.cancelGesture();
       return;
     }
     if (this.gesture === 'drag') this.finishDrag(p);
-    else if (this.gesture === 'pan' && !this.moved) this.armed.clear();
+    else if (this.gesture === 'pan' && !this.moved) this.finishTap();
     this.gesture = 'none';
+  }
+
+  /** A tap that didn't start on one of your bases. */
+  private finishTap() {
+    const base = this.world.bases[this.downBaseId];
+    if (base && this.armed.size > 0) {
+      this.issueOrder([...this.armed], base.id);
+    } else if (base && base.owner !== 'player') {
+      this.hint(base, 'Drag from a BLUE base!', COLORS.textDim);
+    }
+    this.armed.clear();
   }
 
   private onPointerUpOutside() {
@@ -549,18 +571,22 @@ export class BattleScene extends Phaser.Scene {
     const size = Math.max(26, cssToWorld(20, this.cameras.main.zoom));
     const view = this.viewRect();
     const r = BASE_STATS[base.kind].radius;
-    // Prefer above the base, but drop below it near the top edge so it isn't cut off.
+    // Prefer above the base; near the top edge, drop below its name label instead.
     const above = base.y - r - 14;
-    const y = above - size < view.top ? base.y + r + size + 30 : above;
-    const x = Phaser.Math.Clamp(base.x, view.left + size * 4, view.right - size * 4);
+    const fitsAbove = above - size >= view.top;
+    const y = fitsAbove ? above : base.y + r + 44;
     const text = this.add
-      .text(x, y, message, textStyle(size, color))
-      .setOrigin(0.5, 1)
+      .text(base.x, y, message, textStyle(size, color))
+      .setOrigin(0.5, fitsAbove ? 1 : 0)
       .setDepth(20);
+    const half = text.width / 2 + 8;
+    text.setX(
+      Phaser.Math.Clamp(base.x, view.left + half, Math.max(view.left + half, view.right - half)),
+    );
     this.hints.set(base.id, text);
     this.tweens.add({
       targets: text,
-      y: y - size,
+      y: y - size * 0.6,
       alpha: 0,
       delay: 350,
       duration: 900,
