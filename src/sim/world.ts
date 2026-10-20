@@ -2,7 +2,11 @@ import { BASE_STATS, BONUS_PER_BASE, LAUNCH_INTERVAL, UNIT_SPEED } from './confi
 import { createRng } from './rng';
 import type { Army, Base, Bonuses, Faction, LevelDef, Unit, World } from './types';
 
-export function createWorld(level: LevelDef, seed = 1): World {
+export function createWorld(
+  level: LevelDef,
+  seed = 1,
+  handicap: Partial<Record<Army, number>> = {},
+): World {
   return {
     width: level.width,
     height: level.height,
@@ -10,6 +14,7 @@ export function createWorld(level: LevelDef, seed = 1): World {
     units: [],
     time: 0,
     winner: null,
+    handicap: { player: 1, enemy: 1, ...handicap },
     nextUnitId: 1,
     rng: createRng(seed),
   };
@@ -85,7 +90,8 @@ export function step(world: World, dt: number): void {
     if (b.owner === 'neutral') continue;
     const stats = BASE_STATS[b.kind];
     if (b.troops < stats.capacity) {
-      b.troops = Math.min(stats.capacity, b.troops + stats.rate * bonuses[b.owner].production * dt);
+      const rate = stats.rate * bonuses[b.owner].production * world.handicap[b.owner];
+      b.troops = Math.min(stats.capacity, b.troops + rate * dt);
     }
   }
 

@@ -1,22 +1,30 @@
 import Phaser from 'phaser';
 import { createAi, updateAi, type AiState } from '../sim/ai';
 import { BASE_STATS, DEFAULT_SEND_FRACTION } from '../sim/config';
+import { DIFFICULTIES, type Difficulty, type DifficultyId } from '../sim/difficulty';
 import { LEVELS } from '../sim/levels';
 import type { Base, World } from '../sim/types';
 import { baseAt, createWorld, getBonuses, sendTroops, step } from '../sim/world';
 import { COLORS, FACTION_COLORS, textStyle } from '../theme';
 import { drawBase, drawCapacityRing, drawMapGrid } from './drawing';
+import { addButton } from './ui';
 
 const MAX_DT = 0.1;
+
+export interface BattleData {
+  difficulty?: DifficultyId;
+}
 
 export class BattleScene extends Phaser.Scene {
   private world!: World;
   private ai!: AiState;
+  private difficulty: Difficulty = DIFFICULTIES.soldier;
   private baseGfx!: Phaser.GameObjects.Graphics;
   private unitGfx!: Phaser.GameObjects.Graphics;
   private orderGfx!: Phaser.GameObjects.Graphics;
   private troopLabels: Phaser.GameObjects.Text[] = [];
   private hud!: Phaser.GameObjects.Text;
+  private pauseMenu!: Phaser.GameObjects.Container;
 
   /** Bases picked during the current drag. */
   private selected = new Set<number>();
@@ -25,19 +33,27 @@ export class BattleScene extends Phaser.Scene {
   private dragging = false;
   private dragStartId = -1;
   private pointer = { x: 0, y: 0 };
+  private paused = false;
   private gameOver = false;
 
   constructor() {
     super('battle');
   }
 
+  init(data: BattleData) {
+    this.difficulty = DIFFICULTIES[data.difficulty ?? this.difficulty.id];
+  }
+
   create() {
     const level = LEVELS[0]!;
-    this.world = createWorld(level, Date.now() & 0xffff);
-    this.ai = createAi('enemy');
+    this.world = createWorld(level, Date.now() & 0xffff, {
+      enemy: this.difficulty.enemyProduction,
+    });
+    this.ai = createAi('enemy', this.difficulty);
     this.selected.clear();
     this.armed.clear();
     this.dragging = false;
+    this.paused = false;
     this.gameOver = false;
 
     drawMapGrid(this.add.graphics(), level.width, level.height);
@@ -59,18 +75,33 @@ export class BattleScene extends Phaser.Scene {
 
     this.hud = this.add.text(16, 12, '', textStyle(20)).setLineSpacing(4);
     this.add
-      .text(level.width - 16, 12, level.name.toUpperCase(), textStyle(22, COLORS.accent))
-      .setOrigin(1, 0);
+      .text(
+        level.width / 2,
+        12,
+        `${level.name.toUpperCase()}  ·  ${this.difficulty.label}`,
+        textStyle(22, COLORS.accent),
+      )
+      .setOrigin(0.5, 0);
+
+    this.createPauseButton(level.width - 48, 46);
+    this.pauseMenu = this.createPauseMenu();
 
     this.input.on('pointerdown', this.onPointerDown, this);
     this.input.on('pointermove', this.onPointerMove, this);
     this.input.on('pointerup', this.onPointerUp, this);
     this.input.on('pointerupoutside', this.onPointerUp, this);
+    this.input.keyboard?.on('keydown-P', () => this.togglePause());
+    this.input.keyboard?.on('keydown-ESC', () => this.togglePause());
+    // Switching apps on a phone or iPad shouldn't cost the battle.
+    this.game.events.on(Phaser.Core.Events.HIDDEN, this.pauseIfPlaying, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.game.events.off(Phaser.Core.Events.HIDDEN, this.pauseIfPlaying, this);
+    });
   }
 
   update(_time: number, deltaMs: number) {
     const dt = Math.min(deltaMs / 1000, MAX_DT);
-    if (!this.gameOver) {
+    if (!this.gameOver && !this.paused) {
       updateAi(this.world, this.ai, dt);
       step(this.world, dt);
       // Captured bases can no longer be ordered around.
@@ -82,8 +113,63 @@ export class BattleScene extends Phaser.Scene {
     this.render();
   }
 
-  private onPointerDown(p: Phaser.Input.Pointer) {
+  private pauseIfPlaying() {
+    if (!this.paused && !this.gameOver) this.togglePause();
+  }
+
+  private togglePause() {
     if (this.gameOver) return;
+    this.paused = !this.paused;
+    this.pauseMenu.setVisible(this.paused);
+    this.selected.clear();
+    this.armed.clear();
+    this.dragging = false;
+  }
+
+  private createPauseButton(x: number, y: number) {
+    const size = 64;
+    const g = this.add.graphics();
+    g.fillStyle(0x000000, 0.45);
+    g.fillRoundedRect(-size / 2, -size / 2, size, size, 12);
+    g.fillStyle(0xffffff, 0.9);
+    g.fillRect(-14, -16, 10, 32);
+    g.fillRect(4, -16, 10, 32);
+    const button = this.add.container(x, y, [g]).setSize(size, size);
+    button.setInteractive({ useHandCursor: true }).on('pointerup', () => this.togglePause());
+  }
+
+  private createPauseMenu() {
+    const { width, height } = this.scale.gameSize;
+    const shade = this.add
+      .rectangle(0, 0, width, height, 0x000000, 0.6)
+      .setOrigin(0)
+      .setInteractive(); // swallow taps so they don't reach the battlefield
+    const title = this.add.text(width / 2, 200, 'PAUSED', textStyle(96)).setOrigin(0.5);
+    const buttonOpts = { width: 360, height: 84, labelSize: 38 };
+    const resume = addButton(this, width / 2, 340, {
+      ...buttonOpts,
+      label: 'RESUME',
+      color: 0x2f6b3a,
+      onClick: () => this.togglePause(),
+    });
+    const restart = addButton(this, width / 2, 450, {
+      ...buttonOpts,
+      label: 'RESTART',
+      onClick: () => this.scene.restart({ difficulty: this.difficulty.id }),
+    });
+    const menu = addButton(this, width / 2, 560, {
+      ...buttonOpts,
+      label: 'CHANGE RANK',
+      onClick: () => this.scene.start('menu'),
+    });
+    return this.add
+      .container(0, 0, [shade, title, resume, restart, menu])
+      .setDepth(100)
+      .setVisible(false);
+  }
+
+  private onPointerDown(p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) {
+    if (this.gameOver || this.paused || over.length > 0) return;
     this.pointer = { x: p.worldX, y: p.worldY };
     const base = baseAt(this.world, p.worldX, p.worldY);
 
@@ -187,24 +273,39 @@ export class BattleScene extends Phaser.Scene {
     const { width, height } = this.scale.gameSize;
     const won = this.world.winner === 'player';
 
-    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.55);
+    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.55).setInteractive();
     this.add
       .text(
         width / 2,
-        height / 2 - 50,
+        height / 2 - 120,
         won ? 'VICTORY!' : 'DEFEAT',
         textStyle(120, won ? COLORS.accent : '#e5484d'),
       )
       .setOrigin(0.5);
     this.add
-      .text(width / 2, height / 2 + 60, `Time: ${Math.round(this.world.time)}s`, textStyle(32))
+      .text(
+        width / 2,
+        height / 2 - 20,
+        `${this.difficulty.label}  ·  ${Math.round(this.world.time)}s`,
+        textStyle(32),
+      )
       .setOrigin(0.5);
-    const again = this.add
-      .text(width / 2, height / 2 + 130, 'TAP TO PLAY AGAIN', textStyle(40))
-      .setOrigin(0.5);
-    this.tweens.add({ targets: again, alpha: 0.35, duration: 700, yoyo: true, repeat: -1 });
 
-    // Short delay so a tap that was mid-flight doesn't instantly restart.
-    this.time.delayedCall(800, () => this.input.once('pointerdown', () => this.scene.restart()));
+    // Short delay so a tap that was mid-flight doesn't hit a button by accident.
+    this.time.delayedCall(800, () => {
+      addButton(this, width / 2 - 200, height / 2 + 120, {
+        width: 360,
+        height: 90,
+        label: 'PLAY AGAIN',
+        color: 0x2f6b3a,
+        onClick: () => this.scene.restart({ difficulty: this.difficulty.id }),
+      });
+      addButton(this, width / 2 + 200, height / 2 + 120, {
+        width: 360,
+        height: 90,
+        label: 'CHANGE RANK',
+        onClick: () => this.scene.start('menu'),
+      });
+    });
   }
 }

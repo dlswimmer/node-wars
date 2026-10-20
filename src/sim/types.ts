@@ -43,6 +43,8 @@ export interface World {
   units: Unit[];
   time: number;
   winner: Army | null;
+  /** Per-army production multiplier, used for difficulty handicaps. */
+  handicap: Record<Army, number>;
   nextUnitId: number;
   rng: () => number;
 }

@@ -3,7 +3,7 @@ import { BattleScene } from './scenes/BattleScene';
 import { MenuScene } from './scenes/MenuScene';
 import { COLORS } from './theme';
 
-new Phaser.Game({
+const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
   backgroundColor: COLORS.background,
@@ -16,3 +16,6 @@ new Phaser.Game({
   input: { activePointers: 2 },
   scene: [MenuScene, BattleScene],
 });
+
+// Lets playtest tooling inspect the running game. Dev server only; stripped from production builds.
+if (import.meta.env.DEV) (window as unknown as { nodeWars: Phaser.Game }).nodeWars = game;
