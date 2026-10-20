@@ -9,7 +9,9 @@ Runs in any browser: PC, phone, or iPad.
 
 - **Drag** from one of your **blue** bases to any other base to send half its troops.
 - **Drag across several** of your bases before letting go to attack with all of them at once.
-- Or **tap** your base, then **tap** the target.
+- Or **tap** your base, then **tap** the target. Rings show which targets you'd win.
+- While you drag, the target shows how many troops you're sending and whether it's enough:
+  green **ATTACK!**, yellow **CLOSE!**, or red **NOT ENOUGH**.
 - Troops that reach an enemy or neutral base fight its defenders. Get more there than they have and
   the base is yours. Sending troops to your own base reinforces it.
 - Special bases power up your whole army while you hold them:
@@ -23,7 +25,11 @@ Runs in any browser: PC, phone, or iPad.
   | Radar    | Rings    | +20% troop speed           |
   | Armory   | Diamond  | +25% attack power          |
 
-Capture every red base and wipe out their troops to win.
+Capture red's **HQ** to win (or wipe out every red base). Your bases are shielded for the first
+few seconds, shown by blue rings.
+
+**Ranks:** Recruit (start here), Soldier, and General. **Pinch** or use the mouse wheel to zoom;
+drag empty ground to scroll. The pause button is top right (or press P / Esc).
 
 ## Development
 
@@ -35,6 +41,7 @@ npm run dev      # start a local server with hot reload
 npm test         # run the unit tests
 npm run lint     # check code style
 npm run build    # production build into dist/
+npm run balance  # simulated players test every difficulty
 ```
 
 `npm run dev` listens on your local network too, so you can open the "Network" URL it prints on a

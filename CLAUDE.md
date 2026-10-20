@@ -7,6 +7,7 @@ with mouse and touch on PC, phone, and iPad.
 
 - `npm run dev`: dev server on port 5173 (also exposed on LAN for testing on devices)
 - `npm test`, `npm run lint`, `npm run typecheck`, `npm run format`
+- `npm run balance` (bot win rates per difficulty), `npm run sweep -- <profile> <winRate>`
 - Run lint, format:check, typecheck, and tests before committing; CI runs the same checks.
 
 ## Architecture
@@ -15,7 +16,12 @@ with mouse and touch on PC, phone, and iPad.
   bonuses, AI) go here with Vitest tests next to them (`*.test.ts`).
 - `src/scenes/` holds Phaser scenes that only draw world state and turn input into sim calls.
 - Base stats and balance numbers live in `src/sim/config.ts`; levels in `src/sim/levels.ts`.
-- The game canvas is a fixed 1280x720 world scaled with `Scale.FIT`.
+- The canvas fills the screen at device pixel ratio (`Scale.NONE`, zoom 1/DPR; see
+  `src/display.ts`). BattleScene's camera zooms/pans over the world; HudScene is a separate
+  overlay scene so UI size never depends on battlefield zoom. Size touch/UI things in CSS px
+  via `cssToWorld`, and convert pointers with `BattleScene.toWorld`, not `pointer.worldX`.
+- Difficulty lives in `src/sim/difficulty.ts`. After changing balance, run `npm run balance`
+  (bot players at four skill levels); `balance.test.ts` locks the bands. Early phases lean easy.
 - Use a seeded RNG (`world.rng`) inside the sim, never `Math.random`, so tests stay deterministic.
 
 ## Conventions

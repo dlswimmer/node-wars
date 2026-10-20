@@ -36,15 +36,16 @@ Goal: one battle that is genuinely exciting for an 8-year-old, and a solid base 
 - [x] Mouse and touch controls (drag, multi-select drag, tap-tap)
 - [x] Difficulty levels (Recruit / Soldier / General), tuned with simulated players
 - [x] Pause menu, auto-pause when the app is backgrounded
-- [ ] Fixes from playtest rounds
-- [ ] Battle feedback: capture bursts, screen shake, "under attack" warnings
+- [x] Fixes from three playtest rounds (simulated kids on phone and iPad, plus QA)
+- [x] Battle feedback: capture bursts, screen shake, "under attack" warnings, win/lose preview
+- [x] Opening shield, capture the enemy HQ to win, confetti and defeat tips
 - [ ] Swarms that fight each other when they meet mid-field
 - [ ] Sound effects and victory/defeat music
 - [ ] First-battle tutorial (animated hand showing the drag)
 - [ ] Medals for each battle (win, win fast, win without losing a base)
 - [ ] Several maps that unlock one after another
 - [ ] Random skirmish maps (mirrored so both sides start fair, checked by bot matches)
-- [ ] Mobile: full screen, pinch zoom and pan, finger-sized touch targets, sharp on Retina
+- [x] Mobile: full screen, pinch zoom and pan, finger-sized touch targets, sharp on Retina
 - [ ] Multiple armies in the rules (prep for rival factions)
 
 ## Phase 2: Zones and the persistent world
