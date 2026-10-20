@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { unlockAudio } from './audio';
 import { DPR, hostSize } from './display';
 import { BattleScene } from './scenes/BattleScene';
 import { HudScene } from './scenes/HudScene';
@@ -33,4 +34,9 @@ window.addEventListener('resize', fitToScreen);
 window.addEventListener('orientationchange', () => setTimeout(fitToScreen, 200));
 
 // Lets playtest tooling inspect the running game. Dev server only; stripped from production builds.
+// Browsers only allow sound after a tap; iOS wants it from touchend specifically.
+for (const event of ['pointerdown', 'touchend', 'keydown']) {
+  window.addEventListener(event, unlockAudio, { passive: true });
+}
+
 if (import.meta.env.DEV) (window as unknown as { nodeWars: Phaser.Game }).nodeWars = game;

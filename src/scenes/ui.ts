@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { isMuted, setMuted, sfx } from '../audio';
 import { COLORS, textStyle } from '../theme';
 
 export interface ButtonOptions {
@@ -37,7 +38,10 @@ export function makePressable(
     const fire = pressed && !pointer.wasCanceled;
     pressed = false;
     onHover?.(false);
-    if (fire) onClick();
+    if (fire) {
+      sfx.click();
+      onClick();
+    }
   });
 }
 
@@ -76,4 +80,40 @@ export function addButton(scene: Phaser.Scene, x: number, y: number, opts: Butto
 export function uiZoom(screenWidth: number, screenHeight: number, designW = 1280, designH = 720) {
   const fit = Math.min(screenWidth / designW, screenHeight / designH);
   return Phaser.Math.Clamp(fit, 0.62, 1.25);
+}
+
+/** A speaker button that toggles sound on and off (the setting is remembered). */
+export function addMuteButton(scene: Phaser.Scene, x: number, y: number, size = 96) {
+  const bg = scene.add.graphics();
+  bg.fillStyle(0x000000, 0.5).fillRoundedRect(-size / 2, -size / 2, size, size, 16);
+  bg.lineStyle(3, 0xffffff, 0.35).strokeRoundedRect(-size / 2, -size / 2, size, size, 16);
+  const icon = scene.add.graphics();
+  const draw = () => {
+    icon.clear();
+    icon.fillStyle(0xffffff, 0.95);
+    // Speaker: a box and a cone.
+    icon.fillRect(-24, -10, 12, 20);
+    icon.fillTriangle(-12, -10, 4, -24, 4, 24);
+    icon.fillTriangle(-12, -10, 4, 24, -12, 10);
+    if (isMuted()) {
+      icon.lineStyle(6, 0xff5a5f, 1);
+      icon.lineBetween(10, -12, 26, 12);
+      icon.lineBetween(26, -12, 10, 12);
+    } else {
+      icon.lineStyle(4, 0xffffff, 0.95);
+      icon.beginPath();
+      icon.arc(4, 0, 12, -0.9, 0.9);
+      icon.strokePath();
+      icon.beginPath();
+      icon.arc(4, 0, 22, -0.9, 0.9);
+      icon.strokePath();
+    }
+  };
+  draw();
+  const button = scene.add.container(x, y, [bg, icon]).setSize(size, size);
+  makePressable(button, () => {
+    setMuted(!isMuted());
+    draw();
+  });
+  return button;
 }

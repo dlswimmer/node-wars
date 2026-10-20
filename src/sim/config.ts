@@ -20,7 +20,13 @@ export const BASE_STATS: Record<BaseKind, BaseStats> = {
     radius: 32,
     perk: 'Good troop production',
   },
-  outpost: { label: 'Outpost', rate: 0.7, capacity: 30, radius: 26, perk: 'Small forward base' },
+  outpost: {
+    label: 'Outpost',
+    rate: 0.7,
+    capacity: 30,
+    radius: 26,
+    perk: 'Troops sent from here move faster',
+  },
   factory: {
     label: 'Factory',
     rate: 0.8,
@@ -57,6 +63,8 @@ export const LAUNCH_INTERVAL = 0.03;
 
 /** Troops sent from a Factory roll out as tanks: each carries this many troops' worth. */
 export const TANK_POWER = 3;
+/** Troops sent from an Outpost (a forward launch pad) move this much faster. */
+export const OUTPOST_SPEED = 1.4;
 /** Seconds between tanks leaving a Factory, so they roll out as a convoy instead of a pile. */
 export const TANK_LAUNCH_INTERVAL = 0.35;
 /** Tanks move at this fraction of soldier speed. */

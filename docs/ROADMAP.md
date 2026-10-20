@@ -41,7 +41,7 @@ Goal: one battle that is genuinely exciting for an 8-year-old, and a solid base 
 - [x] Battle feedback: capture bursts, screen shake, "under attack" warnings, win/lose preview
 - [x] Opening shield, capture the enemy HQ to win, confetti and defeat tips
 - [ ] Swarms that fight each other when they meet mid-field
-- [ ] Sound effects and victory/defeat music
+- [x] Sound effects (synthesized in code) with a mute button
 - [ ] First-battle tutorial (animated hand showing the drag)
 - [ ] Medals for each battle (win, win fast, win without losing a base)
 - [ ] Several maps that unlock one after another
@@ -51,14 +51,15 @@ Goal: one battle that is genuinely exciting for an 8-year-old, and a solid base 
 - [x] Tanks: troops sent from a Factory roll out as slower tanks worth 3 soldiers each
 - [x] Top-down soldier and tank sprites (drawn in code; swap for hand-made art any time)
 - [x] Harder General: red defends its bases (HQ first) and builds faster
-- [ ] Keep HUD perk text clear of the corner bases' labels on small screens
+- [x] Keep HUD perk text clear of the corner bases' labels on small screens
+- [x] Add to Home Screen: app icon, full-screen launch, safe-area aware
 - [ ] Every base kind has a feature worth fighting for (some exist already):
   - HQ: fastest production; capture it to win
   - Barracks: strong production
   - Factory: faster building everywhere, sends tanks
   - Radar: faster troops everywhere, and reveals incoming attacks earlier
   - Armory: stronger troops everywhere
-  - Outpost: troops sent from it leave faster (a launch pad for the front line)
+  - Outpost: troops sent from it move 40% faster (a launch pad for the front line) (done)
   - Bunker (new): defenders count double, a tough nut to crack
   - Airfield (new): sends jets that fly straight over terrain
   - Field hospital (new): some of your troops lost nearby come back

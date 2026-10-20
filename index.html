@@ -6,9 +6,15 @@
       name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
     />
+    <!-- "Add to Home Screen" opens it full-screen like an app, with its own icon. -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Node Wars" />
     <meta name="theme-color" content="#1b2416" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" href="./icons/icon-192.png" />
     <title>Node Wars</title>
     <style>
       html,
@@ -22,10 +28,13 @@
         -webkit-user-select: none;
         user-select: none;
       }
+      /* Fill the screen but stay clear of the notch, status bar, and home indicator. */
       #game {
-        width: 100vw;
-        height: 100vh;
-        height: 100dvh;
+        position: fixed;
+        top: env(safe-area-inset-top, 0px);
+        right: env(safe-area-inset-right, 0px);
+        bottom: env(safe-area-inset-bottom, 0px);
+        left: env(safe-area-inset-left, 0px);
       }
     </style>
   </head>

@@ -3,12 +3,12 @@ import { DPR, cssSize } from '../display';
 import { countBases, isShielded } from '../sim/world';
 import { COLORS, textStyle } from '../theme';
 import type { BattleScene } from './BattleScene';
-import { addButton, makePressable, uiZoom } from './ui';
+import { addButton, addMuteButton, makePressable, uiZoom } from './ui';
 
 const PERK_WORDS: Record<string, string> = {
-  factory: 'FACTORY: faster building + tanks',
-  radar: 'RADAR: faster troops',
-  armory: 'ARMORY: stronger troops',
+  factory: 'FAST BUILD + TANKS',
+  radar: 'FAST TROOPS',
+  armory: 'STRONG TROOPS',
 };
 
 const DEFEAT_TIPS = [
@@ -30,6 +30,7 @@ export class HudScene extends Phaser.Scene {
   private perks!: Phaser.GameObjects.Text;
   private shieldBar!: Phaser.GameObjects.Graphics;
   private pauseButton!: Phaser.GameObjects.Container;
+  private muteButton!: Phaser.GameObjects.Container;
   private pauseIcon!: Phaser.GameObjects.Graphics;
   private pauseMenu!: Phaser.GameObjects.Container;
   private pauseShade!: Phaser.GameObjects.Rectangle;
@@ -51,8 +52,9 @@ export class HudScene extends Phaser.Scene {
 
     this.status = this.add.text(20, 14, '', textStyle(28)).setLineSpacing(2);
     this.shieldBar = this.add.graphics();
-    this.perks = this.add.text(20, 0, '', textStyle(22, COLORS.textDim)).setOrigin(0, 1);
+    this.perks = this.add.text(20, 0, '', textStyle(20, COLORS.accent)).setOrigin(0, 1);
     this.pauseButton = this.createPauseButton();
+    this.muteButton = addMuteButton(this, 0, 0).setDepth(110);
     this.pauseMenu = this.createPauseMenu();
 
     const onPause = (paused: boolean) => {
@@ -102,7 +104,7 @@ export class HudScene extends Phaser.Scene {
       Object.entries(PERK_WORDS)
         .filter(([kind]) => held.has(kind))
         .map(([, words]) => words)
-        .join('\n'),
+        .join('   '),
     );
   }
 
@@ -121,7 +123,9 @@ export class HudScene extends Phaser.Scene {
     cam.setScroll(0, 0);
 
     this.pauseButton.setPosition(v.width - 62, 62);
-    this.perks.setPosition(20, v.height - 14);
+    this.muteButton.setPosition(v.width - 172, 62);
+    // One short line hugging the bottom edge, below the bottom-row base labels.
+    this.perks.setPosition(20, v.height - 6);
     this.pauseShade.setSize(v.width, v.height);
     this.layoutColumn(this.pauseItems, v);
     if (this.endScreen) this.buildEndScreen();
@@ -204,6 +208,7 @@ export class HudScene extends Phaser.Scene {
     this.won = won;
     this.tip = DEFEAT_TIPS[Math.floor(Math.random() * DEFEAT_TIPS.length)]!;
     this.pauseButton.setVisible(false);
+    this.muteButton.setVisible(false);
     this.pauseMenu.setVisible(false);
     this.buildEndScreen(true);
     if (won) this.confetti();

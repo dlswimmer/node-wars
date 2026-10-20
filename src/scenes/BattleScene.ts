@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { sfx } from '../audio';
 import { DPR, cssToWorld } from '../display';
 import { createAi, updateAi, type AiState } from '../sim/ai';
 import { BASE_STATS, DEFAULT_SEND_FRACTION } from '../sim/config';
@@ -77,6 +78,8 @@ export class BattleScene extends Phaser.Scene {
   private lastHitFx = new Map<number, number>();
   /** The floating message currently shown at each base, so a new one replaces it. */
   private hints = new Map<number, Phaser.GameObjects.Text>();
+  /** Bases that were in danger last frame, so the warning sound plays once per new threat. */
+  private lastThreats = new Set<number>();
   /** Squads the player sent that are still flying, with their targets. */
   private playerSquads = new Map<number, number>();
 
@@ -494,6 +497,7 @@ export class BattleScene extends Phaser.Scene {
       if (n > 0) this.playerSquads.set(this.world.nextSquadId - 1, targetId);
       sent += n;
     }
+    if (sent > 0) sfx.send();
     if (sent === 0) {
       const src = this.world.bases[sourceIds[0]!];
       if (src) this.hint(src, 'Need more troops!', COLORS.accent);
@@ -516,8 +520,10 @@ export class BattleScene extends Phaser.Scene {
         this.addEffect('flash', base.x, base.y, r + 10, 0xffffff, 0.35);
         if (e.to === 'player') {
           this.hint(base, 'CAPTURED!', '#7dff9a');
+          sfx.capture();
         } else if (e.from === 'player') {
           this.hint(base, 'LOST!', '#ff8a8a');
+          sfx.lost();
           this.cameras.main.shake(180, 0.006);
         }
         if (base.kind === 'hq') this.cameras.main.shake(300, 0.01);
@@ -548,6 +554,7 @@ export class BattleScene extends Phaser.Scene {
       const stillFlyingThere = [...this.playerSquads.values()].includes(targetId);
       if (target && target.owner !== 'player' && !stillFlyingThere) {
         this.hint(target, 'FAILED!', '#ffb36b');
+        sfx.failed();
       }
     }
   }
@@ -609,6 +616,8 @@ export class BattleScene extends Phaser.Scene {
     const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 140);
     const shielded = isShielded(this.world, 'player');
     const threats = this.incomingThreats();
+    for (const id of threats) if (!this.lastThreats.has(id) && !this.paused) sfx.danger();
+    this.lastThreats = threats;
 
     this.baseGfx.clear();
     for (const b of bases) {
@@ -772,6 +781,8 @@ export class BattleScene extends Phaser.Scene {
         this.addEffect('ring', b.x, b.y, BASE_STATS[b.kind].radius, FACTION_COLORS.player, 1.2);
       }
     }
+    if (won) sfx.victory();
+    else sfx.defeat();
     this.events.emit('game-over', won);
   }
 }

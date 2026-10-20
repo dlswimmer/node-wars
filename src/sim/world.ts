@@ -2,6 +2,7 @@ import {
   BASE_STATS,
   BONUS_PER_BASE,
   LAUNCH_INTERVAL,
+  OUTPOST_SPEED,
   TANK_LAUNCH_INTERVAL,
   TANK_POWER,
   TANK_SPEED,
@@ -99,7 +100,7 @@ export function sendTroops(
       y: sy,
       tx,
       ty,
-      speed: speed * (tank ? TANK_SPEED : 1) * (0.9 + world.rng() * 0.2),
+      speed: speed * kindSpeed(from.kind, tank) * (0.9 + world.rng() * 0.2),
       delay: tank
         ? i * TANK_LAUNCH_INTERVAL
         : tanks * TANK_LAUNCH_INTERVAL + (i - tanks) * LAUNCH_INTERVAL,
@@ -107,6 +108,12 @@ export function sendTroops(
     });
   }
   return count;
+}
+
+/** Speed multiplier for a unit leaving a base of this kind. */
+function kindSpeed(kind: Base['kind'], tank: boolean): number {
+  if (tank) return TANK_SPEED;
+  return kind === 'outpost' ? OUTPOST_SPEED : 1;
 }
 
 export type AttackOutcome = 'reinforce' | 'win' | 'close' | 'lose' | 'shielded';
@@ -142,7 +149,7 @@ export function previewAttack(
     if (!b || b.owner !== army || id === targetId) continue;
     count += Math.floor(b.troops * fraction);
     if (!target) continue;
-    const s = b.kind === 'factory' ? speed * TANK_SPEED : speed;
+    const s = speed * kindSpeed(b.kind, b.kind === 'factory');
     travel = Math.max(travel, Math.hypot(b.x - target.x, b.y - target.y) / s);
   }
   // Earlier orders still flying at the same target count toward this attack.

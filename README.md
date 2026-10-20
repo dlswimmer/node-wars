@@ -3,7 +3,8 @@
 A military swarm-strategy game. Capture bases, grow your army, and take over the map. It starts as a
 single battlefield and will grow into zones, regions, and countries (see the [roadmap](docs/ROADMAP.md)).
 
-Runs in any browser: PC, phone, or iPad.
+Runs in any browser: PC, phone, or iPad. On a phone or iPad, use **Share → Add to Home Screen**
+to get an app icon that opens full-screen. Sound can be muted with the speaker button.
 
 ## How to play
 

@@ -287,3 +287,18 @@ describe('tanks', () => {
     expect(tank.speed).toBeLessThan(soldier.speed);
   });
 });
+
+describe('outposts', () => {
+  it('launch troops faster than other bases', () => {
+    const level = tinyLevel();
+    level.bases[1] = { kind: 'outpost', x: 200, y: 100, owner: 'player', troops: 20 };
+    const world = createWorld(level, { seed: 3 });
+    sendTroops(world, 'player', 1, 2, 0.5);
+    sendTroops(world, 'player', 0, 2, 0.5);
+    const avg = (squad: number) => {
+      const units = world.units.filter((u) => u.squad === squad);
+      return units.reduce((s, u) => s + u.speed, 0) / units.length;
+    };
+    expect(avg(1)).toBeGreaterThan(avg(2) * 1.25);
+  });
+});

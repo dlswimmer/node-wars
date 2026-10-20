@@ -4,7 +4,7 @@ import { DIFFICULTIES, DIFFICULTY_ORDER, type DifficultyId } from '../sim/diffic
 import { loadDifficulty, saveDifficulty } from '../settings';
 import { COLORS, textStyle } from '../theme';
 import { drawMapGrid } from './drawing';
-import { addButton } from './ui';
+import { addButton, addMuteButton } from './ui';
 
 const DIFFICULTY_COLORS: Record<DifficultyId, number> = {
   recruit: 0x2f6b3a,
@@ -65,6 +65,8 @@ export class MenuScene extends Phaser.Scene {
         this.tweens.add({ targets: button, scale: 1.05, duration: 600, yoyo: true, repeat: -1 });
       }
     });
+
+    addMuteButton(this, DESIGN.width - 30, 30, 76);
 
     this.layout();
     this.scale.on('resize', this.layout, this);

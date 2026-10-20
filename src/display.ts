@@ -6,12 +6,15 @@ import type Phaser from 'phaser';
  */
 export const DPR = Math.min(window.devicePixelRatio || 1, 2.5);
 
-/** Size of the area the game fills, in CSS pixels. */
+/**
+ * Size of the area the game fills, in CSS pixels. Never zero: a page opened in a hidden
+ * tab can report 0x0, and WebGL fails to start with a zero-sized canvas.
+ */
 export function hostSize(): { width: number; height: number } {
   const el = document.getElementById('game');
   return {
-    width: el?.clientWidth || window.innerWidth,
-    height: el?.clientHeight || window.innerHeight,
+    width: Math.max(1, el?.clientWidth || window.innerWidth),
+    height: Math.max(1, el?.clientHeight || window.innerHeight),
   };
 }
 

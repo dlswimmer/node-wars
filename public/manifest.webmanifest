@@ -1,0 +1,15 @@
+{
+  "name": "Node Wars",
+  "short_name": "Node Wars",
+  "description": "Capture bases, build your army, win the war.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#1b2416",
+  "theme_color": "#1b2416",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
