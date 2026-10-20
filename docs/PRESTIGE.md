@@ -65,7 +65,7 @@ Base-specific upgrades from [BASES.md](BASES.md) can join the tent later.
 4. **Screens:**
    - Menu: CAMPAIGN and QUICK BATTLE, with your medal count shown.
    - Campaign: pick a rank (showing medals per win), or open the Command Tent.
-   - After a campaign win: "+2 medals" with a short celebration.
+   - After a campaign win: "+1 medal" (or "+½", "+1½") with a short celebration.
    - Command Tent: each upgrade with its level, cost, and a BUY button.
 5. **Browser check** at phone and iPad sizes.
 
