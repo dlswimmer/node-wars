@@ -15,8 +15,8 @@ const cases = [
   { difficulty: 'recruit', profile: 'newKid', min: 0.85, max: 1 },
   { difficulty: 'soldier', profile: 'kid', min: 0.75, max: 1 },
   { difficulty: 'soldier', profile: 'newKid', min: 0.4, max: 0.85 },
-  { difficulty: 'general', profile: 'kid', min: 0, max: 0.4 },
-  { difficulty: 'general', profile: 'adult', min: 0.35, max: 0.75 },
+  { difficulty: 'general', profile: 'kid', min: 0, max: 0.25 },
+  { difficulty: 'general', profile: 'adult', min: 0.12, max: 0.45 },
 ] as const;
 
 describe('difficulty balance', () => {

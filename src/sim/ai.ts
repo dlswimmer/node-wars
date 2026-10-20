@@ -32,6 +32,7 @@ export function updateAi(world: World, ai: AiState, dt: number): void {
   const s = ai.settings;
   ai.cooldown = s.aiInterval;
 
+  if (s.aiDefends && defend(world, ai)) return;
   const attack = getBonuses(world, ai.army).attack;
   const sources = world.bases.filter((b) => b.owner === ai.army && b.troops >= s.aiMinTroops);
   if (sources.length === 0) return;
@@ -73,6 +74,31 @@ export function updateAi(world: World, ai: AiState, dt: number): void {
   if (!bestTarget) return;
   ai.idle = 0;
   for (const src of bestSources) sendTroops(world, ai.army, src.id, bestTarget.id, s.aiCommit);
+}
+
+/**
+ * Reinforce the most important base that troops already on the way would capture (the HQ
+ * first). Returns true if it sent help.
+ */
+function defend(world: World, ai: AiState): boolean {
+  const incoming = new Map<number, number>();
+  for (const u of world.units) {
+    if (u.owner !== ai.army) incoming.set(u.targetId, (incoming.get(u.targetId) ?? 0) + u.power);
+  }
+  const threatened = world.bases
+    .filter((b) => b.owner === ai.army && (incoming.get(b.id) ?? 0) >= b.troops * 0.8)
+    .sort((a, b) => Number(b.kind === 'hq') - Number(a.kind === 'hq'));
+  for (const base of threatened) {
+    const helper = world.bases
+      .filter((h) => h.owner === ai.army && h !== base && h.troops >= 8)
+      .sort((h1, h2) => dist(h1, base) - dist(h2, base))[0];
+    if (helper) {
+      sendTroops(world, ai.army, helper.id, base.id, ai.settings.aiCommit);
+      ai.idle = 0;
+      return true;
+    }
+  }
+  return false;
 }
 
 /** Would attacking this neutral base steal it from another army that is already taking it? */

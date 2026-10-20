@@ -18,8 +18,13 @@ export interface Base {
   lastAttackedAt?: number;
 }
 
+export type UnitKind = 'soldier' | 'tank';
+
 export interface Unit {
   id: number;
+  kind: UnitKind;
+  /** Troops this unit is worth when it arrives (a tank counts as several soldiers). */
+  power: number;
   owner: Army;
   targetId: number;
   x: number;

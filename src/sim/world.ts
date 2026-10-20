@@ -1,4 +1,12 @@
-import { BASE_STATS, BONUS_PER_BASE, LAUNCH_INTERVAL, UNIT_SPEED } from './config';
+import {
+  BASE_STATS,
+  BONUS_PER_BASE,
+  LAUNCH_INTERVAL,
+  TANK_LAUNCH_INTERVAL,
+  TANK_POWER,
+  TANK_SPEED,
+  UNIT_SPEED,
+} from './config';
 import { createRng } from './rng';
 import type { Army, Base, Bonuses, Faction, LevelDef, Unit, World } from './types';
 
@@ -74,19 +82,27 @@ export function sendTroops(
   const speed = UNIT_SPEED * getBonuses(world, army).speed;
   const fromR = BASE_STATS[from.kind].radius * 0.6;
   const toR = BASE_STATS[to.kind].radius * 0.5;
-  for (let i = 0; i < count; i++) {
+  // Factories roll out tanks (each worth several troops); leftovers go as soldiers.
+  const tanks = from.kind === 'factory' ? Math.floor(count / TANK_POWER) : 0;
+  const soldiers = count - tanks * TANK_POWER;
+  for (let i = 0; i < tanks + soldiers; i++) {
+    const tank = i < tanks;
     const [sx, sy] = jitter(world, from.x, from.y, fromR);
     const [tx, ty] = jitter(world, to.x, to.y, toR);
     world.units.push({
       id: world.nextUnitId++,
+      kind: tank ? 'tank' : 'soldier',
+      power: tank ? TANK_POWER : 1,
       owner: army,
       targetId: toId,
       x: sx,
       y: sy,
       tx,
       ty,
-      speed: speed * (0.9 + world.rng() * 0.2),
-      delay: i * LAUNCH_INTERVAL,
+      speed: speed * (tank ? TANK_SPEED : 1) * (0.9 + world.rng() * 0.2),
+      delay: tank
+        ? i * TANK_LAUNCH_INTERVAL
+        : tanks * TANK_LAUNCH_INTERVAL + (i - tanks) * LAUNCH_INTERVAL,
       squad,
     });
   }
@@ -116,13 +132,16 @@ export function previewAttack(
   fraction: number,
 ): AttackPreview {
   const target = world.bases[targetId];
+  const speed = UNIT_SPEED * getBonuses(world, army).speed;
   let count = 0;
-  let farthest = 0;
+  let travel = 0;
   for (const id of sourceIds) {
     const b = world.bases[id];
     if (!b || b.owner !== army || id === targetId) continue;
     count += Math.floor(b.troops * fraction);
-    if (target) farthest = Math.max(farthest, Math.hypot(b.x - target.x, b.y - target.y));
+    if (!target) continue;
+    const s = b.kind === 'factory' ? speed * TANK_SPEED : speed;
+    travel = Math.max(travel, Math.hypot(b.x - target.x, b.y - target.y) / s);
   }
   if (!target) return { count, outcome: 'lose' };
   if (target.owner === army) return { count, outcome: 'reinforce' };
@@ -132,10 +151,10 @@ export function previewAttack(
   const owner = target.owner;
   if (owner !== 'neutral') {
     const stats = BASE_STATS[target.kind];
-    const travel = farthest / (UNIT_SPEED * getBonuses(world, army).speed);
     const rate = stats.rate * getBonuses(world, owner).production * world.handicap[owner];
     defenders = Math.min(stats.capacity, defenders + rate * travel);
-    defenders += world.units.filter((u) => u.owner === owner && u.targetId === targetId).length;
+    for (const u of world.units)
+      if (u.owner === owner && u.targetId === targetId) defenders += u.power;
   }
   const power = count * getBonuses(world, army).attack;
   const outcome = power < defenders ? 'lose' : power < defenders + CLOSE_MARGIN ? 'close' : 'win';
@@ -188,7 +207,7 @@ export function step(world: World, dt: number): void {
 
 function resolveArrival(world: World, base: Base, unit: Unit, attack: number): void {
   if (base.owner === unit.owner) {
-    base.troops += 1;
+    base.troops += unit.power;
     return;
   }
   if (isShielded(world, base.owner)) {
@@ -197,7 +216,7 @@ function resolveArrival(world: World, base: Base, unit: Unit, attack: number): v
   }
   base.lastAttackedBy = unit.owner;
   base.lastAttackedAt = world.time;
-  base.troops -= attack;
+  base.troops -= attack * unit.power;
   // Ties go to the attacker so a kid's "6 against 6" works instead of leaving an empty base.
   if (base.troops <= 1e-6) {
     world.events.push({ type: 'capture', baseId: base.id, from: base.owner, to: unit.owner });

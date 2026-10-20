@@ -25,6 +25,7 @@ import { loadDifficulty } from '../settings';
 import { COLORS, FACTION_COLORS, textStyle } from '../theme';
 import { drawBase, drawCapacityRing, drawMapGrid } from './drawing';
 import type { HudScene } from './HudScene';
+import { UNIT_TEXTURE, ensureUnitTextures } from './unitTextures';
 
 const MAX_DT = 0.1;
 /** Finger-friendly hit area around a base, in CSS pixels. */
@@ -65,7 +66,8 @@ export class BattleScene extends Phaser.Scene {
 
   private ai!: AiState;
   private baseGfx!: Phaser.GameObjects.Graphics;
-  private unitGfx!: Phaser.GameObjects.Graphics;
+  /** Reused unit sprites; one per visible unit, extras hidden. */
+  private unitSprites: Phaser.GameObjects.Image[] = [];
   private orderGfx!: Phaser.GameObjects.Graphics;
   private fxGfx!: Phaser.GameObjects.Graphics;
   private troopLabels: Phaser.GameObjects.Text[] = [];
@@ -132,7 +134,8 @@ export class BattleScene extends Phaser.Scene {
     this.orderGfx = this.add.graphics();
     this.fxGfx = this.add.graphics();
     this.baseGfx = this.add.graphics();
-    this.unitGfx = this.add.graphics();
+    ensureUnitTextures(this);
+    this.unitSprites = [];
 
     this.troopLabels = this.world.bases.map((b) => {
       this.add
@@ -601,7 +604,7 @@ export class BattleScene extends Phaser.Scene {
   // ----- Rendering -----------------------------------------------------------------------
 
   private render() {
-    const { bases, units } = this.world;
+    const { bases } = this.world;
     const zoom = this.cameras.main.zoom;
     const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 140);
     const shielded = isShielded(this.world, 'player');
@@ -628,27 +631,7 @@ export class BattleScene extends Phaser.Scene {
       this.troopLabels[b.id]!.setText(String(Math.floor(b.troops)));
     }
 
-    this.unitGfx.clear();
-    if (!this.gameOver) {
-      const unitR = Math.max(6, cssToWorld(3.4, zoom));
-      for (const u of units) {
-        if (u.delay > 0) continue;
-        const color = FACTION_COLORS[u.owner];
-        // A short trail behind each unit shows which way the swarm is heading.
-        const dx = u.tx - u.x;
-        const dy = u.ty - u.y;
-        const len = Math.hypot(dx, dy) || 1;
-        this.unitGfx.lineStyle(unitR, color, 0.35);
-        this.unitGfx.lineBetween(
-          u.x,
-          u.y,
-          u.x - (dx / len) * unitR * 3,
-          u.y - (dy / len) * unitR * 3,
-        );
-        this.unitGfx.fillStyle(color, 1);
-        this.unitGfx.fillCircle(u.x, u.y, unitR);
-      }
-    }
+    this.renderUnits(zoom);
 
     this.fxGfx.clear();
     for (const fx of this.effects) {
@@ -664,6 +647,36 @@ export class BattleScene extends Phaser.Scene {
 
     this.renderOrder();
     this.renderArmed();
+  }
+
+  /** Draw every unit as a sprite facing where it's going, sized to stay visible at any zoom. */
+  private renderUnits(zoom: number) {
+    // World size of each kind: never smaller than a few CSS pixels on screen.
+    const size = {
+      soldier: Math.max(18, cssToWorld(10, zoom)),
+      tank: Math.max(30, cssToWorld(17, zoom)),
+    };
+    let n = 0;
+    if (!this.gameOver) {
+      for (const u of this.world.units) {
+        if (u.delay > 0) continue;
+        let sprite = this.unitSprites[n];
+        if (!sprite) {
+          sprite = this.add.image(0, 0, UNIT_TEXTURE.soldier.key).setDepth(1);
+          this.unitSprites.push(sprite);
+        }
+        const tex = UNIT_TEXTURE[u.kind];
+        sprite
+          .setTexture(tex.key)
+          .setPosition(u.x, u.y)
+          .setRotation(Math.atan2(u.ty - u.y, u.tx - u.x))
+          .setScale(size[u.kind] / tex.width)
+          .setTint(FACTION_COLORS[u.owner])
+          .setVisible(true);
+        n++;
+      }
+    }
+    for (let i = n; i < this.unitSprites.length; i++) this.unitSprites[i]!.setVisible(false);
   }
 
   /** Lines from the selected bases plus a preview of whether the attack would win. */
@@ -734,7 +747,7 @@ export class BattleScene extends Phaser.Scene {
     if (isShielded(this.world, 'player')) return threats;
     const incoming = new Map<number, number>();
     for (const u of this.world.units) {
-      if (u.owner === 'enemy') incoming.set(u.targetId, (incoming.get(u.targetId) ?? 0) + 1);
+      if (u.owner === 'enemy') incoming.set(u.targetId, (incoming.get(u.targetId) ?? 0) + u.power);
     }
     const attack = getBonuses(this.world, 'enemy').attack;
     for (const [id, count] of incoming) {

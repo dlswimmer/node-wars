@@ -8,7 +8,8 @@ they earn money, and rival armies can counter-attack them. Money buys upgrades t
 both small battles and big campaigns. Over time the map fills with several enemy factions that
 fight each other as well as you, so the world feels alive even when you aren't looking.
 
-Scale grows outward: **battle → zone → region → country → world**.
+Scale grows outward: **battle → zone → region → country → world**, and maybe all the way out to
+planets and galaxy-level fights. Phase 1 should ship fast; depth and difficulty come with scale.
 
 ### Design rules that protect the vision
 
@@ -47,6 +48,26 @@ Goal: one battle that is genuinely exciting for an 8-year-old, and a solid base 
 - [ ] Random skirmish maps (mirrored so both sides start fair, checked by bot matches)
 - [x] Mobile: full screen, pinch zoom and pan, finger-sized touch targets, sharp on Retina
 - [ ] Multiple armies in the rules (prep for rival factions)
+- [x] Tanks: troops sent from a Factory roll out as slower tanks worth 3 soldiers each
+- [x] Top-down soldier and tank sprites (drawn in code; swap for hand-made art any time)
+- [x] Harder General: red defends its bases (HQ first) and builds faster
+- [ ] Keep HUD perk text clear of the corner bases' labels on small screens
+
+## Phase 1.5: Prestige loop
+
+The core game loop: battles get harder until you hit a wall, then you spend what you earned on
+permanent upgrades and push further.
+
+- [ ] Endless "operation" ladder: each win moves you up a rung; red gets a little stronger
+      each rung (faster building, smarter attacks, more starting troops)
+- [ ] Earn medals or war funds every battle (more for higher rungs, wins, and fast wins)
+- [ ] Prestige: when you choose (or after a loss), cash in for command points, restart from
+      rung 1, and keep permanent upgrades
+- [ ] Upgrade tree bought with command points: starting troops, build speed, unit speed,
+      stronger tanks, longer opening shield, unlock new unit types
+- [ ] Save progress on the device (versioned save, ready for zones later)
+- [ ] Bots play the ladder for many simulated runs to tune how fast you climb and when you
+      should prestige
 
 ## Phase 2: Zones and the persistent world
 

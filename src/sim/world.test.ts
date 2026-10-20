@@ -235,3 +235,38 @@ describe('HQ victory', () => {
     expect(world.winner).toBeNull();
   });
 });
+
+describe('tanks', () => {
+  const factoryLevel = (): LevelDef => ({
+    ...tinyLevel(),
+    bases: [
+      { kind: 'factory', x: 50, y: 100, owner: 'player', troops: 20 },
+      { kind: 'outpost', x: 200, y: 100, owner: 'neutral', troops: 8 },
+      { kind: 'barracks', x: 350, y: 100, owner: 'enemy', troops: 20 },
+    ],
+  });
+
+  it('roll out of factories, each worth several troops', () => {
+    const world = createWorld(factoryLevel());
+    sendTroops(world, 'player', 0, 1, 0.5); // 10 troops: 3 tanks + 1 soldier
+    expect(world.units.filter((u) => u.kind === 'tank')).toHaveLength(3);
+    expect(world.units.filter((u) => u.kind === 'soldier')).toHaveLength(1);
+    expect(world.units.reduce((sum, u) => sum + u.power, 0)).toBe(10);
+  });
+
+  it('hit as hard as the troops they carry', () => {
+    const world = createWorld(factoryLevel());
+    sendTroops(world, 'player', 0, 1, 0.5);
+    settle(world);
+    expect(world.bases[1]!.owner).toBe('player');
+    expect(Math.round(world.bases[1]!.troops)).toBe(2);
+  });
+
+  it('move slower than soldiers', () => {
+    const world = createWorld(factoryLevel());
+    sendTroops(world, 'player', 0, 1, 0.5);
+    const tank = world.units.find((u) => u.kind === 'tank')!;
+    const soldier = world.units.find((u) => u.kind === 'soldier')!;
+    expect(tank.speed).toBeLessThan(soldier.speed);
+  });
+});

@@ -124,6 +124,8 @@ export function updateBot(world: World, bot: BotState, dt: number): void {
       const d = Math.hypot(t.x - main.x, t.y - main.y);
       let score = t.troops + d * 0.04;
       if (p.valuesSpecials && BASE_STATS[t.kind].perk.startsWith('All')) score -= 6;
+      // Skilled players know taking the enemy HQ wins on the spot.
+      if (p.valuesSpecials && t.kind === 'hq' && t.owner === 'enemy') score -= 15;
       if (score < bestScore) {
         bestScore = score;
         target = t;
@@ -143,7 +145,7 @@ export function updateBot(world: World, bot: BotState, dt: number): void {
 function defend(world: World, mine: Base[]): boolean {
   const incoming = new Map<number, number>();
   for (const u of world.units) {
-    if (u.owner === 'enemy') incoming.set(u.targetId, (incoming.get(u.targetId) ?? 0) + 1);
+    if (u.owner === 'enemy') incoming.set(u.targetId, (incoming.get(u.targetId) ?? 0) + u.power);
   }
   for (const b of mine) {
     const threat = incoming.get(b.id) ?? 0;

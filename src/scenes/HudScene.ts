@@ -6,7 +6,7 @@ import type { BattleScene } from './BattleScene';
 import { addButton, makePressable, uiZoom } from './ui';
 
 const PERK_WORDS: Record<string, string> = {
-  factory: 'FACTORY: faster building',
+  factory: 'FACTORY: faster building + tanks',
   radar: 'RADAR: faster troops',
   armory: 'ARMORY: stronger troops',
 };

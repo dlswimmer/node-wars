@@ -16,14 +16,16 @@ Runs in any browser: PC, phone, or iPad.
   the base is yours. Sending troops to your own base reinforces it.
 - Special bases power up your whole army while you hold them:
 
-  | Base     | Shape    | Bonus while you hold it    |
-  | -------- | -------- | -------------------------- |
-  | HQ       | Star     | Fastest troop production   |
-  | Barracks | Square   | Good troop production      |
-  | Outpost  | Triangle | Small forward base         |
-  | Factory  | Hexagon  | +25% production everywhere |
-  | Radar    | Rings    | +20% troop speed           |
-  | Armory   | Diamond  | +25% attack power          |
+  | Base     | Shape    | Bonus while you hold it                            |
+  | -------- | -------- | -------------------------------------------------- |
+  | HQ       | Star     | Fastest troop production                           |
+  | Barracks | Square   | Good troop production                              |
+  | Outpost  | Triangle | Small forward base                                 |
+  | Factory  | Hexagon  | +25% production everywhere, and it sends **tanks** |
+  | Radar    | Rings    | +20% troop speed                                   |
+  | Armory   | Diamond  | +25% attack power                                  |
+
+Troops sent from a Factory roll out as **tanks**: slower, but each one hits like 3 soldiers.
 
 Capture red's **HQ** to win (or wipe out every red base). Your bases are shielded for the first
 few seconds, shown by blue rings.

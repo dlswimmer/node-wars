@@ -118,3 +118,25 @@ describe('AI', () => {
     expect(world.bases.some((b) => b.owner !== 'neutral')).toBe(true);
   });
 });
+
+describe('AI defense', () => {
+  it('reinforces its HQ when an attack is about to take it, if allowed to defend', () => {
+    const level: LevelDef = {
+      id: 'defend',
+      name: 'Defend',
+      width: 400,
+      height: 200,
+      bases: [
+        { kind: 'hq', x: 50, y: 100, owner: 'player', troops: 60 },
+        { kind: 'hq', x: 350, y: 100, owner: 'enemy', troops: 10 },
+        { kind: 'barracks', x: 350, y: 30, owner: 'enemy', troops: 30 },
+      ],
+    };
+    const world = createWorld(level);
+    sendTroops(world, 'player', 0, 1, 0.5); // 30 troops heading for the enemy HQ
+    updateAi(world, createAi('enemy', fast({ aiDefends: true })), 1);
+    const help = world.units.filter((u) => u.owner === 'enemy');
+    expect(help.length).toBeGreaterThan(0);
+    expect(help.every((u) => u.targetId === 1)).toBe(true);
+  });
+});

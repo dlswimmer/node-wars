@@ -25,6 +25,8 @@ export interface Difficulty {
    * doesn't snipe bases a kid just wore down. 0 = no manners.
    */
   aiSnipeGuard: number;
+  /** Whether the enemy sends reinforcements to its bases that are under attack. */
+  aiDefends: boolean;
 }
 
 export const DIFFICULTIES: Record<DifficultyId, Difficulty> = {
@@ -40,6 +42,7 @@ export const DIFFICULTIES: Record<DifficultyId, Difficulty> = {
     shieldSeconds: 40,
     enemyProduction: 0.9,
     aiSnipeGuard: 12,
+    aiDefends: false,
   },
   soldier: {
     id: 'soldier',
@@ -53,6 +56,7 @@ export const DIFFICULTIES: Record<DifficultyId, Difficulty> = {
     shieldSeconds: 20,
     enemyProduction: 0.9,
     aiSnipeGuard: 8,
+    aiDefends: false,
   },
   general: {
     id: 'general',
@@ -64,8 +68,9 @@ export const DIFFICULTIES: Record<DifficultyId, Difficulty> = {
     aiMargin: 2,
     aiMaxSources: 3,
     shieldSeconds: 0,
-    enemyProduction: 1,
+    enemyProduction: 1.1,
     aiSnipeGuard: 0,
+    aiDefends: true,
   },
 };
 
