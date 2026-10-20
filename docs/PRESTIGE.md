@@ -18,13 +18,16 @@ more medals.
 
 ## Earning medals
 
-A win earns medals by rank. A loss earns nothing.
+A win earns **1 medal**, scaled by rank. A loss earns nothing.
 
-| Rank    | Medals per win |
-| ------- | -------------- |
-| Recruit | 1              |
-| Soldier | 2              |
-| General | 3              |
+| Rank    | Rate | Medals per win |
+| ------- | ---- | -------------- |
+| Recruit | 50%  | ½              |
+| Soldier | 100% | 1              |
+| General | 150% | 1½             |
+
+Medals are stored in halves so the rates stay exact; the menu shows them as, for example,
+"7½ medals".
 
 Because upgrades make battles easier and the battles themselves don't get harder yet, the
 pull toward higher ranks (more medals) is what keeps it challenging for now.
@@ -32,7 +35,7 @@ pull toward higher ranks (more medals) is what keeps it challenging for now.
 ## The Command Tent
 
 Permanent upgrades bought with medals. Each has a few levels; costs rise per level and are
-small to match 1-3 medals per win (roughly 2, 4, 6, 9, 12 to start; tuned with bots).
+small to match ½-1½ medals per win (roughly 1, 2, 3, 5, 8 to start; tuned with bots).
 
 | Upgrade       | Per level                         |
 | ------------- | --------------------------------- |
@@ -46,14 +49,15 @@ Base-specific upgrades from [BASES.md](BASES.md) can join the tent later.
 
 ### Tuning targets (checked with bots)
 
-- First upgrade after about 1-2 Recruit wins.
+- First upgrade after about 2 Recruit wins (or 1 Soldier win).
 - Maxing out the first set takes many sessions, not one afternoon.
 - A fully upgraded player on Recruit should still have to play, not just watch.
 
 ## Engineering plan (for the build session)
 
 1. **Sim:** player modifiers (production, speed, starting troops, shield, tank power) in
-   `WorldOptions`, applied only in campaign battles; `medalsFor(rank, won)`. Unit-tested.
+   `WorldOptions`, applied only in campaign battles; `medalsFor(rank, won)` returning
+   half-medals (Recruit 1, Soldier 2, General 3 halves). Unit-tested.
 2. **Save:** one versioned save in localStorage (medals, upgrade levels, wins per rank), with
    a version number so later phases can extend it without wiping progress.
 3. **Bot check:** bots play many campaign battles, buy upgrades between them, and report

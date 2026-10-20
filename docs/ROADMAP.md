@@ -69,7 +69,8 @@ Goal: one battle that is genuinely exciting for an 8-year-old, and a solid base 
 Full plan in [PRESTIGE.md](PRESTIGE.md). Kept simple on purpose; the real difficulty curve,
 checkpoints, and prestige come with the expanding world.
 
-- [ ] Campaign mode: wins earn medals (Recruit 1, Soldier 2, General 3); Quick Battle earns none
+- [ ] Campaign mode: a win earns 1 medal scaled by rank (Recruit 50%, Soldier 100%, General
+      150%); Quick Battle earns none
 - [ ] Command Tent: permanent upgrades bought with medals (starting troops, build speed, troop
       speed, shield, tanks), applied in campaign battles only
 - [ ] Save progress on the device (versioned save, ready for zones later)
