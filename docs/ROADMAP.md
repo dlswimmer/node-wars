@@ -71,8 +71,20 @@ permanent upgrades and push further.
 
 ## Phase 2: Zones and the persistent world
 
+One continuous world, not separate maps. Zones are irregular regions of the same map that
+join seamlessly, so the front line flows from one into the next.
+
+- [ ] Organic zone shapes: the world is split into irregular regions (Voronoi cells shaped
+      with noise), each with its own bases, terrain tint, and border
+- [ ] Bases placed inside each zone with even spacing (Poisson-disk), never too crowded
+- [ ] Fairness by testing, not symmetry: generate many candidate zones, let bots play each one,
+      keep only the ones where neither side's start is a big advantage
+- [ ] Capturing a zone opens its neighbours; the zone you hold is where you push out from
+- [ ] Bases near a zone border connect to bases across it, so attacks cross borders naturally
+- [ ] Zones you aren't looking at keep running in a cheaper, simplified simulation (troop
+      counts and battles without drawing every unit)
+- [ ] Camera zooms out from one zone to the region as the world grows
 - [ ] A zone is a battle map that stays alive after you win it
-- [ ] Capturing a zone expands the world map and opens neighbouring zones
 - [ ] Held zones keep producing and earn money while you fight elsewhere (and while the game
       is closed, within limits)
 - [ ] Rivals counter-attack held zones; you get alerts and can jump back to defend
@@ -89,6 +101,7 @@ permanent upgrades and push further.
 
 - [ ] Several AI factions with their own colors, personalities, and home zones
 - [ ] Factions fight each other, form fronts, and can be wiped out
+- [ ] Rivals start in zones out at the edges and expand toward you and each other
 - [ ] A world map view showing who controls what
 
 ## Phase 5: Regions and countries
