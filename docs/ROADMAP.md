@@ -53,7 +53,7 @@ Goal: one battle that is genuinely exciting for an 8-year-old, and a solid base 
 - [x] Harder General: red defends its bases (HQ first) and builds faster
 - [x] Keep HUD perk text clear of the corner bases' labels on small screens
 - [x] Add to Home Screen: app icon, full-screen launch, safe-area aware
-- [ ] Every base kind has a feature worth fighting for (some exist already):
+- [ ] Every base kind has a feature worth fighting for (full plan in [BASES.md](BASES.md)):
   - HQ: fastest production; capture it to win
   - Barracks: strong production
   - Factory: faster building everywhere, sends tanks
