@@ -64,23 +64,16 @@ Goal: one battle that is genuinely exciting for an 8-year-old, and a solid base 
   - Airfield (new): sends jets that fly straight over terrain
   - Field hospital (new): some of your troops lost nearby come back
 
-## Phase 1.5: Prestige loop
+## Phase 1.5: Medals and upgrades
 
-Full plan in [PRESTIGE.md](PRESTIGE.md).
+Full plan in [PRESTIGE.md](PRESTIGE.md). Kept simple on purpose; the real difficulty curve,
+checkpoints, and prestige come with the expanding world.
 
-The core game loop: battles get harder until you hit a wall, then you spend what you earned on
-permanent upgrades and push further.
-
-- [ ] Endless "operation" ladder: each win moves you up a rung; red gets a little stronger
-      each rung (faster building, smarter attacks, more starting troops)
-- [ ] Earn medals or war funds every battle (more for higher rungs, wins, and fast wins)
-- [ ] Prestige: when you choose (or after a loss), cash in for command points, restart from
-      rung 1, and keep permanent upgrades
-- [ ] Upgrade tree bought with command points: starting troops, build speed, unit speed,
-      stronger tanks, longer opening shield, unlock new unit types
+- [ ] Campaign mode: wins earn medals (Recruit 1, Soldier 2, General 3); Quick Battle earns none
+- [ ] Command Tent: permanent upgrades bought with medals (starting troops, build speed, troop
+      speed, shield, tanks), applied in campaign battles only
 - [ ] Save progress on the device (versioned save, ready for zones later)
-- [ ] Bots play the ladder for many simulated runs to tune how fast you climb and when you
-      should prestige
+- [ ] Bots check how fast medals come in and upgrades get bought
 
 ## Phase 2: Zones and the persistent world
 
