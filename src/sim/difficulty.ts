@@ -1,3 +1,5 @@
+import type { WorldOptions } from './world';
+
 export type DifficultyId = 'recruit' | 'soldier' | 'general';
 
 export interface Difficulty {
@@ -14,8 +16,8 @@ export interface Difficulty {
   aiMargin: number;
   /** How many of its bases the enemy combines into one attack. */
   aiMaxSources: number;
-  /** Seconds at the start when the enemy only takes neutral bases, never yours. */
-  aiGracePeriod: number;
+  /** Seconds at the start when your bases are shielded and the enemy can only take neutral ones. */
+  shieldSeconds: number;
   /** Multiplier on enemy troop production. */
   enemyProduction: number;
 }
@@ -30,7 +32,7 @@ export const DIFFICULTIES: Record<DifficultyId, Difficulty> = {
     aiMinTroops: 12,
     aiMargin: 5,
     aiMaxSources: 1,
-    aiGracePeriod: 40,
+    shieldSeconds: 40,
     enemyProduction: 0.9,
   },
   soldier: {
@@ -42,7 +44,7 @@ export const DIFFICULTIES: Record<DifficultyId, Difficulty> = {
     aiMinTroops: 10,
     aiMargin: 3,
     aiMaxSources: 1,
-    aiGracePeriod: 20,
+    shieldSeconds: 20,
     enemyProduction: 1,
   },
   general: {
@@ -54,9 +56,14 @@ export const DIFFICULTIES: Record<DifficultyId, Difficulty> = {
     aiMinTroops: 10,
     aiMargin: 2,
     aiMaxSources: 3,
-    aiGracePeriod: 0,
+    shieldSeconds: 0,
     enemyProduction: 1,
   },
 };
 
 export const DIFFICULTY_ORDER: DifficultyId[] = ['recruit', 'soldier', 'general'];
+
+/** World setup for a battle at this difficulty (shared by the game and the bot harness). */
+export function worldOptionsFor(d: Difficulty, seed: number): WorldOptions {
+  return { seed, handicap: { enemy: d.enemyProduction }, shield: { player: d.shieldSeconds } };
+}

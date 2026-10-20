@@ -5,8 +5,11 @@ export const COLORS = {
   grid: 0x2c3a24,
   gridMajor: 0x34452a,
   text: '#e8ecd8',
-  textDim: '#9fae8a',
+  textDim: '#b5c29f',
   accent: '#f2c94c',
+  good: 0x4cd964,
+  bad: 0xff5a5f,
+  shield: 0x7fd6ff,
 } as const;
 
 export const FACTION_COLORS: Record<Faction, number> = {
@@ -17,6 +20,9 @@ export const FACTION_COLORS: Record<Faction, number> = {
 
 export const FONT = 'Impact, "Arial Black", sans-serif';
 
+/** Text is drawn at high resolution because cameras zoom it in and out. */
+const TEXT_RESOLUTION = 3;
+
 export function textStyle(size: number, color: string = COLORS.text) {
   return {
     fontFamily: FONT,
@@ -24,6 +30,6 @@ export function textStyle(size: number, color: string = COLORS.text) {
     color,
     stroke: '#000000',
     strokeThickness: Math.max(2, Math.round(size / 8)),
-    resolution: Math.min(window.devicePixelRatio || 1, 3),
+    resolution: TEXT_RESOLUTION,
   };
 }

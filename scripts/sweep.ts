@@ -16,13 +16,13 @@ const rows: { s: Difficulty; win: number; secs: number }[] = [];
 for (const aiInterval of [1.5, 2, 2.5, 3]) {
   for (const aiMaxSources of [1, 2]) {
     for (const enemyProduction of [0.8, 0.9, 1]) {
-      for (const aiGracePeriod of [20, 40]) {
+      for (const shieldSeconds of [20, 40]) {
         const s: Difficulty = {
           ...DIFFICULTIES.soldier,
           aiInterval,
           aiMaxSources,
           enemyProduction,
-          aiGracePeriod,
+          shieldSeconds,
         };
         const r = runMatchup(LEVELS[0]!, s, profile, matches);
         rows.push({ s, win: r.winRate, secs: r.medianSeconds });
@@ -35,6 +35,6 @@ rows.sort((a, b) => Math.abs(a.win - target) - Math.abs(b.win - target));
 console.log(`Closest to ${target * 100}% wins for ${profile.label}:`);
 for (const { s, win, secs } of rows.slice(0, 12)) {
   console.log(
-    `interval ${s.aiInterval}  sources ${s.aiMaxSources}  production ${s.enemyProduction}  grace ${s.aiGracePeriod}  ->  win ${Math.round(win * 100)}%  median ${Math.round(secs)}s`,
+    `interval ${s.aiInterval}  sources ${s.aiMaxSources}  production ${s.enemyProduction}  grace ${s.shieldSeconds}  ->  win ${Math.round(win * 100)}%  median ${Math.round(secs)}s`,
   );
 }

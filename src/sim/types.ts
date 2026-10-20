@@ -36,6 +36,12 @@ export interface Bonuses {
   attack: number;
 }
 
+/** Things that happened during a step, for the renderer to show (flashes, sounds). */
+export type SimEvent =
+  | { type: 'capture'; baseId: number; from: Faction; to: Army }
+  | { type: 'hit'; baseId: number; by: Army }
+  | { type: 'blocked'; baseId: number; by: Army };
+
 export interface World {
   width: number;
   height: number;
@@ -45,6 +51,10 @@ export interface World {
   winner: Army | null;
   /** Per-army production multiplier, used for difficulty handicaps. */
   handicap: Record<Army, number>;
+  /** An army's bases can't be damaged until this time (opening grace period). */
+  shieldUntil: Record<Army, number>;
+  /** Events from the most recent step. */
+  events: SimEvent[];
   nextUnitId: number;
   rng: () => number;
 }

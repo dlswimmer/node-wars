@@ -1,6 +1,6 @@
 import { BASE_STATS, UNIT_SPEED } from './config';
 import { DIFFICULTIES, type Difficulty } from './difficulty';
-import { getBonuses, sendTroops } from './world';
+import { getBonuses, isShielded, sendTroops } from './world';
 import type { Army, Base, World } from './types';
 
 export interface AiState {
@@ -26,7 +26,6 @@ export function updateAi(world: World, ai: AiState, dt: number): void {
   const attack = getBonuses(world, ai.army).attack;
   const sources = world.bases.filter((b) => b.owner === ai.army && b.troops >= s.aiMinTroops);
   if (sources.length === 0) return;
-  const mayAttackArmies = world.time >= s.aiGracePeriod;
 
   let bestTarget: Base | undefined;
   let bestSources: Base[] = [];
@@ -34,7 +33,7 @@ export function updateAi(world: World, ai: AiState, dt: number): void {
 
   for (const target of world.bases) {
     if (target.owner === ai.army) continue;
-    if (target.owner !== 'neutral' && !mayAttackArmies) continue;
+    if (isShielded(world, target.owner)) continue;
 
     const nearest = [...sources]
       .sort((a, b) => dist(a, target) - dist(b, target))

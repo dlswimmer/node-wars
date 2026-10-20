@@ -1,5 +1,5 @@
 import { createAi, updateAi } from '../ai';
-import type { Difficulty } from '../difficulty';
+import { worldOptionsFor, type Difficulty } from '../difficulty';
 import type { Army, LevelDef } from '../types';
 import { countBases, createWorld, step } from '../world';
 import { createBot, updateBot, type HumanProfile } from './bots';
@@ -22,7 +22,7 @@ export function runMatch(
   seed: number,
   maxSeconds = 900,
 ): MatchResult {
-  const world = createWorld(level, seed, { enemy: difficulty.enemyProduction });
+  const world = createWorld(level, worldOptionsFor(difficulty, seed));
   const ai = createAi('enemy', difficulty);
   const bot = createBot(profile, seed * 7919 + 13);
   let peak = 0;

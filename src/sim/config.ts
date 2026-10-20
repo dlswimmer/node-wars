@@ -12,34 +12,34 @@ export interface BaseStats {
 }
 
 export const BASE_STATS: Record<BaseKind, BaseStats> = {
-  hq: { label: 'HQ', rate: 1.6, capacity: 80, radius: 36, perk: 'Fast troop production' },
+  hq: { label: 'HQ', rate: 1.6, capacity: 80, radius: 40, perk: 'Fast troop production' },
   barracks: {
     label: 'Barracks',
     rate: 1.2,
     capacity: 50,
-    radius: 28,
+    radius: 32,
     perk: 'Good troop production',
   },
-  outpost: { label: 'Outpost', rate: 0.7, capacity: 30, radius: 22, perk: 'Small forward base' },
+  outpost: { label: 'Outpost', rate: 0.7, capacity: 30, radius: 26, perk: 'Small forward base' },
   factory: {
     label: 'Factory',
     rate: 0.5,
     capacity: 40,
-    radius: 28,
+    radius: 32,
     perk: 'All your bases build faster',
   },
   radar: {
     label: 'Radar',
     rate: 0.5,
     capacity: 40,
-    radius: 26,
+    radius: 30,
     perk: 'All your troops move faster',
   },
   armory: {
     label: 'Armory',
     rate: 0.5,
     capacity: 40,
-    radius: 26,
+    radius: 30,
     perk: 'All your troops hit harder',
   },
 };
@@ -51,7 +51,7 @@ export const BONUS_PER_BASE = {
   armory: 0.25,
 } as const;
 
-export const UNIT_SPEED = 90;
+export const UNIT_SPEED = 75;
 /** Seconds between each unit leaving when a squad is sent. */
 export const LAUNCH_INTERVAL = 0.03;
 export const DEFAULT_SEND_FRACTION = 0.5;
