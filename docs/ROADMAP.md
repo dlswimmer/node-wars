@@ -52,6 +52,16 @@ Goal: one battle that is genuinely exciting for an 8-year-old, and a solid base 
 - [x] Top-down soldier and tank sprites (drawn in code; swap for hand-made art any time)
 - [x] Harder General: red defends its bases (HQ first) and builds faster
 - [ ] Keep HUD perk text clear of the corner bases' labels on small screens
+- [ ] Every base kind has a feature worth fighting for (some exist already):
+  - HQ: fastest production; capture it to win
+  - Barracks: strong production
+  - Factory: faster building everywhere, sends tanks
+  - Radar: faster troops everywhere, and reveals incoming attacks earlier
+  - Armory: stronger troops everywhere
+  - Outpost: troops sent from it leave faster (a launch pad for the front line)
+  - Bunker (new): defenders count double, a tough nut to crack
+  - Airfield (new): sends jets that fly straight over terrain
+  - Field hospital (new): some of your troops lost nearby come back
 
 ## Phase 1.5: Prestige loop
 
@@ -77,6 +87,13 @@ join seamlessly, so the front line flows from one into the next.
 - [ ] Organic zone shapes: the world is split into irregular regions (Voronoi cells shaped
       with noise), each with its own bases, terrain tint, and border
 - [ ] Bases placed inside each zone with even spacing (Poisson-disk), never too crowded
+- [ ] Terrain that shapes strategy:
+  - Water and mountains block troops; bridges and passes become chokepoints worth holding
+  - Forest, mud, and hills slow troops; roads speed them up
+  - Troops follow real paths around terrain (paths between bases worked out once per map,
+    so it stays fast with hundreds of units)
+  - The attack preview and the AI use real travel times, so "the long way round" matters
+  - Jets from Airfields ignore terrain; tanks are slowed most by forest and mud
 - [ ] Fairness by testing, not symmetry: generate many candidate zones, let bots play each one,
       keep only the ones where neither side's start is a big advantage
 - [ ] Capturing a zone opens its neighbours; the zone you hold is where you push out from
