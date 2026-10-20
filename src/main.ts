@@ -4,6 +4,7 @@ import { DPR, hostSize } from './display';
 import { BattleScene } from './scenes/BattleScene';
 import { HudScene } from './scenes/HudScene';
 import { MenuScene } from './scenes/MenuScene';
+import { TentScene } from './scenes/TentScene';
 import { COLORS } from './theme';
 
 // The canvas fills the whole screen at device resolution; scenes lay themselves out on resize.
@@ -23,7 +24,7 @@ const game = new Phaser.Game({
     zoom: 1 / DPR,
   },
   input: { activePointers: 3 },
-  scene: [MenuScene, BattleScene, HudScene],
+  scene: [MenuScene, TentScene, BattleScene, HudScene],
 });
 
 function fitToScreen() {

@@ -1,0 +1,127 @@
+import { BASE_STATS, DEFAULT_SEND_FRACTION } from './config';
+import type { Army, Base, World } from './types';
+import { getBonuses, isShielded, previewAttack, sendTroops } from './world';
+
+/**
+ * The Adjutant: an AI officer that helps run the player's army. Each level adds one duty.
+ * It deliberately acts slower than a kid so an attentive player always does better; at
+ * level 5 it can run a whole battle (auto-battle), a bit faster but still careful.
+ */
+export interface AdjutantState {
+  army: Army;
+  level: number;
+  /** True when it runs the whole battle by itself. */
+  auto: boolean;
+  cooldown: number;
+  /** Ids of squads it sent, so the screen can show its orders differently. */
+  squads: Set<number>;
+  /** World time of the player's last order; a helper waits once the player goes quiet. */
+  lastOrderAt: number;
+}
+
+/** A helper (not auto-battling) only works while the player has given an order recently. */
+export const HELPER_PATIENCE = 15;
+
+/** Seconds between Adjutant decisions: helping slowly, auto-battling a bit faster. */
+const ASSIST_INTERVAL = 5;
+const AUTO_INTERVAL = 4;
+
+export function createAdjutant(level: number, auto = false, army: Army = 'player'): AdjutantState {
+  return { army, level, auto, cooldown: 2, squads: new Set(), lastOrderAt: 0 };
+}
+
+/** Call whenever the player gives an order, so a helping Adjutant keeps working. */
+export function notePlayerOrder(world: World, adj: AdjutantState): void {
+  adj.lastOrderAt = world.time;
+}
+
+/** Whether a helping Adjutant is currently waiting for the player to act. */
+export function isWaiting(world: World, adj: AdjutantState): boolean {
+  return !adj.auto && world.time - adj.lastOrderAt > HELPER_PATIENCE;
+}
+
+export function updateAdjutant(world: World, adj: AdjutantState, dt: number): void {
+  if (world.winner || adj.level <= 0 || isWaiting(world, adj)) return;
+  adj.cooldown -= dt;
+  if (adj.cooldown > 0) return;
+  adj.cooldown = adj.auto ? AUTO_INTERVAL : ASSIST_INTERVAL;
+
+  const mine = world.bases.filter((b) => b.owner === adj.army);
+  if (mine.length === 0) return;
+  // When auto-battling it may use every duty; when helping, only the ones it has learned.
+  const level = adj.auto ? 5 : adj.level;
+
+  if (level >= 1 && defend(world, adj, mine)) return;
+  if (level >= 4 && attack(world, adj, mine, (b) => b.owner !== 'neutral')) return;
+  if (level >= 3 && attack(world, adj, mine, (b) => b.owner === 'neutral')) return;
+  if (level >= 2) pushForward(world, adj, mine);
+}
+
+function send(world: World, adj: AdjutantState, from: Base, to: Base): boolean {
+  const n = sendTroops(world, adj.army, from.id, to.id, DEFAULT_SEND_FRACTION);
+  if (n > 0) adj.squads.add(world.nextSquadId - 1);
+  return n > 0;
+}
+
+/** Reinforce a base that troops already on the way would capture. */
+function defend(world: World, adj: AdjutantState, mine: Base[]): boolean {
+  // Shielded bases can't be hurt, so there is nothing to defend yet.
+  if (isShielded(world, adj.army)) return false;
+  const incoming = new Map<number, number>();
+  for (const u of world.units) {
+    if (u.owner !== adj.army) incoming.set(u.targetId, (incoming.get(u.targetId) ?? 0) + u.power);
+  }
+  for (const base of mine) {
+    const threat = (incoming.get(base.id) ?? 0) * getBonuses(world, enemyOf(adj.army)).attack;
+    if (threat < base.troops) continue;
+    const helper = nearest(
+      mine.filter((h) => h !== base && h.troops >= 10),
+      base,
+    );
+    if (helper && send(world, adj, helper, base)) return true;
+  }
+  return false;
+}
+
+/** Attack the cheapest target matching `pick` that a single base would clearly win. */
+function attack(
+  world: World,
+  adj: AdjutantState,
+  mine: Base[],
+  pick: (b: Base) => boolean,
+): boolean {
+  let best: { from: Base; to: Base; score: number } | undefined;
+  for (const to of world.bases) {
+    if (to.owner === adj.army || !pick(to)) continue;
+    for (const from of mine) {
+      if (from.troops < 8) continue;
+      const p = previewAttack(world, adj.army, [from.id], to.id, DEFAULT_SEND_FRACTION);
+      if (p.outcome !== 'win') continue;
+      const score = to.troops + Math.hypot(to.x - from.x, to.y - from.y) * 0.05;
+      if (!best || score < best.score) best = { from, to, score };
+    }
+  }
+  return best ? send(world, adj, best.from, best.to) : false;
+}
+
+/** A full base sends its extra troops to the friendly base closest to the enemy. */
+function pushForward(world: World, adj: AdjutantState, mine: Base[]): boolean {
+  const enemyHq = world.bases.find((b) => b.kind === 'hq' && b.owner === enemyOf(adj.army));
+  if (!enemyHq) return false;
+  const front = nearest(mine, enemyHq);
+  for (const b of mine) {
+    if (b === front || b.troops < BASE_STATS[b.kind].capacity - 0.5) continue;
+    if (front && send(world, adj, b, front)) return true;
+  }
+  return false;
+}
+
+function nearest(bases: Base[], to: Base): Base | undefined {
+  return [...bases].sort(
+    (a, b) => Math.hypot(a.x - to.x, a.y - to.y) - Math.hypot(b.x - to.x, b.y - to.y),
+  )[0];
+}
+
+function enemyOf(army: Army): Army {
+  return army === 'player' ? 'enemy' : 'player';
+}

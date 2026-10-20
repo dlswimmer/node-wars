@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { DPR, cssSize } from '../display';
+import { formatMedals } from '../sim/upgrades';
 import { countBases, isShielded } from '../sim/world';
 import { COLORS, textStyle } from '../theme';
 import type { BattleScene } from './BattleScene';
@@ -31,6 +32,8 @@ export class HudScene extends Phaser.Scene {
   private shieldBar!: Phaser.GameObjects.Graphics;
   private pauseButton!: Phaser.GameObjects.Container;
   private muteButton!: Phaser.GameObjects.Container;
+  private adjutantButton!: Phaser.GameObjects.Container;
+  private adjutantLabel!: Phaser.GameObjects.Text;
   private pauseIcon!: Phaser.GameObjects.Graphics;
   private pauseMenu!: Phaser.GameObjects.Container;
   private pauseShade!: Phaser.GameObjects.Rectangle;
@@ -55,6 +58,7 @@ export class HudScene extends Phaser.Scene {
     this.perks = this.add.text(20, 0, '', textStyle(20, COLORS.accent)).setOrigin(0, 1);
     this.pauseButton = this.createPauseButton();
     this.muteButton = addMuteButton(this, 0, 0).setDepth(110);
+    this.adjutantButton = this.createAdjutantButton();
     this.pauseMenu = this.createPauseMenu();
 
     const onPause = (paused: boolean) => {
@@ -90,6 +94,13 @@ export class HudScene extends Phaser.Scene {
     const shieldLeft = isShielded(w, 'player') ? w.shieldUntil.player - w.time : 0;
     const lines = [`BASES ${countBases(w, 'player')} / ${w.bases.length}`];
     if (shieldLeft > 0) lines.push(`SHIELD ${Math.ceil(shieldLeft)}`);
+    const adj = this.battle.adjutantStatus();
+    if (adj === 'auto') lines.push('AUTO-BATTLE');
+    else if (adj === 'waiting') lines.push('ADJUTANT: waiting for your orders');
+    this.adjutantButton.setVisible(adj !== null && adj !== 'auto');
+    if (adj && adj !== 'auto') {
+      this.adjutantLabel.setColor(adj === 'off' ? '#777777' : '#c9b3ff');
+    }
     this.status.setText(lines.join('\n'));
 
     if (shieldLeft > 0) {
@@ -124,6 +135,7 @@ export class HudScene extends Phaser.Scene {
 
     this.pauseButton.setPosition(v.width - 62, 62);
     this.muteButton.setPosition(v.width - 172, 62);
+    this.adjutantButton.setPosition(v.width - 282, 62);
     // One short line hugging the bottom edge, below the bottom-row base labels.
     this.perks.setPosition(20, v.height - 6);
     this.pauseShade.setSize(v.width, v.height);
@@ -141,6 +153,32 @@ export class HudScene extends Phaser.Scene {
     items.forEach((item, i) => {
       (item as Phaser.GameObjects.Container).setPosition(v.width / 2, top + i * gap);
     });
+  }
+
+  /** Campaign end-screen text: rank and time, plus medals earned. */
+  private endDetail(won: boolean, clock: string): string {
+    const line = won ? `${this.battle.difficulty.label}  ·  ${clock}` : this.tip;
+    if (this.battle.mode !== 'campaign') return line;
+    const r = this.battle.reward;
+    const medals = r > 0 ? `+${formatMedals(r)} MEDAL${r > 1 ? 'S' : ''}` : 'No medals this time';
+    return `${line}
+${medals}`;
+  }
+
+  /** "A" button that switches the helping Adjutant on and off. */
+  private createAdjutantButton() {
+    const size = 96;
+    const bg = this.add.graphics();
+    bg.fillStyle(0x2a1d4a, 0.8).fillRoundedRect(-size / 2, -size / 2, size, size, 16);
+    bg.lineStyle(3, 0xa77bff, 0.8).strokeRoundedRect(-size / 2, -size / 2, size, size, 16);
+    this.adjutantLabel = this.add.text(0, 0, 'A', textStyle(52, '#c9b3ff')).setOrigin(0.5);
+    const button = this.add
+      .container(0, 0, [bg, this.adjutantLabel])
+      .setSize(size, size)
+      .setDepth(110)
+      .setVisible(false);
+    makePressable(button, () => this.battle.toggleAdjutant());
+    return button;
   }
 
   private createPauseButton() {
@@ -209,6 +247,7 @@ export class HudScene extends Phaser.Scene {
     this.tip = DEFEAT_TIPS[Math.floor(Math.random() * DEFEAT_TIPS.length)]!;
     this.pauseButton.setVisible(false);
     this.muteButton.setVisible(false);
+    this.adjutantButton.setVisible(false);
     this.pauseMenu.setVisible(false);
     this.buildEndScreen(true);
     if (won) this.confetti();
@@ -238,16 +277,11 @@ export class HudScene extends Phaser.Scene {
     const time = Math.round(this.battle.world.time);
     const clock = `${Math.floor(time / 60)}:${String(time % 60).padStart(2, '0')}`;
     const detail = this.add
-      .text(
-        v.width / 2,
-        titleY + 80,
-        won ? `${this.battle.difficulty.label}  ·  ${clock}` : this.tip,
-        {
-          ...textStyle(32),
-          align: 'center',
-          wordWrap: { width: v.width - 60 },
-        },
-      )
+      .text(v.width / 2, titleY + 80, this.endDetail(won, clock), {
+        ...textStyle(32),
+        align: 'center',
+        wordWrap: { width: v.width - 60 },
+      })
       .setOrigin(0.5, 0);
 
     const parts: Phaser.GameObjects.GameObject[] = [shade, title, detail];

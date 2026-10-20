@@ -9,7 +9,7 @@ import {
   UNIT_SPEED,
 } from './config';
 import { createRng } from './rng';
-import type { Army, Base, Bonuses, Faction, LevelDef, Unit, World } from './types';
+import type { Army, ArmyBoosts, Base, Bonuses, Faction, LevelDef, Unit, World } from './types';
 
 export interface WorldOptions {
   seed?: number;
@@ -19,19 +19,33 @@ export interface WorldOptions {
   shield?: Partial<Record<Army, number>>;
   /** Armies that win outright by capturing every enemy HQ (instead of every base). */
   hqVictory?: Army[];
+  /** Upgrades each army brings (campaign). Production goes through `handicap`. */
+  boosts?: Partial<Record<Army, Partial<ArmyBoosts>>>;
+  /** Extra troops in each army's HQ at the start. */
+  startTroops?: Partial<Record<Army, number>>;
 }
 
+const NO_BOOSTS: ArmyBoosts = { speed: 1, tankPower: 0 };
+
 export function createWorld(level: LevelDef, opts: WorldOptions = {}): World {
+  const bases = level.bases.map((b, id) => ({ id, ...b }));
+  for (const b of bases) {
+    if (b.kind === 'hq' && b.owner !== 'neutral') b.troops += opts.startTroops?.[b.owner] ?? 0;
+  }
   return {
     width: level.width,
     height: level.height,
-    bases: level.bases.map((b, id) => ({ id, ...b })),
+    bases,
     units: [],
     time: 0,
     winner: null,
     handicap: { player: 1, enemy: 1, ...opts.handicap },
     shieldUntil: { player: 0, enemy: 0, ...opts.shield },
     hqVictory: opts.hqVictory ?? [],
+    boosts: {
+      player: { ...NO_BOOSTS, ...opts.boosts?.player },
+      enemy: { ...NO_BOOSTS, ...opts.boosts?.enemy },
+    },
     events: [],
     nextUnitId: 1,
     nextSquadId: 1,
@@ -80,12 +94,13 @@ export function sendTroops(
   from.troops -= count;
   const squad = world.nextSquadId++;
 
-  const speed = UNIT_SPEED * getBonuses(world, army).speed;
+  const speed = UNIT_SPEED * getBonuses(world, army).speed * world.boosts[army].speed;
   const fromR = BASE_STATS[from.kind].radius * 0.6;
   const toR = BASE_STATS[to.kind].radius * 0.5;
   // Factories roll out tanks (each worth several troops); leftovers go as soldiers.
-  const tanks = from.kind === 'factory' ? Math.floor(count / TANK_POWER) : 0;
-  const soldiers = count - tanks * TANK_POWER;
+  const tankPower = TANK_POWER + world.boosts[army].tankPower;
+  const tanks = from.kind === 'factory' ? Math.floor(count / tankPower) : 0;
+  const soldiers = count - tanks * tankPower;
   for (let i = 0; i < tanks + soldiers; i++) {
     const tank = i < tanks;
     const [sx, sy] = jitter(world, from.x, from.y, fromR);
@@ -93,7 +108,7 @@ export function sendTroops(
     world.units.push({
       id: world.nextUnitId++,
       kind: tank ? 'tank' : 'soldier',
-      power: tank ? TANK_POWER : 1,
+      power: tank ? tankPower : 1,
       owner: army,
       targetId: toId,
       x: sx,
@@ -141,7 +156,7 @@ export function previewAttack(
   fraction: number,
 ): AttackPreview {
   const target = world.bases[targetId];
-  const speed = UNIT_SPEED * getBonuses(world, army).speed;
+  const speed = UNIT_SPEED * getBonuses(world, army).speed * world.boosts[army].speed;
   let count = 0;
   let travel = 0;
   for (const id of sourceIds) {

@@ -22,6 +22,9 @@ with mouse and touch on PC, phone, and iPad.
   via `cssToWorld`, and convert pointers with `BattleScene.toWorld`, not `pointer.worldX`.
 - Difficulty lives in `src/sim/difficulty.ts`. After changing balance, run `npm run balance`
   (bot players at four skill levels); `balance.test.ts` locks the bands. Early phases lean easy.
+- Campaign progress lives in `src/save.ts` (versioned localStorage save). Upgrade rules,
+  medal rates, and how upgrades change a battle are in `src/sim/upgrades.ts`; the Adjutant AI
+  helper is `src/sim/adjutant.ts`. Bump the save version and migrate when its shape changes.
 - Use a seeded RNG (`world.rng`) inside the sim, never `Math.random`, so tests stay deterministic.
 
 ## Conventions

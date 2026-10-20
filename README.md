@@ -31,6 +31,11 @@ Troops sent from a Factory roll out as **tanks**: slower, but each one hits like
 Capture red's **HQ** to win (or wipe out every red base). Your bases are shielded for the first
 few seconds, shown by blue rings.
 
+**Campaign:** wins earn medals (Recruit ½, Soldier 1, General 1½). Spend them in the
+**Command Tent** on permanent upgrades, including the **Adjutant**, an AI officer that helps
+while you give orders and, at its top level, can auto-battle ranks you've mastered (5 wins)
+for half medals. **Quick Battle** is a fair fight with no medals or upgrades.
+
 **Ranks:** Recruit (start here), Soldier, and General. **Pinch** or use the mouse wheel to zoom;
 drag empty ground to scroll. The pause button is top right (or press P / Esc).
 

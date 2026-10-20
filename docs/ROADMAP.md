@@ -69,13 +69,13 @@ Goal: one battle that is genuinely exciting for an 8-year-old, and a solid base 
 Full plan in [PRESTIGE.md](PRESTIGE.md). Kept simple on purpose; the real difficulty curve,
 checkpoints, and prestige come with the expanding world.
 
-- [ ] Campaign mode: a win earns 1 medal scaled by rank (Recruit 50%, Soldier 100%, General
+- [x] Campaign mode: a win earns 1 medal scaled by rank (Recruit 50%, Soldier 100%, General
       150%); Quick Battle earns none
-- [ ] Command Tent: permanent upgrades bought with medals (starting troops, build speed, troop
+- [x] Command Tent: permanent upgrades bought with medals (starting troops, build speed, troop
       speed, shield, tanks), applied in campaign battles only
-- [ ] The Adjutant: an AI helper upgrade (auto-defend, then auto-expand and attack, then
+- [x] The Adjutant: an AI helper upgrade (auto-defend, then auto-expand and attack, then
       auto-battle on levels you have mastered, for fewer medals)
-- [ ] Save progress on the device (versioned save, ready for zones later)
+- [x] Save progress on the device (versioned save, ready for zones later)
 - [ ] Bots check how fast medals come in and upgrades get bought
 
 ## Phase 2: Zones and the persistent world

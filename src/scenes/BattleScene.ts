@@ -1,5 +1,14 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio';
+import { addMedals, loadSave, recordWin } from '../save';
+import {
+  createAdjutant,
+  isWaiting,
+  notePlayerOrder,
+  updateAdjutant,
+  type AdjutantState,
+} from '../sim/adjutant';
+import { campaignWorldOptions, medalsFor } from '../sim/upgrades';
 import { DPR, cssToWorld } from '../display';
 import { createAi, updateAi, type AiState } from '../sim/ai';
 import { BASE_STATS, DEFAULT_SEND_FRACTION } from '../sim/config';
@@ -29,6 +38,8 @@ import type { HudScene } from './HudScene';
 import { UNIT_TEXTURE, ensureUnitTextures } from './unitTextures';
 
 const MAX_DT = 0.1;
+/** The Adjutant's troops are tinted purple so you can tell its orders from yours. */
+const ADJUTANT_COLOR = 0xa77bff;
 /** Finger-friendly hit area around a base, in CSS pixels. */
 const TOUCH_PADDING_CSS = 30;
 /** Pointer travel (CSS px) before a press counts as a drag rather than a tap. */
@@ -42,8 +53,14 @@ const OUTCOME_STYLE: Record<AttackOutcome, { color: number; word: string }> = {
   shielded: { color: COLORS.shield, word: 'SHIELDED' },
 };
 
+export type BattleMode = 'quick' | 'campaign';
+
 export interface BattleData {
   difficulty?: DifficultyId;
+  /** Campaign battles earn medals and use upgrades; quick battles are a fair fight. */
+  mode?: BattleMode;
+  /** Campaign only: the Adjutant plays the whole battle. */
+  auto?: boolean;
 }
 
 type Gesture = 'none' | 'drag' | 'pan' | 'pinch';
@@ -64,6 +81,12 @@ export class BattleScene extends Phaser.Scene {
   level!: LevelDef;
   paused = false;
   gameOver = false;
+  mode: BattleMode = 'quick';
+  auto = false;
+  /** Medals earned by this battle (campaign), set when it ends. */
+  reward = 0;
+  private adjutant: AdjutantState | null = null;
+  private adjutantOn = true;
 
   private ai!: AiState;
   private baseGfx!: Phaser.GameObjects.Graphics;
@@ -113,12 +136,25 @@ export class BattleScene extends Phaser.Scene {
 
   init(data: BattleData) {
     this.difficulty = DIFFICULTIES[data.difficulty ?? loadDifficulty() ?? 'soldier'];
+    this.mode = data.mode ?? 'quick';
+    this.auto = this.mode === 'campaign' && !!data.auto;
   }
 
   create() {
     this.level = LEVELS[0]!;
-    this.world = createWorld(this.level, worldOptionsFor(this.difficulty, Date.now() & 0xffff));
+    const seed = Date.now() & 0xffff;
+    const save = loadSave();
+    this.world = createWorld(
+      this.level,
+      this.mode === 'campaign'
+        ? campaignWorldOptions(this.difficulty, seed, save.upgrades)
+        : worldOptionsFor(this.difficulty, seed),
+    );
     this.ai = createAi('enemy', this.difficulty);
+    const adjutantLevel = this.mode === 'campaign' ? save.upgrades.adjutant : 0;
+    this.adjutant = adjutantLevel > 0 ? createAdjutant(adjutantLevel, this.auto) : null;
+    this.adjutantOn = true;
+    this.reward = 0;
     this.selected.clear();
     this.armed.clear();
     this.effects = [];
@@ -190,6 +226,9 @@ export class BattleScene extends Phaser.Scene {
     const dt = Math.min(deltaMs / 1000, MAX_DT);
     if (!this.gameOver && !this.paused) {
       updateAi(this.world, this.ai, dt);
+      if (this.adjutant && (this.adjutantOn || this.auto)) {
+        updateAdjutant(this.world, this.adjutant, dt);
+      }
       step(this.world, dt);
       this.handleEvents();
       this.checkFinishedSquads();
@@ -214,11 +253,25 @@ export class BattleScene extends Phaser.Scene {
   }
 
   restartBattle() {
-    this.scene.restart({ difficulty: this.difficulty.id });
+    this.scene.restart({ difficulty: this.difficulty.id, mode: this.mode, auto: this.auto });
+  }
+
+  /** Turn the helping Adjutant on or off (campaign). */
+  toggleAdjutant() {
+    this.adjutantOn = !this.adjutantOn;
+    if (this.adjutant) notePlayerOrder(this.world, this.adjutant);
+  }
+
+  /** What the HUD shows about the Adjutant: null if there isn't one. */
+  adjutantStatus(): 'auto' | 'on' | 'off' | 'waiting' | null {
+    if (!this.adjutant) return null;
+    if (this.auto) return 'auto';
+    if (!this.adjutantOn) return 'off';
+    return isWaiting(this.world, this.adjutant) ? 'waiting' : 'on';
   }
 
   toMenu() {
-    this.scene.start('menu');
+    this.scene.start('menu', { page: this.mode === 'campaign' ? 'campaign' : 'quick' });
   }
 
   // ----- Camera --------------------------------------------------------------------------
@@ -343,6 +396,11 @@ export class BattleScene extends Phaser.Scene {
     this.pointerWorld = w;
     this.moved = false;
     this.downBaseId = -1;
+    // During an auto-battle the Adjutant gives the orders; the player can still look around.
+    if (this.auto) {
+      this.gesture = 'pan';
+      return;
+    }
     const base = baseAt(this.world, w.x, w.y, this.touchPadding());
 
     if (base?.owner === 'player') {
@@ -491,6 +549,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private issueOrder(sourceIds: number[], targetId: number) {
+    if (this.adjutant) notePlayerOrder(this.world, this.adjutant);
     let sent = 0;
     for (const id of sourceIds) {
       const n = sendTroops(this.world, 'player', id, targetId, DEFAULT_SEND_FRACTION);
@@ -680,7 +739,7 @@ export class BattleScene extends Phaser.Scene {
           .setPosition(u.x, u.y)
           .setRotation(Math.atan2(u.ty - u.y, u.tx - u.x))
           .setScale(size[u.kind] / tex.width)
-          .setTint(FACTION_COLORS[u.owner])
+          .setTint(this.adjutant?.squads.has(u.squad) ? ADJUTANT_COLOR : FACTION_COLORS[u.owner])
           .setVisible(true);
         n++;
       }
@@ -783,6 +842,11 @@ export class BattleScene extends Phaser.Scene {
     }
     if (won) sfx.victory();
     else sfx.defeat();
+    if (this.mode === 'campaign') {
+      this.reward = medalsFor(this.difficulty.id, won, this.auto);
+      if (this.reward > 0) addMedals(this.reward);
+      if (won && !this.auto) recordWin(this.difficulty.id);
+    }
     this.events.emit('game-over', won);
   }
 }

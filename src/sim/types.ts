@@ -46,6 +46,14 @@ export interface Bonuses {
   attack: number;
 }
 
+/** Lasting edges an army can bring into a battle from its upgrades. */
+export interface ArmyBoosts {
+  /** Multiplier on how fast its troops move. */
+  speed: number;
+  /** Extra troops each tank is worth. */
+  tankPower: number;
+}
+
 /** Things that happened during a step, for the renderer to show (flashes, sounds). */
 export type SimEvent =
   | { type: 'capture'; baseId: number; from: Faction; to: Army }
@@ -65,6 +73,8 @@ export interface World {
   shieldUntil: Record<Army, number>;
   /** Armies that win outright by capturing every enemy HQ. */
   hqVictory: Army[];
+  /** Permanent upgrades an army brings into battle (campaign only). */
+  boosts: Record<Army, ArmyBoosts>;
   /** Events from the most recent step. */
   events: SimEvent[];
   nextUnitId: number;
