@@ -20,6 +20,11 @@ export interface Difficulty {
   shieldSeconds: number;
   /** Multiplier on enemy troop production. */
   enemyProduction: number;
+  /**
+   * Seconds the enemy leaves a neutral base alone after another army attacks it, so it
+   * doesn't snipe bases a kid just wore down. 0 = no manners.
+   */
+  aiSnipeGuard: number;
 }
 
 export const DIFFICULTIES: Record<DifficultyId, Difficulty> = {
@@ -34,6 +39,7 @@ export const DIFFICULTIES: Record<DifficultyId, Difficulty> = {
     aiMaxSources: 1,
     shieldSeconds: 40,
     enemyProduction: 0.9,
+    aiSnipeGuard: 12,
   },
   soldier: {
     id: 'soldier',
@@ -42,10 +48,11 @@ export const DIFFICULTIES: Record<DifficultyId, Difficulty> = {
     aiInterval: 1.25,
     aiCommit: 0.65,
     aiMinTroops: 10,
-    aiMargin: 3,
+    aiMargin: 2,
     aiMaxSources: 1,
     shieldSeconds: 20,
     enemyProduction: 1,
+    aiSnipeGuard: 8,
   },
   general: {
     id: 'general',
@@ -58,6 +65,7 @@ export const DIFFICULTIES: Record<DifficultyId, Difficulty> = {
     aiMaxSources: 3,
     shieldSeconds: 0,
     enemyProduction: 1,
+    aiSnipeGuard: 0,
   },
 };
 

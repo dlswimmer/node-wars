@@ -22,6 +22,7 @@ export function createWorld(level: LevelDef, opts: WorldOptions = {}): World {
     shieldUntil: { player: 0, enemy: 0, ...opts.shield },
     events: [],
     nextUnitId: 1,
+    nextSquadId: 1,
     rng: createRng(opts.seed ?? 1),
   };
 }
@@ -65,6 +66,7 @@ export function sendTroops(
   const count = Math.floor(from.troops * fraction);
   if (count < 1) return 0;
   from.troops -= count;
+  const squad = world.nextSquadId++;
 
   const speed = UNIT_SPEED * getBonuses(world, army).speed;
   const fromR = BASE_STATS[from.kind].radius * 0.6;
@@ -82,21 +84,27 @@ export function sendTroops(
       ty,
       speed: speed * (0.9 + world.rng() * 0.2),
       delay: i * LAUNCH_INTERVAL,
+      squad,
     });
   }
   return count;
 }
 
+export type AttackOutcome = 'reinforce' | 'win' | 'close' | 'lose' | 'shielded';
+
 export interface AttackPreview {
   /** Troops that would be sent. */
   count: number;
-  /** True if the target is friendly (the order is a reinforcement). */
-  friendly: boolean;
-  /** Whether the attack is expected to capture the target. */
-  wins: boolean;
+  outcome: AttackOutcome;
 }
 
-/** What would happen if `army` sent troops from `sourceIds` to `targetId` right now. */
+/** Extra attack strength (in troops) below which a win is shown as "close". */
+const CLOSE_MARGIN = 3;
+
+/**
+ * What would happen if `army` sent troops from `sourceIds` to `targetId` right now,
+ * counting the target's production during the trip and reinforcements already on the way.
+ */
 export function previewAttack(
   world: World,
   army: Army,
@@ -113,17 +121,22 @@ export function previewAttack(
     count += Math.floor(b.troops * fraction);
     if (target) farthest = Math.max(farthest, Math.hypot(b.x - target.x, b.y - target.y));
   }
-  if (!target) return { count, friendly: false, wins: false };
-  if (target.owner === army) return { count, friendly: true, wins: true };
-  if (isShielded(world, target.owner)) return { count, friendly: false, wins: false };
+  if (!target) return { count, outcome: 'lose' };
+  if (target.owner === army) return { count, outcome: 'reinforce' };
+  if (isShielded(world, target.owner)) return { count, outcome: 'shielded' };
 
   let defenders = target.troops;
-  if (target.owner !== 'neutral') {
+  const owner = target.owner;
+  if (owner !== 'neutral') {
     const stats = BASE_STATS[target.kind];
     const travel = farthest / (UNIT_SPEED * getBonuses(world, army).speed);
-    defenders = Math.min(stats.capacity, defenders + stats.rate * travel);
+    const rate = stats.rate * getBonuses(world, owner).production * world.handicap[owner];
+    defenders = Math.min(stats.capacity, defenders + rate * travel);
+    defenders += world.units.filter((u) => u.owner === owner && u.targetId === targetId).length;
   }
-  return { count, friendly: false, wins: count * getBonuses(world, army).attack >= defenders };
+  const power = count * getBonuses(world, army).attack;
+  const outcome = power < defenders ? 'lose' : power < defenders + CLOSE_MARGIN ? 'close' : 'win';
+  return { count, outcome };
 }
 
 export function step(world: World, dt: number): void {
@@ -179,6 +192,8 @@ function resolveArrival(world: World, base: Base, unit: Unit, attack: number): v
     world.events.push({ type: 'blocked', baseId: base.id, by: unit.owner });
     return;
   }
+  base.lastAttackedBy = unit.owner;
+  base.lastAttackedAt = world.time;
   base.troops -= attack;
   // Ties go to the attacker so a kid's "6 against 6" works instead of leaving an empty base.
   if (base.troops <= 1e-6) {

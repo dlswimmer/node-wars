@@ -11,6 +11,10 @@ const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
   backgroundColor: COLORS.background,
+  // Phaser turns on pixel-art rendering whenever zoom != 1, which makes text jagged on
+  // high-DPI screens. This game is smooth vector art, so keep antialiasing on.
+  pixelArt: false,
+  antialias: true,
   scale: {
     mode: Phaser.Scale.NONE,
     width: width * DPR,

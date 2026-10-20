@@ -13,6 +13,9 @@ export interface Base {
   owner: Faction;
   /** Fractional so production can accumulate smoothly; display with Math.floor. */
   troops: number;
+  /** Most recent army to land an attack here, and when (used so AIs can avoid sniping). */
+  lastAttackedBy?: Army;
+  lastAttackedAt?: number;
 }
 
 export interface Unit {
@@ -27,6 +30,8 @@ export interface Unit {
   speed: number;
   /** Seconds before this unit leaves its base (staggers the swarm). */
   delay: number;
+  /** Units sent by the same order share a squad id. */
+  squad: number;
 }
 
 /** Global multipliers an army earns from the special bases it holds. */
@@ -56,6 +61,7 @@ export interface World {
   /** Events from the most recent step. */
   events: SimEvent[];
   nextUnitId: number;
+  nextSquadId: number;
   rng: () => number;
 }
 

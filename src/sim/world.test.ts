@@ -162,27 +162,41 @@ describe('ties and shields', () => {
 });
 
 describe('previewAttack', () => {
-  it('predicts a win against a weaker target', () => {
+  it('predicts a win against a much weaker target', () => {
     const world = createWorld(tinyLevel());
-    expect(previewAttack(world, 'player', [0], 1, 0.5)).toEqual({
-      count: 10,
-      friendly: false,
-      wins: true,
-    });
+    expect(previewAttack(world, 'player', [0], 1, 0.5)).toEqual({ count: 10, outcome: 'win' });
+  });
+
+  it('flags a narrow win as close', () => {
+    const level = tinyLevel();
+    level.bases[1]!.troops = 9;
+    const world = createWorld(level);
+    expect(previewAttack(world, 'player', [0], 1, 0.5).outcome).toBe('close');
   });
 
   it('predicts a loss against a stronger target', () => {
     const level = tinyLevel();
     level.bases[1]!.troops = 30;
     const world = createWorld(level);
-    expect(previewAttack(world, 'player', [0], 1, 0.5).wins).toBe(false);
+    expect(previewAttack(world, 'player', [0], 1, 0.5).outcome).toBe('lose');
   });
 
-  it('marks reinforcements as friendly', () => {
+  it('counts enemy reinforcements already on the way', () => {
+    const level = tinyLevel();
+    level.bases[1] = { kind: 'outpost', x: 200, y: 100, owner: 'enemy', troops: 4 };
+    level.bases[2]!.troops = 40;
+    const world = createWorld(level);
+    expect(previewAttack(world, 'player', [0], 1, 0.5).outcome).not.toBe('lose');
+    sendTroops(world, 'enemy', 2, 1, 0.5); // 20 more defenders incoming
+    expect(previewAttack(world, 'player', [0], 1, 0.5).outcome).toBe('lose');
+  });
+
+  it('marks reinforcements and shielded targets', () => {
     const level = tinyLevel();
     level.bases[1]!.owner = 'player';
-    const world = createWorld(level);
-    expect(previewAttack(world, 'player', [0], 1, 0.5).friendly).toBe(true);
+    const world = createWorld(level, { shield: { enemy: 30 } });
+    expect(previewAttack(world, 'player', [0], 1, 0.5).outcome).toBe('reinforce');
+    expect(previewAttack(world, 'player', [0], 2, 0.5).outcome).toBe('shielded');
   });
 });
 

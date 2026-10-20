@@ -1,26 +1,43 @@
 import Phaser from 'phaser';
 import { DPR, cssSize } from '../display';
-import { BONUS_PER_BASE } from '../sim/config';
 import { countBases, isShielded } from '../sim/world';
 import { COLORS, textStyle } from '../theme';
 import type { BattleScene } from './BattleScene';
 import { addButton, makePressable, uiZoom } from './ui';
 
+const PERK_WORDS: Record<string, string> = {
+  factory: 'FACTORY: faster building',
+  radar: 'RADAR: faster troops',
+  armory: 'ARMORY: stronger troops',
+};
+
+const DEFEAT_TIPS = [
+  'Tip: grab the gray bases near you first!',
+  'Tip: a green ring means your attack will win.',
+  'Tip: drag across two of your bases to attack with both!',
+  'Tip: hold the Factory and your army grows faster.',
+  'Tip: a red ring around your base means help it fast!',
+];
+
 /**
- * Screen-space overlay for a battle: status text, pause button, pause menu and the
+ * Screen-space overlay for a battle: status, pause button, pause menu and the
  * victory/defeat screen. Lives in its own scene so the battlefield camera's zoom never
  * changes its size.
  */
 export class HudScene extends Phaser.Scene {
   private battle!: BattleScene;
   private status!: Phaser.GameObjects.Text;
-  private shieldText!: Phaser.GameObjects.Text;
+  private perks!: Phaser.GameObjects.Text;
+  private shieldBar!: Phaser.GameObjects.Graphics;
   private pauseButton!: Phaser.GameObjects.Container;
+  private pauseIcon!: Phaser.GameObjects.Graphics;
   private pauseMenu!: Phaser.GameObjects.Container;
   private pauseShade!: Phaser.GameObjects.Rectangle;
   private pauseItems: Phaser.GameObjects.GameObject[] = [];
   private endScreen?: Phaser.GameObjects.Container;
+  private endButtonsReady = false;
   private won = false;
+  private tip = '';
 
   constructor() {
     super('hud');
@@ -29,15 +46,19 @@ export class HudScene extends Phaser.Scene {
   create() {
     this.battle = this.scene.get('battle') as BattleScene;
     this.endScreen = undefined;
-    const cam = this.cameras.main;
-    cam.setOrigin(0, 0);
+    this.endButtonsReady = false;
+    this.cameras.main.setOrigin(0, 0);
 
-    this.status = this.add.text(20, 14, '', textStyle(26)).setLineSpacing(4);
-    this.shieldText = this.add.text(20, 0, '', textStyle(26, '#7fd6ff'));
+    this.status = this.add.text(20, 14, '', textStyle(28)).setLineSpacing(2);
+    this.shieldBar = this.add.graphics();
+    this.perks = this.add.text(20, 0, '', textStyle(22, COLORS.textDim)).setOrigin(0, 1);
     this.pauseButton = this.createPauseButton();
     this.pauseMenu = this.createPauseMenu();
 
-    const onPause = (paused: boolean) => this.pauseMenu.setVisible(paused);
+    const onPause = (paused: boolean) => {
+      this.pauseMenu.setVisible(paused);
+      this.drawPauseIcon(paused);
+    };
     const onGameOver = (won: boolean) => this.showEndScreen(won);
     this.battle.events.on('pause-changed', onPause);
     this.battle.events.on('game-over', onGameOver);
@@ -58,17 +79,31 @@ export class HudScene extends Phaser.Scene {
   update() {
     const w = this.battle.world;
     if (!w) return;
-    const lines = [
-      `${this.battle.level.name.toUpperCase()}  ·  ${this.battle.difficulty.label}`,
-      `BASES ${countBases(w, 'player')} / ${w.bases.length}`,
-    ];
-    const perks = heldPerks(w.bases.filter((b) => b.owner === 'player').map((b) => b.kind));
-    if (perks) lines.push(perks);
+    const playing = !this.battle.gameOver;
+    this.status.setVisible(playing);
+    this.perks.setVisible(playing);
+    this.shieldBar.clear();
+    if (!playing) return;
+
+    const shieldLeft = isShielded(w, 'player') ? w.shieldUntil.player - w.time : 0;
+    const lines = [`BASES ${countBases(w, 'player')} / ${w.bases.length}`];
+    if (shieldLeft > 0) lines.push(`SHIELD ${Math.ceil(shieldLeft)}`);
     this.status.setText(lines.join('\n'));
 
-    const shield = isShielded(w, 'player') ? Math.ceil(w.shieldUntil.player - w.time) : 0;
-    this.shieldText.setText(shield > 0 ? `YOUR SHIELD: ${shield}` : '');
-    this.shieldText.setY(this.status.y + this.status.height + 2);
+    if (shieldLeft > 0) {
+      const fraction = shieldLeft / w.shieldUntil.player;
+      const y = this.status.y + this.status.height + 4;
+      this.shieldBar.fillStyle(0x000000, 0.5).fillRoundedRect(20, y, 180, 12, 6);
+      this.shieldBar.fillStyle(COLORS.shield, 1).fillRoundedRect(20, y, 180 * fraction, 12, 6);
+    }
+
+    const held = new Set<string>(w.bases.filter((b) => b.owner === 'player').map((b) => b.kind));
+    this.perks.setText(
+      Object.entries(PERK_WORDS)
+        .filter(([kind]) => held.has(kind))
+        .map(([, words]) => words)
+        .join('\n'),
+    );
   }
 
   /** Virtual canvas size for the HUD (screen size divided by the HUD zoom). */
@@ -86,17 +121,18 @@ export class HudScene extends Phaser.Scene {
     cam.setScroll(0, 0);
 
     this.pauseButton.setPosition(v.width - 62, 62);
+    this.perks.setPosition(20, v.height - 14);
     this.pauseShade.setSize(v.width, v.height);
     this.layoutColumn(this.pauseItems, v);
-    if (this.endScreen) this.showEndScreen(this.won);
+    if (this.endScreen) this.buildEndScreen();
   }
 
-  /** Stack a title and buttons down the middle of the screen. */
+  /** Stack items down the middle of the screen. */
   private layoutColumn(
     items: Phaser.GameObjects.GameObject[],
     v: { width: number; height: number },
   ) {
-    const gap = Math.min(110, (v.height - 60) / (items.length + 0.5));
+    const gap = Math.min(105, (v.height - 60) / (items.length + 0.5));
     const top = v.height / 2 - (gap * (items.length - 1)) / 2;
     items.forEach((item, i) => {
       (item as Phaser.GameObjects.Container).setPosition(v.width / 2, top + i * gap);
@@ -105,17 +141,29 @@ export class HudScene extends Phaser.Scene {
 
   private createPauseButton() {
     const size = 96;
-    const g = this.add.graphics();
-    g.fillStyle(0x000000, 0.5);
-    g.fillRoundedRect(-size / 2, -size / 2, size, size, 16);
-    g.lineStyle(3, 0xffffff, 0.35);
-    g.strokeRoundedRect(-size / 2, -size / 2, size, size, 16);
-    g.fillStyle(0xffffff, 0.95);
-    g.fillRect(-20, -24, 14, 48);
-    g.fillRect(6, -24, 14, 48);
-    const button = this.add.container(0, 0, [g]).setSize(size, size).setDepth(110);
+    const bg = this.add.graphics();
+    bg.fillStyle(0x000000, 0.5);
+    bg.fillRoundedRect(-size / 2, -size / 2, size, size, 16);
+    bg.lineStyle(3, 0xffffff, 0.35);
+    bg.strokeRoundedRect(-size / 2, -size / 2, size, size, 16);
+    this.pauseIcon = this.add.graphics();
+    this.drawPauseIcon(false);
+    const button = this.add.container(0, 0, [bg, this.pauseIcon]).setSize(size, size).setDepth(110);
     makePressable(button, () => this.battle.togglePause());
     return button;
+  }
+
+  /** Two bars while playing; a "play" triangle while paused. */
+  private drawPauseIcon(paused: boolean) {
+    const g = this.pauseIcon;
+    g.clear();
+    g.fillStyle(0xffffff, 0.95);
+    if (paused) {
+      g.fillTriangle(-14, -24, -14, 24, 24, 0);
+    } else {
+      g.fillRect(-20, -24, 14, 48);
+      g.fillRect(6, -24, 14, 48);
+    }
   }
 
   private createPauseMenu() {
@@ -124,9 +172,11 @@ export class HudScene extends Phaser.Scene {
       .rectangle(0, 0, 10, 10, 0x000000, 0.65)
       .setOrigin(0)
       .setInteractive();
-    const opts = { width: 380, height: 92, labelSize: 40 };
+    const opts = { width: 380, height: 88, labelSize: 40 };
+    const subtitle = `${this.battle.level.name.toUpperCase()}  ·  ${this.battle.difficulty.label}`;
     this.pauseItems = [
-      this.add.text(0, 0, 'PAUSED', textStyle(84)).setOrigin(0.5),
+      this.add.text(0, 0, 'PAUSED', textStyle(80)).setOrigin(0.5),
+      this.add.text(0, 0, subtitle, textStyle(28, COLORS.textDim)).setOrigin(0.5),
       addButton(this, 0, 0, {
         ...opts,
         label: 'RESUME',
@@ -152,68 +202,112 @@ export class HudScene extends Phaser.Scene {
 
   private showEndScreen(won: boolean) {
     this.won = won;
-    const firstTime = !this.endScreen;
-    this.endScreen?.destroy();
+    this.tip = DEFEAT_TIPS[Math.floor(Math.random() * DEFEAT_TIPS.length)]!;
     this.pauseButton.setVisible(false);
+    this.pauseMenu.setVisible(false);
+    this.buildEndScreen(true);
+    if (won) this.confetti();
+    // Short delay so a tap that was already in progress can't hit a button by accident.
+    this.time.delayedCall(900, () => {
+      this.endButtonsReady = true;
+      this.buildEndScreen();
+    });
+  }
+
+  /** (Re)build the end screen for the current screen size. */
+  private buildEndScreen(animate = false) {
+    this.endScreen?.destroy();
     const v = this.view();
+    const won = this.won;
     const shade = this.add.rectangle(0, 0, v.width, v.height, 0x000000, 0.6).setOrigin(0);
     shade.setInteractive();
+    const titleY = v.height * 0.24;
     const title = this.add
       .text(
         v.width / 2,
-        v.height * 0.28,
+        titleY,
         won ? 'VICTORY!' : 'DEFEAT',
         textStyle(120, won ? COLORS.accent : '#ff6b6b'),
       )
       .setOrigin(0.5);
     const time = Math.round(this.battle.world.time);
+    const clock = `${Math.floor(time / 60)}:${String(time % 60).padStart(2, '0')}`;
     const detail = this.add
       .text(
         v.width / 2,
-        v.height * 0.28 + 92,
-        `${this.battle.difficulty.label}  ·  ${Math.floor(time / 60)}:${String(time % 60).padStart(2, '0')}`,
-        textStyle(34),
+        titleY + 80,
+        won ? `${this.battle.difficulty.label}  ·  ${clock}` : this.tip,
+        {
+          ...textStyle(32),
+          align: 'center',
+          wordWrap: { width: v.width - 60 },
+        },
       )
-      .setOrigin(0.5);
-    const buttons = this.add.container(0, 0).setVisible(false);
-    const y = Math.min(v.height - 70, v.height * 0.28 + 230);
-    buttons.add([
-      addButton(this, v.width / 2 - 200, y, {
-        width: 360,
-        height: 96,
-        label: 'PLAY AGAIN',
-        color: 0x2f6b3a,
-        onClick: () => this.battle.restartBattle(),
-      }),
-      addButton(this, v.width / 2 + 200, y, {
-        width: 360,
-        height: 96,
-        label: 'CHANGE RANK',
-        onClick: () => this.battle.toMenu(),
-      }),
-    ]);
-    this.endScreen = this.add.container(0, 0, [shade, title, detail, buttons]).setDepth(120);
+      .setOrigin(0.5, 0);
 
-    if (firstTime) {
+    const parts: Phaser.GameObjects.GameObject[] = [shade, title, detail];
+    if (this.endButtonsReady) {
+      // Side by side when there's room, stacked on narrow (portrait) screens.
+      const narrow = v.width < 820;
+      const buttonW = Math.min(360, v.width - 60);
+      const y = narrow
+        ? Math.min(titleY + 230, v.height - 180)
+        : Math.min(titleY + 250, v.height - 70);
+      const spots: [[number, number], [number, number]] = narrow
+        ? [
+            [v.width / 2, y],
+            [v.width / 2, y + 110],
+          ]
+        : [
+            [v.width / 2 - 200, y],
+            [v.width / 2 + 200, y],
+          ];
+      parts.push(
+        addButton(this, spots[0][0], spots[0][1], {
+          width: buttonW,
+          height: 96,
+          label: 'PLAY AGAIN',
+          color: 0x2f6b3a,
+          onClick: () => this.battle.restartBattle(),
+        }),
+        addButton(this, spots[1][0], spots[1][1], {
+          width: buttonW,
+          height: 96,
+          label: 'CHANGE RANK',
+          onClick: () => this.battle.toMenu(),
+        }),
+      );
+    }
+    this.endScreen = this.add.container(0, 0, parts).setDepth(120);
+    if (animate) {
       title.setScale(0.3);
       this.tweens.add({ targets: title, scale: 1, duration: 450, ease: 'Back.easeOut' });
-      // Short delay so a tap that was already in progress can't hit a button by accident.
-      this.time.delayedCall(900, () => buttons.setVisible(true));
-    } else {
-      buttons.setVisible(true);
     }
   }
-}
 
-/** Plain-words summary of the bonuses from special bases the player holds. */
-function heldPerks(kinds: string[]): string {
-  const count = (k: string) => kinds.filter((x) => x === k).length;
-  const parts: string[] = [];
-  const f = count('factory');
-  const r = count('radar');
-  const a = count('armory');
-  if (f) parts.push(`BUILD +${Math.round(f * BONUS_PER_BASE.factory * 100)}%`);
-  if (r) parts.push(`SPEED +${Math.round(r * BONUS_PER_BASE.radar * 100)}%`);
-  if (a) parts.push(`ATTACK +${Math.round(a * BONUS_PER_BASE.armory * 100)}%`);
-  return parts.join('   ');
+  private confetti() {
+    const v = this.view();
+    const colors = [0x3d8bfd, 0xf2c94c, 0x4cd964, 0xffffff, 0xff8a3d];
+    for (let i = 0; i < 90; i++) {
+      const piece = this.add
+        .rectangle(
+          Math.random() * v.width,
+          -20 - Math.random() * v.height * 0.5,
+          10 + Math.random() * 8,
+          6 + Math.random() * 6,
+          colors[i % colors.length],
+        )
+        .setDepth(130)
+        .setAngle(Math.random() * 360);
+      this.tweens.add({
+        targets: piece,
+        y: v.height + 40,
+        x: piece.x + (Math.random() - 0.5) * 200,
+        angle: piece.angle + 360 + Math.random() * 360,
+        duration: 1800 + Math.random() * 1600,
+        ease: 'Sine.easeIn',
+        onComplete: () => piece.destroy(),
+      });
+    }
+  }
 }

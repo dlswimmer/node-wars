@@ -3,7 +3,7 @@ import { createAi, updateAi } from './ai';
 import { DIFFICULTIES, type Difficulty } from './difficulty';
 import { LEVELS } from './levels';
 import type { LevelDef } from './types';
-import { createWorld, step } from './world';
+import { createWorld, sendTroops, step } from './world';
 
 const duel = (enemyTroops: number, neutralTroops: number): LevelDef => ({
   id: 'ai-test',
@@ -54,6 +54,19 @@ describe('AI', () => {
     const ai = createAi('enemy', fast());
     updateAi(world, ai, 1);
     expect(world.units).toHaveLength(0);
+  });
+
+  it('does not snipe a neutral base the player is attacking, unless it is a General', () => {
+    const level = duel(40, 5);
+    const polite = createWorld(level);
+    sendTroops(polite, 'player', 0, 1, 0.1); // a few player troops already on the way
+    updateAi(polite, createAi('enemy', fast({ aiSnipeGuard: 8 })), 1);
+    expect(polite.units.filter((u) => u.owner === 'enemy')).toHaveLength(0);
+
+    const rude = createWorld(level);
+    sendTroops(rude, 'player', 0, 1, 0.1);
+    updateAi(rude, createAi('enemy', fast({ aiSnipeGuard: 0 })), 1);
+    expect(rude.units.filter((u) => u.owner === 'enemy').length).toBeGreaterThan(0);
   });
 
   it('combines several bases into one attack when allowed', () => {

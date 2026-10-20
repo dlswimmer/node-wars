@@ -8,6 +8,7 @@ export const COLORS = {
   textDim: '#b5c29f',
   accent: '#f2c94c',
   good: 0x4cd964,
+  warn: 0xffd23f,
   bad: 0xff5a5f,
   shield: 0x7fd6ff,
 } as const;

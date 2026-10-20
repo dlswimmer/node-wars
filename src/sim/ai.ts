@@ -34,6 +34,7 @@ export function updateAi(world: World, ai: AiState, dt: number): void {
   for (const target of world.bases) {
     if (target.owner === ai.army) continue;
     if (isShielded(world, target.owner)) continue;
+    if (isSnipe(world, ai, target)) continue;
 
     const nearest = [...sources]
       .sort((a, b) => dist(a, target) - dist(b, target))
@@ -62,6 +63,17 @@ export function updateAi(world: World, ai: AiState, dt: number): void {
 
   if (!bestTarget) return;
   for (const src of bestSources) sendTroops(world, ai.army, src.id, bestTarget.id, s.aiCommit);
+}
+
+/** Would attacking this neutral base steal it from another army that is already taking it? */
+function isSnipe(world: World, ai: AiState, target: Base): boolean {
+  const guard = ai.settings.aiSnipeGuard;
+  if (guard <= 0 || target.owner !== 'neutral') return false;
+  const recentlyHit =
+    target.lastAttackedBy !== undefined &&
+    target.lastAttackedBy !== ai.army &&
+    world.time - (target.lastAttackedAt ?? -Infinity) < guard;
+  return recentlyHit || world.units.some((u) => u.targetId === target.id && u.owner !== ai.army);
 }
 
 function dist(a: Base, b: Base): number {
