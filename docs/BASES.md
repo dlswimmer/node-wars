@@ -15,19 +15,20 @@ starting points for the bot balance harness, not final values.
 - **Three layers of power**, added over time:
   1. **Passive**: always on while you hold the base (Phase 1).
   2. **Upgrades**: bought with command points in the prestige loop (Phase 1.5).
-  3. **Active ability**: tap the base, tap the ability button; it has a cooldown
-     (Phase 3, alongside commander abilities). At most one per base.
+  3. **Active ability**: holding a base unlocks its ability in the **player ability bar**
+     (Phase 3). To keep the bar from getting crowded, you pick a loadout of up to
+     3 abilities before a battle; each has a cooldown.
 - **Army-wide bonuses stack with diminishing returns** (for example +25%, then +15%, then
   +10%) so holding three Factories helps but doesn't snowball.
 
 ## Units
 
-| Unit    | From      | Worth | Speed     | Notes                                                                  |
-| ------- | --------- | ----- | --------- | ---------------------------------------------------------------------- |
-| Soldier | most      | 1     | 1.0       | **Live.** The swarm.                                                   |
-| Tank    | Factory   | 3     | 0.6       | **Live.** Full damage to Bunkers; slowed most by mud/forest (Phase 2). |
-| Jet     | Airfield  | 1     | 2.2       | Flies straight over terrain; half damage to Bunkers.                   |
-| Shell   | Artillery | 3 dmg | arcs, 1.5 | Not a unit you send: fired automatically, can't capture.               |
+| Unit    | From      | Worth | Speed     | Notes                                                                                          |
+| ------- | --------- | ----- | --------- | ---------------------------------------------------------------------------------------------- |
+| Soldier | most      | 1     | 1.0       | **Live.** The swarm.                                                                           |
+| Tank    | Factory   | 3     | 0.6       | **Live.** Full damage to Bunkers; slowed most by mud/forest (Phase 2).                         |
+| Jet     | Airfield  | 1     | 2.2       | Raiders: fly over terrain and knock troops off, but **never capture**; half damage to Bunkers. |
+| Shell   | Artillery | 3 dmg | arcs, 1.5 | Not a unit you send: fired automatically, can't capture.                                       |
 
 ## Production bases
 
@@ -68,7 +69,7 @@ starting points for the bot balance harness, not final values.
   ring appears earlier and shows how many enemies are incoming).
 - Stats: 0.5/s, holds 40.
 - Upgrades: Long Range (+30%), Early Warning (warning sound plays sooner).
-- With fog of war (Phase 2): reveals the area around it.
+- With fog of war (Phase 2, Soldier and General only): reveals the area around it.
 - Active: **Scan**: reveals the whole map for 10 seconds.
 
 ### Armory (diamond) — live
@@ -113,8 +114,9 @@ starting points for the bot balance harness, not final values.
 
 ### Airfield (runway) — Phase 2 (needs terrain to matter)
 
-- **Power:** troops sent from here take off as jets: very fast and flying straight over
-  water and mountains.
+- **Power:** troops sent from here take off as jets: very fast raiders that fly straight
+  over water and mountains and knock troops off a base, but can't capture it. Send soldiers
+  or tanks to finish the job.
 - Stats: 0.6/s, holds 40.
 - Upgrades: Afterburners (faster), Bombers (jets worth 2).
 - Active: **Air Strike**: knocks 10 troops off any base on the map.
@@ -175,11 +177,10 @@ starting points for the bot balance harness, not final values.
 - Every new base gets bot balance runs before it ships: win rates per rank must stay in the
   bands in `src/sim/playtest/balance.test.ts`.
 
-## Open questions
+## Decisions
 
-1. Should jets be able to capture bases, or only knock troops off (pure raiders)?
-2. Fog of war in Phase 2: fun for an 11-year-old, possibly confusing for an 8-year-old.
-   Maybe on for General only?
-3. Should active abilities belong to bases (tap the base) or to the player (a small ability
-   bar), with bases only unlocking them?
-4. Do neutral bases ever fight back (for example, a neutral Bunker shooting nearby troops)?
+1. **Jets only raid.** They knock troops off but never capture.
+2. **Fog of war** (Phase 2) is on for **Soldier and General**, off for Recruit.
+3. **Abilities live in a player ability bar.** Bases unlock them; a pre-battle loadout of up
+   to 3 keeps the bar manageable as more are added.
+4. **Neutral bases never fight back**, at least for now.

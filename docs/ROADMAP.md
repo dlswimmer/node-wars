@@ -66,6 +66,8 @@ Goal: one battle that is genuinely exciting for an 8-year-old, and a solid base 
 
 ## Phase 1.5: Prestige loop
 
+Full plan in [PRESTIGE.md](PRESTIGE.md).
+
 The core game loop: battles get harder until you hit a wall, then you spend what you earned on
 permanent upgrades and push further.
 
