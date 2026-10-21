@@ -113,15 +113,15 @@ describe('randomMapSeed', () => {
 describe('bunkers and field hospitals on random maps', () => {
   it('show up on some maps but not all, mirrored like every other base', () => {
     const seeds = Array.from({ length: 60 }, (_, i) => i * 131 + 7);
-    const has = (kind: string) =>
-      seeds.filter((s) => generateLevel(s).bases.some((b) => b.kind === kind)).length;
+    const maps = seeds.map(mapFor);
+    const has = (kind: string) => maps.filter((l) => l.bases.some((b) => b.kind === kind)).length;
     for (const kind of ['bunker', 'hospital', 'checkpoint']) {
       expect(has(kind), kind).toBeGreaterThan(seeds.length * 0.1);
       expect(has(kind), kind).toBeLessThan(seeds.length * 0.75);
     }
-    for (const s of seeds) {
+    for (const l of maps) {
       for (const kind of ['bunker', 'hospital', 'airfield', 'checkpoint']) {
-        expect(generateLevel(s).bases.filter((b) => b.kind === kind).length % 2).toBe(0);
+        expect(l.bases.filter((b) => b.kind === kind).length % 2).toBe(0);
       }
     }
   });
