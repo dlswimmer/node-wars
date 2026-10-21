@@ -45,7 +45,7 @@ export const BASE_STATS: Record<BaseKind, BaseStats> = {
     rate: 0.5,
     capacity: 40,
     radius: 30,
-    perk: 'All your troops move faster',
+    perk: 'All your troops move faster, and you see how many enemies are coming',
   },
   armory: {
     label: 'Armory',

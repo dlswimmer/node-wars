@@ -43,7 +43,7 @@ Goal: one battle that is genuinely exciting for an 8-year-old, and a solid base 
 - [x] Opening shield, capture the enemy HQ to win, confetti and defeat tips
 - [x] Swarms that fight each other when they meet mid-field
 - [x] Sound effects (synthesized in code) with a mute button
-- [ ] First-battle tutorial (animated hand showing the drag)
+- [x] First-battle tutorial (animated hand showing the drag)
 - [x] ~~Medals for each battle~~ (replaced by medals per star in the campaign)
 - [x] ~~Several maps that unlock one after another~~ (replaced by the conquest map)
 - [x] Random skirmish maps (mirrored so both sides start fair, checked by bot matches)
@@ -60,7 +60,7 @@ Goal: one battle that is genuinely exciting for an 8-year-old, and a solid base 
   - HQ: fastest production; capture it to win
   - Barracks: strong production
   - Factory: faster building everywhere, sends tanks
-  - Radar: faster troops everywhere (done), and reveals incoming attacks earlier (not yet)
+  - Radar: faster troops everywhere, and shows how many enemies are coming (done)
   - Armory: stronger troops everywhere
   - Outpost: troops sent from it move 40% faster (a launch pad for the front line) (done)
   - Bunker: defenders count double, a tough nut to crack (done)

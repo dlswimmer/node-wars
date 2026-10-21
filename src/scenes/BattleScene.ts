@@ -42,6 +42,7 @@ import {
   previewAttack,
   sendTroops,
   step,
+  travelDistance,
   type AttackOutcome,
 } from '../sim/world';
 import {
@@ -61,6 +62,8 @@ const MAX_DT = 0.1;
 const ADJUTANT_COLOR = 0xa77bff;
 /** How far below a base's centre its troop count sits, as a share of its radius. */
 const TROOP_LABEL_DROP = 0.4;
+/** Seconds for one loop of the first-battle hand (press, slide, lift). */
+const TUTORIAL_CYCLE = 2.6;
 /** Two taps on the same base within this many milliseconds arm it to send every troop. */
 const DOUBLE_TAP_MS = 400;
 /** Finger-friendly hit area around a base, in CSS pixels. */
@@ -142,6 +145,16 @@ export class BattleScene extends Phaser.Scene {
   private troopLabels: Phaser.GameObjects.Text[] = [];
   private previewLabel!: Phaser.GameObjects.Text;
   private armedLabel!: Phaser.GameObjects.Text;
+  /** With a Radar, how many enemies are heading for each of your bases (one per base). */
+  private incomingLabels: Phaser.GameObjects.Text[] = [];
+  /** A kid's very first battle: a hand shows how to drag, until the first order. */
+  private firstBattle = false;
+  private tutorial: {
+    from: Base;
+    to: Base;
+    gfx: Phaser.GameObjects.Graphics;
+    label: Phaser.GameObjects.Text;
+  } | null = null;
   private effects: Effect[] = [];
   private lastHitFx = new Map<number, number>();
   /** When the last clash spark was drawn in each patch of the map, so big fights don't spam. */
@@ -195,6 +208,7 @@ export class BattleScene extends Phaser.Scene {
     this.mode = data.mode ?? 'quick';
     this.auto = this.mode === 'campaign' && !!data.auto;
     this.ffa = this.mode === 'quick' && !!data.ffa;
+    this.firstBattle = isFirstBattle() && !this.auto;
     this.map = data.map ?? (isFirstBattle() && !this.ffa ? 0 : randomMapSeed());
     this.region = this.mode === 'campaign' ? (data.region ?? null) : null;
     if (this.region) {
@@ -294,6 +308,15 @@ export class BattleScene extends Phaser.Scene {
       .setOrigin(0.5, 1)
       .setDepth(10)
       .setVisible(false);
+    this.incomingLabels = this.world.bases.map((b) => {
+      const r = BASE_STATS[b.kind].radius;
+      return this.add
+        .text(b.x - r * 0.7, b.y - r * 0.7, '', textStyle(24, '#ff8a8e'))
+        .setOrigin(1, 1)
+        .setDepth(9)
+        .setVisible(false);
+    });
+    this.tutorial = this.firstBattle ? this.createTutorial() : null;
 
     this.fitCamera(true);
     this.scale.on('resize', this.onResize, this);
@@ -693,6 +716,11 @@ Drag from a BLUE base!`,
       sent += n;
     }
     if (sent > 0) sfx.send();
+    if (sent > 0 && this.tutorial) {
+      this.tutorial.gfx.destroy();
+      this.tutorial.label.destroy();
+      this.tutorial = null;
+    }
     if (sent === 0) {
       const src = this.world.bases[sourceIds[0]!];
       if (src) this.hint(src, 'Need more troops!', COLORS.accent);
@@ -892,6 +920,8 @@ Drag from a BLUE base!`,
     }
 
     this.renderUnits(zoom);
+    this.renderIncoming(zoom);
+    this.renderTutorial(zoom);
 
     this.fxGfx.clear();
     for (const fx of this.effects) {
@@ -955,6 +985,69 @@ Drag from a BLUE base!`,
       }
     }
     for (let i = n; i < this.unitSprites.length; i++) this.unitSprites[i]!.setVisible(false);
+  }
+
+  /** The hand for a first battle: from your HQ to the nearest neutral base. */
+  private createTutorial() {
+    const from = this.world.bases.find((b) => b.kind === 'hq' && b.owner === 'player');
+    const to = this.world.bases
+      .filter((b) => b.owner === 'neutral' && from)
+      .sort(
+        (a, b) =>
+          travelDistance(this.world, from!.id, a.id) - travelDistance(this.world, from!.id, b.id),
+      )[0];
+    if (!from || !to) return null;
+    const gfx = this.add.graphics().setDepth(11);
+    const label = this.add
+      .text(0, 0, 'Drag from your base to a gray one!', textStyle(26, COLORS.accent))
+      .setOrigin(0.5, 1)
+      .setDepth(11);
+    return { from, to, gfx, label };
+  }
+
+  /**
+   * The hand presses on your HQ, slides to the target with a line behind it, then lifts off,
+   * over and over until you send your first troops.
+   */
+  private renderTutorial(zoom: number) {
+    const t = this.tutorial;
+    if (!t) return;
+    const g = t.gfx.clear();
+    const show = !this.gameOver && this.gesture === 'none' && this.armed.size === 0;
+    t.label.setVisible(show);
+    if (!show) return;
+    const cycle = (this.time.now / 1000) % TUTORIAL_CYCLE;
+    const move = Phaser.Math.Clamp((cycle - 0.4) / 1.2, 0, 1);
+    const eased = move * move * (3 - 2 * move);
+    const x = t.from.x + (t.to.x - t.from.x) * eased;
+    const y = t.from.y + (t.to.y - t.from.y) * eased;
+    const fade = cycle > 1.9 ? 1 - (cycle - 1.9) / (TUTORIAL_CYCLE - 1.9) : 1;
+    g.lineStyle(cssToWorld(4, zoom), 0xffffff, 0.6 * fade);
+    g.lineBetween(t.from.x, t.from.y, x, y);
+    drawHand(g, x, y, cssToWorld(46, zoom), fade, cycle < 0.4 || move < 1);
+    t.label.setFontSize(Math.max(26, cssToWorld(18, zoom)));
+    this.placeAbove(t.label, t.from, BASE_STATS[t.from.kind].radius + 24);
+  }
+
+  /**
+   * Holding a Radar warns early: every base of yours that enemies are heading for shows how
+   * many are coming, even before it is in danger.
+   */
+  private renderIncoming(zoom: number) {
+    const radar = this.world.bases.some((b) => b.owner === 'player' && b.kind === 'radar');
+    const incoming = new Map<number, number>();
+    if (radar && !this.gameOver) {
+      for (const u of this.world.units) {
+        if (u.owner === 'player' || this.world.bases[u.targetId]?.owner !== 'player') continue;
+        incoming.set(u.targetId, (incoming.get(u.targetId) ?? 0) + u.power);
+      }
+    }
+    const size = Math.max(22, cssToWorld(15, zoom));
+    for (const [id, label] of this.incomingLabels.entries()) {
+      const n = incoming.get(id) ?? 0;
+      label.setVisible(n > 0);
+      if (n > 0) label.setText(`⚠${Math.ceil(n)}`).setFontSize(size);
+    }
   }
 
   /** Lines from the selected bases plus a preview of whether the attack would win. */
@@ -1026,7 +1119,8 @@ Drag from a BLUE base!`,
     } else {
       label.setOrigin(0.5, 1).setPosition(base.x, above);
     }
-    const half = label.width / 2;
+    // Keep a little gap from the screen edge so the first and last letters never touch it.
+    const half = label.width / 2 + cssToWorld(12, this.cameras.main.zoom);
     label.setX(Phaser.Math.Clamp(label.x, view.left + half, view.right - half));
   }
 
@@ -1072,6 +1166,30 @@ Drag from a BLUE base!`,
     }
     this.events.emit('game-over', won);
   }
+}
+
+/** A cartoon pointing hand with its fingertip at (x, y), `s` tall; pressed pushes it down. */
+function drawHand(
+  g: Phaser.GameObjects.Graphics,
+  x: number,
+  y: number,
+  s: number,
+  alpha: number,
+  pressed: boolean,
+) {
+  const dy = pressed ? s * 0.05 : 0;
+  const top = y + dy;
+  g.fillStyle(0x000000, 0.3 * alpha);
+  g.fillEllipse(x + s * 0.12, y + s * 0.95, s * 0.7, s * 0.25);
+  g.fillStyle(0xffffff, alpha);
+  g.lineStyle(Math.max(2, s * 0.05), 0x222222, alpha);
+  // Pointing finger, then the fist with a thumb.
+  g.fillRoundedRect(x - s * 0.1, top, s * 0.2, s * 0.55, s * 0.1);
+  g.strokeRoundedRect(x - s * 0.1, top, s * 0.2, s * 0.55, s * 0.1);
+  g.fillRoundedRect(x - s * 0.22, top + s * 0.38, s * 0.55, s * 0.5, s * 0.14);
+  g.strokeRoundedRect(x - s * 0.22, top + s * 0.38, s * 0.55, s * 0.5, s * 0.14);
+  g.fillEllipse(x - s * 0.24, top + s * 0.55, s * 0.2, s * 0.32);
+  g.strokeEllipse(x - s * 0.24, top + s * 0.55, s * 0.2, s * 0.32);
 }
 
 function hexColor(color: number): string {

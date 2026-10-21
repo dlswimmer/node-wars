@@ -64,6 +64,11 @@ every push to `main` (CI runs lint, format, typecheck and tests first).
 - **Double-tap sends everything** (the older son's idea). Drag and single tap still send half;
   double-tapping one of your bases arms it to send all its troops, and the preview rings count
   them all. Bots don't use it, so it is a little extra power for the player only.
+- **First battle shows a hand** dragging from your HQ to the nearest neutral base, with "Drag
+  from your base to a gray one!", until you send your first troops. It shows whenever the
+  game thinks it is your first battle (the same flag that picks Boot Camp).
+- **Radar early warning adds, never takes away.** Holding a Radar shows how many enemies are
+  heading for each of your bases (⚠9). The red danger ring is the same with or without one.
 - **Swarm clashes** cancel troop for troop mid-field (Armory counts; a tank absorbs soldiers).
 - **Bunker AI by rank:** only General and Marshal know a Bunker needs double troops and value
   Bunkers/Hospitals by position. Easier AIs waste troops on Bunkers. This keeps early ranks

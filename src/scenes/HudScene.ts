@@ -9,7 +9,7 @@ import { addButton, addMuteButton, makePressable, uiZoom } from './ui';
 
 const PERK_WORDS: Record<string, string> = {
   factory: 'FAST BUILD + TANKS',
-  radar: 'FAST TROOPS',
+  radar: 'FAST TROOPS + EARLY WARNING',
   armory: 'STRONG TROOPS',
 };
 
