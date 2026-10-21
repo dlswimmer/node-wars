@@ -1,7 +1,6 @@
-import { levelRoutes } from './paths';
-import { MAX_DETOUR, addRiver } from './rivers';
 import { createRng } from './rng';
 import { addScenery, fitsWithTwin, regionOutline } from './scenery';
+import { NO_TERRAIN, RANDOM_TERRAIN, addTerrain, type TerrainOptions } from './terrain';
 import type { BaseDef, BaseKind, LevelDef, Point } from './types';
 
 /**
@@ -80,18 +79,7 @@ export function mapName(seed: number): string {
 
 /** The same seed always gives the same map, so a map number can be played again. */
 export function generateLevel(seed: number): LevelDef {
-  const layout = layoutLevel(seed, false);
-  const level = addScenery(addRiver(layout, seed), seed);
-  return tooRoundabout(level) ? addScenery(layout, seed) : level;
-}
-
-/** Whether the walk between the two HQs is much longer than the straight line. */
-function tooRoundabout(level: LevelDef): boolean {
-  if (!level.rivers?.length) return false;
-  const a = level.bases.findIndex((b) => b.kind === 'hq' && b.owner === 'player');
-  const b = level.bases.findIndex((b) => b.kind === 'hq' && b.owner === 'enemy');
-  const [p, q] = [level.bases[a]!, level.bases[b]!];
-  return levelRoutes(level)[a]![b]!.length > MAX_DETOUR * Math.hypot(p.x - q.x, p.y - q.y);
+  return addTerrain(addScenery(layoutLevel(seed, false), seed), seed, RANDOM_TERRAIN);
 }
 
 /** Battlefield area of a conquest region (about a random map's), and of the tutorial one. */
@@ -110,7 +98,8 @@ interface Field {
  * map, only scaled and moved. Bases still come in mirrored pairs through the shape's centre
  * (so both sides get the same map), placed only where a base and its twin both fit inside.
  * The two HQs face each other along the region's long way, yours at the west/south end.
- * A small map has few bases, for the tutorial region.
+ * A small map has few bases, for the tutorial region. Terrain (rivers, mountains) comes from
+ * the region's rating.
  */
 export function generateRegionLevel(
   seed: number,
@@ -118,6 +107,7 @@ export function generateRegionLevel(
   id: string,
   name: string,
   small: boolean,
+  terrain: TerrainOptions = NO_TERRAIN,
 ): LevelDef {
   const { outline, width, height } = regionOutline(shape, small ? SMALL_REGION_AREA : REGION_AREA);
   const fits = fitsWithTwin(outline, width, height);
@@ -155,7 +145,8 @@ export function generateRegionLevel(
       list[i + 1] = { ...list[i + 1]!, x: width - list[i]!.x, y: height - list[i]!.y };
     }
     if (list.length % 2 === 1) list[list.length - 1] = { ...list[list.length - 1]!, x: cx, y: cy };
-    return addScenery({ id, name, width, height, bases: list }, seed, outline);
+    const level = addScenery({ id, name, width, height, bases: list }, seed, outline);
+    return addTerrain(level, seed, terrain, d);
   }
   throw new Error(`Could not lay out region ${id}`);
 }

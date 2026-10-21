@@ -142,6 +142,14 @@ export interface LevelDef {
   /** Water that troops can only cross on a bridge. */
   rivers?: River[];
   bridges?: Bridge[];
+  /** Mountain ridges troops must go around (a gap between two ridges is a pass). */
+  ridges?: Ridge[];
+}
+
+/** A mountain ridge: a line along its crest; it blocks this far either side, rounded at the ends. */
+export interface Ridge {
+  points: Point[];
+  width: number;
 }
 
 /** A river: a line along the water's middle, running out past the map's edge at both ends. */

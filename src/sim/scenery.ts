@@ -21,8 +21,9 @@ const OUTLINE_WOBBLE = 34;
 /** Scenery keeps this far from a base's edge, and from the label below it. */
 const BASE_CLEARANCE = 38;
 const LABEL_Y = 48;
-/** Scenery keeps this far from a river's bank. */
+/** Scenery keeps this far from water and rock. */
 const RIVER_CLEARANCE = 60;
+const RIDGE_CLEARANCE = 30;
 
 const FEATURE_SIZES: Record<FeatureKind, [number, number]> = {
   forest: [45, 75],
@@ -188,10 +189,8 @@ function makeFeatures(level: LevelDef, outline: Point[], rng: () => number): Fea
     for (const p of [f, { x: width - f.x, y: height - f.y }]) {
       if (!insidePolygon(p, outline) || edgeDistance(p, outline) < f.size + 12) return false;
     }
-    // Keep off the water, with room to walk to and from the bridges.
-    for (const r of level.rivers ?? []) {
-      if (distToPolyline(f.x, f.y, r.points) < f.size + r.width / 2 + RIVER_CLEARANCE) return false;
-    }
+    // Off the water and rock, with room to walk to the bridges and through the passes.
+    if (onTerrain(level, f, f.size)) return false;
     for (const b of bases) {
       const clear = f.size + BASE_STATS[b.kind].radius + BASE_CLEARANCE;
       if (Math.hypot(f.x - b.x, f.y - b.y) < clear) return false;
@@ -223,6 +222,18 @@ function makeFeatures(level: LevelDef, outline: Point[], rng: () => number): Fea
     ...half,
     ...half.map((f) => ({ ...f, x: width - f.x, y: height - f.y, angle: f.angle + Math.PI })),
   ];
+}
+
+/** Whether a patch of scenery this big at this spot would sit on water or rock. */
+function onTerrain(level: LevelDef, p: Point, size: number): boolean {
+  return (
+    (level.rivers ?? []).some(
+      (r) => distToPolyline(p.x, p.y, r.points) < size + r.width / 2 + RIVER_CLEARANCE,
+    ) ||
+    (level.ridges ?? []).some(
+      (r) => distToPolyline(p.x, p.y, r.points) < size + r.width / 2 + RIDGE_CLEARANCE,
+    )
+  );
 }
 
 export function insidePolygon(p: Point, poly: Point[]): boolean {

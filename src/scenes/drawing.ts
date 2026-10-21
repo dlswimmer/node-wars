@@ -2,7 +2,7 @@ import type Phaser from 'phaser';
 import { BASE_STATS, HOSPITAL_RANGE } from '../sim/config';
 import { createRng } from '../sim/rng';
 import { insidePolygon } from '../sim/scenery';
-import type { Base, Bridge, Feature, Point, River } from '../sim/types';
+import type { Base, Bridge, Feature, LevelDef, Point, Ridge, River } from '../sim/types';
 import { COLORS } from '../theme';
 
 /** Tactical-map background: a grid with heavier lines every 5 cells. */
@@ -175,18 +175,16 @@ const GROUND = 0x1b2416;
 const BORDER = 0x6f7d52;
 
 /**
- * The battlefield: ground and grid inside the map's outline, rivers and bridges, scenery, a
+ * The battlefield: ground and grid inside the map's outline, rivers and bridges, mountains, scenery, a
  * soft dark edge, and
  * fog of war everywhere outside. Drawn once when the battle starts.
  */
 export function drawTerrain(
   g: Phaser.GameObjects.Graphics,
-  outline: Point[],
-  features: Feature[],
+  level: LevelDef & { outline: Point[] },
   area: { x: number; y: number; width: number; height: number },
-  rivers: River[] = [],
-  bridges: Bridge[] = [],
 ) {
+  const { outline, features = [], rivers = [], bridges = [], ridges = [] } = level;
   const far = 4000;
   g.fillStyle(FOG, 1);
   g.fillRect(area.x - far, area.y - far, area.width + far * 2, area.height + far * 2);
@@ -195,6 +193,7 @@ export function drawTerrain(
   drawClippedGrid(g, outline);
   for (const r of rivers) drawRiver(g, r, outline);
   for (const b of bridges) drawBridge(g, b);
+  for (const r of ridges) drawRidge(g, r);
   for (const f of features) drawFeature(g, f);
   // Darken just inside the edge so the land fades into the fog.
   for (const [width, alpha] of [
@@ -271,6 +270,42 @@ function drawBridge(g: Phaser.GameObjects.Graphics, b: Bridge) {
   for (const side of [-hw, hw]) {
     const [p, q] = [at(-hl, side), at(hl, side)];
     g.lineBetween(p.x, p.y, q.x, q.y);
+  }
+}
+
+/** A rocky mountain ridge: a dark base with a row of peaks lit from the top left. */
+function drawRidge(g: Phaser.GameObjects.Graphics, ridge: Ridge) {
+  const line = ridge.points;
+  const band = (width: number, color: number) => {
+    g.lineStyle(width, color, 1);
+    g.strokePoints(line, false);
+    g.fillStyle(color, 1);
+    for (const p of line) g.fillCircle(p.x, p.y, width / 2);
+  };
+  band(ridge.width + 8, 0x1c1f17);
+  band(ridge.width, 0x3a3c32);
+  // Peaks every so often along the crest, alternating sizes so it reads as rock, not a pipe.
+  const rng = createRng(Math.round(line[0]!.x * 31 + line[0]!.y * 17));
+  const peaks: Point[] = [];
+  for (let i = 1; i < line.length; i++) {
+    const [a, b] = [line[i - 1]!, line[i]!];
+    const steps = Math.max(1, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / 14));
+    for (let s = 0; s < steps; s++) {
+      const t = s / steps;
+      peaks.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+    }
+  }
+  peaks.push(line[line.length - 1]!);
+  for (const [i, p] of peaks.entries()) {
+    const h = ridge.width * (i % 2 === 0 ? 0.42 : 0.3) * (0.8 + rng() * 0.4);
+    const w = h * 0.9;
+    const [x, y] = [p.x + (rng() - 0.5) * 6, p.y + h * 0.35];
+    g.fillStyle(0x2b2d25, 1);
+    g.fillTriangle(x, y - h, x + w, y, x, y);
+    g.fillStyle(0x56584b, 1);
+    g.fillTriangle(x, y - h, x - w, y, x, y);
+    g.fillStyle(0x8c8e80, 1);
+    g.fillTriangle(x, y - h, x - w * 0.3, y - h * 0.65, x + w * 0.25, y - h * 0.7);
   }
 }
 

@@ -108,7 +108,7 @@ join seamlessly, so the front line flows from one into the next.
 - [ ] Bases placed inside each zone with even spacing (Poisson-disk), never too crowded
 - [ ] Terrain that shapes strategy:
   - Water and mountains block troops; bridges and passes become chokepoints worth holding
-    (rivers with bridges on random maps and lakes everywhere: done; mountains next)
+    (done: rivers with bridges, mountain ranges with passes, lakes; regions by star rating)
   - Forest, mud, and hills slow troops; roads speed them up
   - (done) Troops follow real paths around terrain (paths between bases worked out once per map,
     so it stays fast with hundreds of units)

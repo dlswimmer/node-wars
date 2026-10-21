@@ -210,8 +210,7 @@ export class BattleScene extends Phaser.Scene {
     this.box = contentBox(this.world, this.level.outline);
     const ground = this.add.graphics();
     if (this.level.outline) {
-      const { outline, features = [], rivers, bridges } = this.level;
-      drawTerrain(ground, outline, features, this.box, rivers, bridges);
+      drawTerrain(ground, { ...this.level, outline: this.level.outline }, this.box);
     } else {
       drawMapGrid(ground, this.box.width + 2000, this.box.height + 2000);
       ground.setPosition(this.box.x - 1000, this.box.y - 1000);

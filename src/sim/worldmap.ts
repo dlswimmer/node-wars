@@ -1,5 +1,6 @@
 import { STAR_UNLOCK_MEDALS } from './economy';
 import { MAX_MAP_SEED, generateRegionLevel } from './mapgen';
+import { regionTerrain } from './terrain';
 import { createRng } from './rng';
 import type { LevelDef, Point } from './types';
 
@@ -245,7 +246,9 @@ function regionName(seed: number, id: string): string {
 export function regionLevel(seed: number, id: string): LevelDef {
   const r = getRegion(seed, id);
   const mapSeed = 1 + (hashSeed(seed, r.i, r.j, 7) % MAX_MAP_SEED);
-  return generateRegionLevel(mapSeed, r.polygon, `region-${id}`, r.name, id === START_ID);
+  // Terrain follows the region's natural rating, so its map stays the same while stars drift.
+  const terrain = regionTerrain(id === START_ID ? 1 : naturalStars(seed, id));
+  return generateRegionLevel(mapSeed, r.polygon, `region-${id}`, r.name, id === START_ID, terrain);
 }
 
 /**

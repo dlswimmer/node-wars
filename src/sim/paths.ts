@@ -13,6 +13,8 @@ export const CELL = 20;
 export const SHORE = 6;
 
 const cache = new WeakMap<LevelDef, Route[][]>();
+/** Levels where some base can't reach another at all (map making rejects those). */
+const cutOff = new WeakSet<LevelDef>();
 
 /** Routes from every base to every other one (`routes[from][to]`), worked out once per level. */
 export function levelRoutes(level: LevelDef): Route[][] {
@@ -24,9 +26,19 @@ export function levelRoutes(level: LevelDef): Route[][] {
   return routes;
 }
 
+/** Whether every base can walk to every other one. */
+export function routesReachEverywhere(level: LevelDef): boolean {
+  levelRoutes(level);
+  return !cutOff.has(level);
+}
+
 /** Whether the level has anything that blocks troops. */
 export function hasBlockers(level: LevelDef): boolean {
-  return (level.rivers?.length ?? 0) > 0 || (level.features ?? []).some((f) => f.kind === 'lake');
+  return (
+    (level.rivers?.length ?? 0) > 0 ||
+    (level.ridges?.length ?? 0) > 0 ||
+    (level.features ?? []).some((f) => f.kind === 'lake')
+  );
 }
 
 /**
@@ -44,7 +56,7 @@ function cellIsDry(level: LevelDef, x: number, y: number): boolean {
   return true;
 }
 
-/** Whether a point is water troops can't walk on (counting a little bank around it). */
+/** Whether a point is water or rock troops can't walk on (counting a little bank around it). */
 export function blockedAt(
   level: LevelDef,
   x: number,
@@ -60,6 +72,9 @@ export function blockedAt(
     const lx = dx * Math.cos(f.angle) + dy * Math.sin(f.angle);
     const ly = -dx * Math.sin(f.angle) + dy * Math.cos(f.angle);
     if ((lx / (f.size * 0.85 + shore)) ** 2 + (ly / (f.size * 0.68 + shore)) ** 2 <= 1) return true;
+  }
+  for (const r of level.ridges ?? []) {
+    if (distToPolyline(x, y, r.points) <= r.width / 2 + shore) return true;
   }
   for (const r of level.rivers ?? []) {
     if (distToPolyline(x, y, r.points) > r.width / 2 + shore) continue;
@@ -113,8 +128,15 @@ function straight(a: Point, b: Point): Route {
 }
 
 function buildRoutes(level: LevelDef): Route[][] {
+  const routes = findRoutes(level);
+  if (!routes.ok) cutOff.add(level);
+  return routes.table;
+}
+
+function findRoutes(level: LevelDef): { table: Route[][]; ok: boolean } {
   const bases = level.bases;
-  if (!hasBlockers(level)) return bases.map((a) => bases.map((b) => straight(a, b)));
+  if (!hasBlockers(level))
+    return { table: bases.map((a) => bases.map((b) => straight(a, b))), ok: true };
 
   // The grid covers the map, its outline, and every base, with a cell to spare.
   const xs = [0, level.width, ...(level.outline ?? []).map((p) => p.x), ...bases.map((b) => b.x)];
@@ -156,6 +178,7 @@ function buildRoutes(level: LevelDef): Route[][] {
   };
 
   const routes: Route[][] = bases.map(() => []);
+  let ok = true;
   for (let i = 0; i < bases.length; i++) {
     const a = bases[i]!;
     routes[i]![i] = straight(a, a);
@@ -166,6 +189,7 @@ function buildRoutes(level: LevelDef): Route[][] {
       const end = cellOf(b);
       let route: Route;
       // Unreachable (map making never allows it) goes straight rather than nowhere.
+      if (parent[end] === -1 && end !== start) ok = false;
       if (clear(a, b) || (parent[end] === -1 && end !== start)) {
         route = straight(a, b);
       } else {
@@ -177,7 +201,7 @@ function buildRoutes(level: LevelDef): Route[][] {
       routes[j]![i] = { points: [...route.points].reverse(), length: route.length };
     }
   }
-  return routes;
+  return { table: routes, ok };
 }
 
 /** Dijkstra over open cells (8 directions, no cutting corners); returns each cell's parent. */

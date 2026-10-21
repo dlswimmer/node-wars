@@ -40,9 +40,13 @@ every push to `main` (CI runs lint, format, typecheck and tests first).
   of it is dry, then pulled tight into a few corners. Maps with nothing in the way keep exact
   straight lines, so their balance doesn't change. Kid bots still judge by straight-line
   distance on purpose (that's how a kid sees the map).
-- **Rivers only on random maps for now** (not the tutorial, Boot Camp or conquest regions). A
-  map with a base in the very centre gets no river, and one where the HQs' walk would be over
-  1.7x the straight line drops its river.
+- **Where terrain goes** (`src/sim/terrain.ts`): random maps get a river (about 40%) and
+  mountain ranges with a pass (about 40%). Conquest regions follow their _natural_ star rating
+  (from the world seed, so a region's map doesn't change as its stars drift): 1 star none,
+  2 stars only a river with three bridges, 3 stars a river or a range, 4-5 stars more ranges.
+  The tutorial region and Boot Camp get none (lakes still block). A map whose HQs' walk would
+  be over 1.7x the straight line drops its mountains, then its river. Scenery is placed after
+  terrain so it never sits on water or rock.
 - **Swarm clashes** cancel troop for troop mid-field (Armory counts; a tank absorbs soldiers).
 - **Bunker AI by rank:** only General and Marshal know a Bunker needs double troops and value
   Bunkers/Hospitals by position. Easier AIs waste troops on Bunkers. This keeps early ranks
@@ -59,13 +63,13 @@ every push to `main` (CI runs lint, format, typecheck and tests first).
 Done: Phase 1 skirmish, medals and Command Tent, the Adjutant helper, the conquest world map,
 random mirrored maps with scenery, Settings, and the Bunker and Field Hospital.
 
-Terrain step 1 is done (2026-10-21): rivers with 1-3 bridges on about 40% of random maps,
-lakes that block everywhere, real paths (`src/sim/paths.ts`), and the preview, AI and Adjutant
-using real travel distances. The drag line follows the road once it is over a target.
+Terrain steps 1 and 2 are done (2026-10-21): rivers with 1-3 bridges, mountain ranges with
+passes, lakes that block, real paths (`src/sim/paths.ts`), the preview, AI and Adjutant using
+real travel distances, and terrain in conquest regions by star rating.
 
-Next up, one step at a time: **mountains with passes**, and terrain switched on in conquest
-regions by star rating (1-2 stars light); then **forest and mud** that slow troops (tanks
-most); then polish. See ROADMAP.md.
+Next up, one step at a time: **forest and mud** that slow troops (tanks most; needs separate
+soldier and tank route tables), then polish (mountain and bridge looks, Bridge Fort). See
+ROADMAP.md.
 
 Also open:
 
