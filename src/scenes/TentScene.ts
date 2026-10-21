@@ -72,7 +72,7 @@ export class TentScene extends Phaser.Scene {
       height: 64,
       label: 'BACK',
       labelSize: 32,
-      onClick: () => this.scene.start('menu', { page: 'campaign' }),
+      onClick: () => this.scene.start('worldmap'),
     });
     addMuteButton(this, MENU_DESIGN.width - 30, 30, 76);
 

@@ -33,16 +33,22 @@ Troops sent from a Factory roll out as **tanks**: slower, but each one hits like
 Capture red's **HQ** to win (or wipe out every red base). Your bases are shielded for the first
 few seconds, shown by blue rings.
 
-**Maps:** your first battle is Boot Camp; after that every battle is a new random map, mirrored so
+**Maps:** your first Quick Battle is Boot Camp; after that every battle is a new random map, mirrored so
 both sides start with exactly the same bases and scenery, surrounded by fog of war. The end screen shows the map number, and
 **PLAY AGAIN** replays that same map.
 
-**Campaign:** wins earn medals (Recruit ½, Soldier 1, General 1½). Spend them in the
-**Command Tent** on permanent upgrades, including the **Adjutant**, an AI officer that helps
-while you give orders and, at its top level, can auto-battle ranks you've mastered (5 wins)
-for half medals. **Quick Battle** is a fair fight with no medals or upgrades.
+**Campaign:** a conquest map of organic, puzzle-piece regions. Start in the small Training
+Ground; every win turns a region blue and reveals its neighbours, each rated 1-5 stars and
+paying ½, ¾, 1, 1½ or 2 medals. You always get an easier and a harder choice, regions get
+tougher the further you push, and the world never runs out. Each battle is fought on that
+region's own shape. Lose and nothing is taken; ratings ease off a little until you win again.
+Spend medals in the **Command Tent** on permanent upgrades, including the **Adjutant**, an AI
+officer that helps while you give orders and, at its top level, can auto-battle regions you
+hold at star levels you've mastered (5 wins) for half medals. **Quick Battle** is a fair fight
+with no medals or upgrades. Pan and pinch the world map like a battle; tap a region to fight.
 
-**Ranks:** Recruit (start here), Soldier, and General. **Pinch** or use the mouse wheel to zoom;
+**Ranks (Quick Battle):** Recruit (start here), Soldier, and General. The campaign's stars
+add Corporal (★★) and Marshal (★★★★★, tougher than General). **Pinch** or use the mouse wheel to zoom;
 drag empty ground to scroll. The pause button is top right (or press P / Esc).
 
 ## Development

@@ -163,7 +163,7 @@ export class HudScene extends Phaser.Scene {
 
   /** Campaign end-screen text: rank and time, plus medals earned. */
   private endDetail(won: boolean, clock: string): string {
-    const line = won ? `${this.battle.difficulty.label}  ·  ${clock}` : this.tip;
+    const line = won ? `${this.battle.rankLabel()}  ·  ${clock}` : this.tip;
     if (this.battle.mode !== 'campaign') return line;
     const r = this.battle.reward;
     const medals = r > 0 ? `+${formatMedals(r)} MEDAL${r > 1 ? 'S' : ''}` : 'No medals this time';
@@ -221,7 +221,7 @@ ${medals}`;
       .setOrigin(0)
       .setInteractive();
     const opts = { width: 380, height: 88, labelSize: 40 };
-    const subtitle = `${this.mapLabel()}  ·  ${this.battle.difficulty.label}`;
+    const subtitle = `${this.mapLabel()}  ·  ${this.battle.rankLabel()}`;
     this.pauseItems = [
       this.add.text(0, 0, 'PAUSED', textStyle(80)).setOrigin(0.5),
       this.add.text(0, 0, subtitle, textStyle(28, COLORS.textDim)).setOrigin(0.5),
@@ -238,7 +238,7 @@ ${medals}`;
       }),
       addButton(this, 0, 0, {
         ...opts,
-        label: 'CHANGE RANK',
+        label: this.battle.mode === 'campaign' ? 'WORLD MAP' : 'CHANGE RANK',
         onClick: () => this.battle.toMenu(),
       }),
     ];
@@ -311,20 +311,26 @@ ${medals}`;
             [v.width / 2 - 200, y],
             [v.width / 2 + 200, y],
           ];
+      // In the campaign a win leads back to the world map to see what it revealed.
+      const onward = this.battle.mode === 'campaign' && this.won;
+      const again = {
+        label: this.battle.mode === 'campaign' && !this.won ? 'TRY AGAIN' : 'PLAY AGAIN',
+        onClick: () => this.battle.restartBattle(),
+      };
+      const leave = {
+        label:
+          this.battle.mode === 'campaign' ? (onward ? 'CONTINUE' : 'WORLD MAP') : 'CHANGE RANK',
+        onClick: () => this.battle.toMenu(),
+      };
+      const [first, second] = onward ? [leave, again] : [again, leave];
       parts.push(
         addButton(this, spots[0][0], spots[0][1], {
           width: buttonW,
           height: 96,
-          label: 'PLAY AGAIN',
           color: 0x2f6b3a,
-          onClick: () => this.battle.restartBattle(),
+          ...first,
         }),
-        addButton(this, spots[1][0], spots[1][1], {
-          width: buttonW,
-          height: 96,
-          label: 'CHANGE RANK',
-          onClick: () => this.battle.toMenu(),
-        }),
+        addButton(this, spots[1][0], spots[1][1], { width: buttonW, height: 96, ...second }),
       );
     }
     this.endScreen = this.add.container(0, 0, parts).setDepth(120);

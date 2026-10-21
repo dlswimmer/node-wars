@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import { DPR, cssSize } from '../display';
-import { canAutoBattle, loadSave } from '../save';
+import { loadSave } from '../save';
 import { DIFFICULTIES, DIFFICULTY_ORDER, type DifficultyId } from '../sim/difficulty';
-import { MASTERY_WINS, formatMedals, medalsFor } from '../sim/upgrades';
+import { formatMedals } from '../sim/upgrades';
 import { loadDifficulty, saveDifficulty } from '../settings';
 import { COLORS, textStyle } from '../theme';
 import type { BattleData } from './BattleScene';
@@ -11,14 +11,16 @@ import { addButton, addMuteButton } from './ui';
 
 const DIFFICULTY_COLORS: Record<DifficultyId, number> = {
   recruit: 0x2f6b3a,
+  corporal: 0x4f6b2a,
   soldier: 0x6b5a1f,
   general: 0x7a2a2a,
+  marshal: 0x5a1f4a,
 };
 
 /** The menu is laid out on this design canvas, then zoomed to fit the screen. */
 export const MENU_DESIGN = { width: 1000, height: 600 };
 
-export type MenuPage = 'home' | 'quick' | 'campaign';
+export type MenuPage = 'home' | 'quick';
 
 export class MenuScene extends Phaser.Scene {
   private page: MenuPage = 'home';
@@ -37,7 +39,7 @@ export class MenuScene extends Phaser.Scene {
     grid.setPosition(-MENU_DESIGN.width, -MENU_DESIGN.height);
 
     if (this.page === 'home') this.home();
-    else this.rankPicker(this.page);
+    else this.rankPicker();
 
     addMuteButton(this, MENU_DESIGN.width - 30, 30, 76);
     fitDesign(this);
@@ -68,10 +70,10 @@ export class MenuScene extends Phaser.Scene {
       width: 400,
       height: 180,
       label: 'CAMPAIGN',
-      sublabel: `Earn medals · You have ${medals}`,
+      sublabel: `Conquer the map · ${medals} medals`,
       color: 0x2f4f7a,
       labelSize: 56,
-      onClick: () => this.go('campaign'),
+      onClick: () => this.scene.start('worldmap'),
     });
     addButton(this, cx + 220, 410, {
       width: 400,
@@ -83,23 +85,10 @@ export class MenuScene extends Phaser.Scene {
     });
   }
 
-  private rankPicker(page: 'quick' | 'campaign') {
+  private rankPicker() {
     const cx = MENU_DESIGN.width / 2;
-    const campaign = page === 'campaign';
-    const save = loadSave();
-    this.add
-      .text(cx, 70, campaign ? 'CAMPAIGN' : 'QUICK BATTLE', textStyle(80, COLORS.accent))
-      .setOrigin(0.5);
-    this.add
-      .text(
-        cx,
-        135,
-        campaign
-          ? `Win to earn medals · You have ${formatMedals(save.medals)}`
-          : 'A fair fight: no medals, no upgrades',
-        textStyle(28),
-      )
-      .setOrigin(0.5);
+    this.add.text(cx, 70, 'QUICK BATTLE', textStyle(80, COLORS.accent)).setOrigin(0.5);
+    this.add.text(cx, 135, 'A fair fight: no medals, no upgrades', textStyle(28)).setOrigin(0.5);
     this.add.text(cx, 200, 'CHOOSE YOUR RANK', textStyle(30)).setOrigin(0.5);
 
     const last = loadDifficulty();
@@ -108,45 +97,23 @@ export class MenuScene extends Phaser.Scene {
       const d = DIFFICULTIES[id];
       const x = cx + (i - 1) * 320;
       const y = 320;
-      const start = (data: BattleData) => {
-        saveDifficulty(id);
-        this.scene.start('battle', data);
-      };
       const button = addButton(this, x, y, {
         width: 290,
         height: 150,
         label: d.label,
-        sublabel: campaign ? `+${formatMedals(medalsFor(id, true))} per win` : d.blurb,
+        sublabel: d.blurb,
         color: DIFFICULTY_COLORS[id],
         labelSize: 48,
-        onClick: () => start({ difficulty: id, mode: page }),
+        onClick: () => {
+          saveDifficulty(id);
+          const data: BattleData = { difficulty: id, mode: 'quick' };
+          this.scene.start('battle', data);
+        },
       });
       if (id === highlight) {
         const tag = last ? 'LAST PLAYED' : 'START HERE';
         this.add.text(x, y - 82, tag, textStyle(24, COLORS.accent)).setOrigin(0.5, 1);
         this.tweens.add({ targets: button, scale: 1.05, duration: 600, yoyo: true, repeat: -1 });
-      }
-      if (campaign) {
-        const wins = Math.min(save.wins[id], MASTERY_WINS);
-        const mastered = wins >= MASTERY_WINS;
-        this.add
-          .text(
-            x,
-            y + 92,
-            mastered ? 'MASTERED' : `Wins ${wins}/${MASTERY_WINS} to master`,
-            textStyle(22, mastered ? COLORS.accent : COLORS.textDim),
-          )
-          .setOrigin(0.5, 0);
-        if (canAutoBattle(id)) {
-          addButton(this, x, y + 150, {
-            width: 220,
-            height: 56,
-            label: 'AUTO-BATTLE',
-            color: 0x4a2f7a,
-            labelSize: 26,
-            onClick: () => start({ difficulty: id, mode: 'campaign', auto: true }),
-          });
-        }
       }
     });
 
@@ -157,16 +124,6 @@ export class MenuScene extends Phaser.Scene {
       labelSize: 32,
       onClick: () => this.go('home'),
     });
-    if (campaign) {
-      addButton(this, MENU_DESIGN.width - 160, 540, {
-        width: 280,
-        height: 70,
-        label: 'COMMAND TENT',
-        color: 0x5a4a1f,
-        labelSize: 32,
-        onClick: () => this.scene.start('tent'),
-      });
-    }
   }
 }
 

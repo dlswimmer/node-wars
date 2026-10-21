@@ -84,12 +84,12 @@ checkpoints, and prestige come with the expanding world.
 
 Full plan in [CONQUEST.md](CONQUEST.md). The bridge from single battles to the persistent world.
 
-- [ ] Campaign becomes a world map of organic, puzzle-piece regions; win a region and the
+- [x] Campaign becomes a world map of organic, puzzle-piece regions; win a region and the
       camera zooms out to reveal the regions touching it
-- [ ] First battle has no rating; after that each neighbouring region shows 1-5 stars and its
+- [x] First battle has no rating; after that each neighbouring region shows 1-5 stars and its
       medal reward, so the player picks how hard the next fight is
-- [ ] Each region's battle uses that region's shape as its map outline
-- [ ] See everywhere you've won; save v2 keeps the conquest map
+- [x] Each region's battle uses that region's shape as its map outline
+- [x] See everywhere you've won; save v2 keeps the conquest map
 - [ ] Enemies get upgrades mirroring the Command Tent, more of them in higher-star regions
 
 ## Phase 2: Zones and the persistent world

@@ -1,6 +1,10 @@
 # Conquest map (design plan)
 
-The step between single battles and the full persistent world (Phase 2). Not built yet.
+The step between single battles and the full persistent world (Phase 2). Built (Phase 1.75),
+except enemy upgrades. Code: `src/sim/worldmap.ts` (regions, ratings, progress),
+`src/scenes/WorldMapScene.ts`, save v2 in `src/save.ts`. Stars map to Recruit, Corporal,
+Soldier, General and Marshal (`STAR_DIFFICULTY` in `src/sim/difficulty.ts`). Auto-battle replays
+regions you already hold.
 
 ## The idea
 

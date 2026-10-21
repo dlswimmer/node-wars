@@ -25,6 +25,8 @@ with mouse and touch on PC, phone, and iPad.
 - Campaign progress lives in `src/save.ts` (versioned localStorage save). Upgrade rules,
   medal rates, and how upgrades change a battle are in `src/sim/upgrades.ts`; the Adjutant AI
   helper is `src/sim/adjutant.ts`. Bump the save version and migrate when its shape changes.
+- The campaign is the conquest map: regions, star ratings and progress in `src/sim/worldmap.ts`,
+  drawn by `src/scenes/WorldMapScene.ts`. Stars pick a difficulty via `STAR_DIFFICULTY`.
 - Use a seeded RNG (`world.rng`) inside the sim, never `Math.random`, so tests stay deterministic.
 
 ## Conventions

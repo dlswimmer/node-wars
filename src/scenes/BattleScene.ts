@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio';
-import { addMedals, loadSave, recordWin } from '../save';
+import { addMedals, loadSave, recordRegionBattle } from '../save';
 import {
   createAdjutant,
   isWaiting,
@@ -14,12 +14,14 @@ import { createAi, updateAi, type AiState } from '../sim/ai';
 import { BASE_STATS, DEFAULT_SEND_FRACTION } from '../sim/config';
 import {
   DIFFICULTIES,
+  difficultyForStars,
   worldOptionsFor,
   type Difficulty,
   type DifficultyId,
 } from '../sim/difficulty';
 import { LEVELS } from '../sim/levels';
 import { generateLevel, randomMapSeed } from '../sim/mapgen';
+import { regionLevel } from '../sim/worldmap';
 import type { Base, LevelDef, Point, World } from '../sim/types';
 import {
   baseAt,
@@ -64,6 +66,8 @@ export interface BattleData {
   auto?: boolean;
   /** Map number to play (0 = Boot Camp). Left out: Boot Camp the first time, then random. */
   map?: number;
+  /** Campaign: the conquest-map region being fought over (its stars set the difficulty). */
+  region?: string;
 }
 
 type Gesture = 'none' | 'drag' | 'pan' | 'pinch';
@@ -90,6 +94,12 @@ export class BattleScene extends Phaser.Scene {
   map = 0;
   /** Medals earned by this battle (campaign), set when it ends. */
   reward = 0;
+  /** Conquest-map region being fought over (campaign). */
+  region: string | null = null;
+  /** Its star rating when the battle started. */
+  stars = 0;
+  /** Regions this battle's win revealed, for the world map to animate. */
+  private revealed: string[] = [];
   private adjutant: AdjutantState | null = null;
   private adjutantOn = true;
 
@@ -146,12 +156,22 @@ export class BattleScene extends Phaser.Scene {
     this.mode = data.mode ?? 'quick';
     this.auto = this.mode === 'campaign' && !!data.auto;
     this.map = data.map ?? (isFirstBattle() ? 0 : randomMapSeed());
+    this.region = this.mode === 'campaign' ? (data.region ?? null) : null;
+    if (this.region) {
+      this.stars = loadSave().conquest.regions[this.region]?.stars ?? 1;
+      this.difficulty = difficultyForStars(this.stars);
+    }
   }
 
   create() {
-    this.level = this.map === 0 ? LEVELS[0]! : generateLevel(this.map);
-    const seed = Date.now() & 0xffff;
     const save = loadSave();
+    this.level = this.region
+      ? regionLevel(save.conquest.seed, this.region)
+      : this.map === 0
+        ? LEVELS[0]!
+        : generateLevel(this.map);
+    const seed = Date.now() & 0xffff;
+    this.revealed = [];
     this.world = createWorld(
       this.level,
       this.mode === 'campaign'
@@ -270,6 +290,7 @@ export class BattleScene extends Phaser.Scene {
       mode: this.mode,
       auto: this.auto,
       map: this.map,
+      region: this.region ?? undefined,
     });
   }
 
@@ -288,7 +309,18 @@ export class BattleScene extends Phaser.Scene {
   }
 
   toMenu() {
-    this.scene.start('menu', { page: this.mode === 'campaign' ? 'campaign' : 'quick' });
+    if (this.mode === 'campaign') {
+      this.scene.start('worldmap', { focus: this.region, revealed: this.revealed });
+    } else {
+      this.scene.start('menu', { page: 'quick' });
+    }
+  }
+
+  /** The difficulty as players see it: stars in the campaign, the rank in Quick Battle. */
+  rankLabel(): string {
+    return this.region
+      ? `${'★'.repeat(this.stars)} ${this.difficulty.label}`
+      : this.difficulty.label;
   }
 
   // ----- Camera --------------------------------------------------------------------------
@@ -898,7 +930,7 @@ export class BattleScene extends Phaser.Scene {
     if (this.mode === 'campaign') {
       this.reward = medalsFor(this.difficulty.id, won, this.auto);
       if (this.reward > 0) addMedals(this.reward);
-      if (won && !this.auto) recordWin(this.difficulty.id);
+      if (this.region) this.revealed = recordRegionBattle(this.region, won, this.auto);
     }
     this.events.emit('game-over', won);
   }
