@@ -32,4 +32,5 @@ with mouse and touch on PC, phone, and iPad.
 ## Conventions
 
 - Keep tap targets large (see `baseAt` padding) and text readable on a phone.
-- Track planned features in `docs/ROADMAP.md`.
+- Track planned features in `docs/ROADMAP.md`. Read `docs/HANDOFF.md` for the reasons behind
+  past decisions (and keep it current when a decision changes).
