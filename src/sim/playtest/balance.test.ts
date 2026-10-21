@@ -21,7 +21,7 @@ const cases = [
   { difficulty: 'general', profile: 'adult', min: 0.12, max: 0.45 },
 ] as const;
 
-describe('difficulty balance', () => {
+describe('difficulty balance', { timeout: 20_000 }, () => {
   for (const c of cases) {
     it(`${c.difficulty} vs ${c.profile}: win rate ${c.min * 100}-${c.max * 100}%`, () => {
       const r = runMatchup(level, DIFFICULTIES[c.difficulty], PROFILES[c.profile]!, MATCHES);

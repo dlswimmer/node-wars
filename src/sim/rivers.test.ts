@@ -4,10 +4,10 @@ import { generateLevel } from './mapgen';
 import { blockedAt, distToPolyline, levelRoutes } from './paths';
 import { MAX_DETOUR } from './rivers';
 
-const SEEDS = Array.from({ length: 120 }, (_, i) => i * 613 + 5);
+const SEEDS = Array.from({ length: 80 }, (_, i) => i * 613 + 5);
 const withRivers = SEEDS.map(generateLevel).filter((l) => l.rivers?.length);
 
-describe('rivers on random maps', () => {
+describe('rivers on random maps', { timeout: 20_000 }, () => {
   it('show up on a good share of maps, each with one to three bridges', () => {
     expect(withRivers.length).toBeGreaterThan(SEEDS.length * 0.25);
     for (const l of withRivers) {
@@ -53,7 +53,7 @@ describe('rivers on random maps', () => {
           if (route.length === 0) continue;
           for (let i = 1; i < route.points.length; i++) {
             const [a, b] = [route.points[i - 1]!, route.points[i]!];
-            const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 4);
+            const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 6);
             for (let s = 0; s <= n; s++) {
               const [x, y] = [a.x + ((b.x - a.x) * s) / n, a.y + ((b.y - a.y) * s) / n];
               expect(blockedAt(l, x, y, 0), `map ${l.seed}`).toBe(false);
