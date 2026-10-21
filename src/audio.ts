@@ -4,18 +4,16 @@
  * `unlockAudio()` from a tap handler; until then every effect is silently skipped.
  */
 
-const MUTE_KEY = 'node-wars:muted';
+import { MAX_VOLUME, loadMuted, loadVolume, saveMuted, saveVolume } from './settings';
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let muted = loadMuted();
+let volume = loadVolume();
 
-function loadMuted(): boolean {
-  try {
-    return localStorage.getItem(MUTE_KEY) === '1';
-  } catch {
-    return false;
-  }
+/** Master loudness: mute wins, otherwise the volume setting (the default 7 is about 0.5). */
+function gain(): number {
+  return muted ? 0 : (0.7 * volume) / MAX_VOLUME;
 }
 
 export function isMuted(): boolean {
@@ -24,12 +22,18 @@ export function isMuted(): boolean {
 
 export function setMuted(value: boolean): void {
   muted = value;
-  if (master) master.gain.value = muted ? 0 : 0.5;
-  try {
-    localStorage.setItem(MUTE_KEY, value ? '1' : '0');
-  } catch {
-    // ignore
-  }
+  if (master) master.gain.value = gain();
+  saveMuted(value);
+}
+
+export function getVolume(): number {
+  return volume;
+}
+
+export function setVolume(value: number): void {
+  volume = Math.max(0, Math.min(MAX_VOLUME, Math.round(value)));
+  if (master) master.gain.value = gain();
+  saveVolume(volume);
 }
 
 /** Create or resume the audio context. Safe to call on every tap. */
@@ -42,7 +46,7 @@ export function unlockAudio(): void {
       if (!Ctor) return;
       ctx = new Ctor();
       master = ctx.createGain();
-      master.gain.value = muted ? 0 : 0.5;
+      master.gain.value = gain();
       master.connect(ctx.destination);
     }
     if (ctx.state === 'suspended') void ctx.resume();

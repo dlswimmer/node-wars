@@ -34,7 +34,13 @@ import {
   step,
   type AttackOutcome,
 } from '../sim/world';
-import { isFirstBattle, loadDifficulty, markBattlePlayed } from '../settings';
+import {
+  attackHints,
+  isFirstBattle,
+  loadDifficulty,
+  markBattlePlayed,
+  screenShake,
+} from '../settings';
 import { COLORS, FACTION_COLORS, textStyle } from '../theme';
 import { drawBase, drawCapacityRing, drawMapGrid, drawTerrain } from './drawing';
 import type { HudScene } from './HudScene';
@@ -636,9 +642,9 @@ export class BattleScene extends Phaser.Scene {
         } else if (e.from === 'player') {
           this.hint(base, 'LOST!', '#ff8a8a');
           sfx.lost();
-          this.cameras.main.shake(180, 0.006);
+          if (screenShake()) this.cameras.main.shake(180, 0.006);
         }
-        if (base.kind === 'hq') this.cameras.main.shake(300, 0.01);
+        if (base.kind === 'hq' && screenShake()) this.cameras.main.shake(300, 0.01);
       } else if (e.type === 'hit') {
         const last = this.lastHitFx.get(base.id) ?? -1;
         if (this.world.time - last > 0.12) {
@@ -858,6 +864,8 @@ export class BattleScene extends Phaser.Scene {
     // Show troops already on the way too, so a two-wave attack reads as one.
     const onTheWay = preview.enRoute > 0 ? ` + ${preview.enRoute}` : '';
     const label = `${sign}${preview.count}${onTheWay}\n${style.word}`;
+    // The coloured ring always shows; the numbers can be turned off in Settings.
+    if (!attackHints()) return;
     this.previewLabel
       .setText(label)
       .setStyle(textStyle(size, hexColor(style.color)))

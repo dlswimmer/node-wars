@@ -52,7 +52,8 @@ with no medals or upgrades. Pan and pinch the world map like a battle; tap a reg
 add Corporal (★★) and Marshal (★★★★★, tougher than General). **Pinch** or use the mouse wheel to zoom;
 drag empty ground to scroll. The pause button is top right (or press P / Esc).
 
-**Settings** (the gear on the home screen): sound on/off, **NEW WORLD** for a fresh conquest
+**Settings** (the gear on the home screen): sound on/off and volume, screen shake and attack
+hints on/off (saved on the device, never erased by a reset), **NEW WORLD** for a fresh conquest
 map (medals and upgrades stay), and **RESET EVERYTHING**. Both ask again first, and erasing
 everything needs the button held down for two seconds.
 

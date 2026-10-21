@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
-import { isMuted, setMuted, sfx } from '../audio';
+import { getVolume, isMuted, setMuted, setVolume, sfx } from '../audio';
 import { newWorld, resetAll } from '../save';
+import { attackHints, screenShake, setAttackHints, setScreenShake } from '../settings';
 import { COLORS, textStyle } from '../theme';
 import { drawMapGrid } from './drawing';
 import { MENU_DESIGN, fitDesign } from './MenuScene';
@@ -8,12 +9,18 @@ import { addButton } from './ui';
 
 type SettingsPage = 'main' | 'newWorld' | 'resetAll';
 
+/** Columns of the settings page, and where the two progress buttons sit. */
+const LEFT = 270;
+const RIGHT = 730;
+const PROGRESS_Y = { newWorld: 215, resetAll: 360 };
+
 /** Seconds to hold the button that erases everything. */
 const HOLD_SECONDS = 2;
 
 /**
- * Settings: sound, a new world, and erasing all progress. Both resets ask again on a second
- * screen where the confirm button sits somewhere else (so a double tap lands on NO), and
+ * Settings, all saved per device apart from the campaign: sound and volume, screen shake and
+ * attack hints, a new world, and erasing all progress. Both resets ask again on a second
+ * screen where NO sits where the button you pressed was (so a double tap lands on NO), and
  * erasing everything also needs the button held down.
  */
 export class SettingsScene extends Phaser.Scene {
@@ -47,21 +54,53 @@ export class SettingsScene extends Phaser.Scene {
 
   private main() {
     const cx = MENU_DESIGN.width / 2;
-    this.add.text(cx, 70, 'SETTINGS', textStyle(80, COLORS.accent)).setOrigin(0.5);
+    this.add.text(cx, 50, 'SETTINGS', textStyle(64, COLORS.accent)).setOrigin(0.5);
+    const header = (x: number, y: number, text: string) =>
+      this.add.text(x, y, text, textStyle(28, COLORS.textDim)).setOrigin(0.5);
+    // A toggle shows its current state and flips it.
+    const toggle = (y: number, name: string, on: boolean, set: (on: boolean) => void) =>
+      addButton(this, LEFT, y, {
+        width: 380,
+        height: 66,
+        label: `${name}: ${on ? 'ON' : 'OFF'}`,
+        color: on ? 0x2f6b3a : 0x3a3a3a,
+        labelSize: 32,
+        onClick: () => {
+          set(!on);
+          this.go('main');
+        },
+      });
 
-    addButton(this, cx, 190, {
-      width: 420,
-      height: 96,
-      label: isMuted() ? 'SOUND: OFF' : 'SOUND: ON',
-      labelSize: 40,
-      onClick: () => {
-        setMuted(!isMuted());
-        this.go('main');
-      },
+    header(LEFT, 120, 'SOUND');
+    toggle(170, 'SOUND', !isMuted(), (on) => setMuted(!on));
+    const step = (delta: number) => () => {
+      setVolume(getVolume() + delta);
+      sfx.capture(); // a sample at the new loudness
+      this.go('main');
+    };
+    addButton(this, LEFT - 145, 255, {
+      width: 90,
+      height: 70,
+      label: '−',
+      labelSize: 48,
+      onClick: step(-1),
     });
+    addButton(this, LEFT + 145, 255, {
+      width: 90,
+      height: 70,
+      label: '+',
+      labelSize: 48,
+      onClick: step(1),
+    });
+    this.add.text(LEFT, 255, `VOLUME ${getVolume()}`, textStyle(32)).setOrigin(0.5);
 
-    addButton(this, cx, 320, {
-      width: 420,
+    header(LEFT, 330, 'GAME');
+    toggle(380, 'SCREEN SHAKE', screenShake(), setScreenShake);
+    toggle(460, 'ATTACK HINTS', attackHints(), setAttackHints);
+
+    header(RIGHT, 120, 'PROGRESS');
+    addButton(this, RIGHT, PROGRESS_Y.newWorld, {
+      width: 400,
       height: 110,
       label: 'NEW WORLD',
       sublabel: 'Medals and upgrades stay',
@@ -69,8 +108,8 @@ export class SettingsScene extends Phaser.Scene {
       labelSize: 42,
       onClick: () => this.go('newWorld'),
     });
-    addButton(this, cx, 450, {
-      width: 420,
+    addButton(this, RIGHT, PROGRESS_Y.resetAll, {
+      width: 400,
       height: 110,
       label: 'RESET EVERYTHING',
       sublabel: 'Erase all progress',
@@ -79,7 +118,7 @@ export class SettingsScene extends Phaser.Scene {
       onClick: () => this.go('resetAll'),
     });
 
-    addButton(this, 110, 540, {
+    addButton(this, 110, 550, {
       width: 180,
       height: 70,
       label: 'BACK',
@@ -95,7 +134,7 @@ export class SettingsScene extends Phaser.Scene {
     this.add
       .text(
         cx,
-        90,
+        50,
         erase ? 'ERASE ALL PROGRESS?' : 'START A NEW WORLD?',
         textStyle(64, COLORS.accent),
       )
@@ -103,7 +142,7 @@ export class SettingsScene extends Phaser.Scene {
     this.add
       .text(
         cx,
-        170,
+        120,
         erase
           ? 'Medals, upgrades and your whole map will be gone.\nThis can’t be undone.'
           : 'You get a brand new map to conquer.\nYour medals and upgrades stay.',
@@ -111,9 +150,8 @@ export class SettingsScene extends Phaser.Scene {
       )
       .setOrigin(0.5);
 
-    const backY = erase ? 450 : 320;
-    addButton(this, cx, backY, {
-      width: 420,
+    addButton(this, RIGHT, PROGRESS_Y[page], {
+      width: 400,
       height: 110,
       label: erase ? 'NO, KEEP IT' : 'NO, GO BACK',
       color: 0x2f6b3a,
@@ -122,13 +160,13 @@ export class SettingsScene extends Phaser.Scene {
     });
 
     if (erase) {
-      this.holdButton(cx, 300, 'HOLD TO ERASE', () => {
+      this.holdButton(LEFT, 330, 'HOLD TO ERASE', () => {
         resetAll();
         sfx.defeat();
         this.scene.start('menu');
       });
     } else {
-      addButton(this, cx, 470, {
+      addButton(this, LEFT, 360, {
         width: 360,
         height: 90,
         label: 'YES, NEW WORLD',
