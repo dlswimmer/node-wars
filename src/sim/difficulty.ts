@@ -1,6 +1,7 @@
 import type { WorldOptions } from './world';
 
-export type DifficultyId = 'recruit' | 'soldier' | 'general';
+/** Quick Battle offers three ranks; the conquest map's stars use two more tiers in between and above. */
+export type DifficultyId = 'recruit' | 'corporal' | 'soldier' | 'general' | 'marshal';
 
 export interface Difficulty {
   id: DifficultyId;
@@ -44,6 +45,20 @@ export const DIFFICULTIES: Record<DifficultyId, Difficulty> = {
     aiSnipeGuard: 12,
     aiDefends: false,
   },
+  corporal: {
+    id: 'corporal',
+    label: 'CORPORAL',
+    blurb: 'Getting the hang of it',
+    aiInterval: 1.6,
+    aiCommit: 0.6,
+    aiMinTroops: 11,
+    aiMargin: 3,
+    aiMaxSources: 1,
+    shieldSeconds: 30,
+    enemyProduction: 0.9,
+    aiSnipeGuard: 10,
+    aiDefends: false,
+  },
   soldier: {
     id: 'soldier',
     label: 'SOLDIER',
@@ -72,9 +87,37 @@ export const DIFFICULTIES: Record<DifficultyId, Difficulty> = {
     aiSnipeGuard: 0,
     aiDefends: true,
   },
+  marshal: {
+    id: 'marshal',
+    label: 'MARSHAL',
+    blurb: 'Tougher than a General',
+    aiInterval: 1.1,
+    aiCommit: 0.75,
+    aiMinTroops: 9,
+    aiMargin: 1,
+    aiMaxSources: 3,
+    shieldSeconds: 0,
+    enemyProduction: 1.05,
+    aiSnipeGuard: 0,
+    aiDefends: true,
+  },
 };
 
+/** The ranks Quick Battle offers. */
 export const DIFFICULTY_ORDER: DifficultyId[] = ['recruit', 'soldier', 'general'];
+
+/** Difficulty for a conquest region by its stars (index 0 = one star). */
+export const STAR_DIFFICULTY: DifficultyId[] = [
+  'recruit',
+  'corporal',
+  'soldier',
+  'general',
+  'marshal',
+];
+
+export function difficultyForStars(stars: number): Difficulty {
+  return DIFFICULTIES[STAR_DIFFICULTY[Math.max(1, Math.min(5, stars)) - 1]!];
+}
 
 /** World setup for a battle at this difficulty (shared by the game and the bot harness). */
 export function worldOptionsFor(d: Difficulty, seed: number): WorldOptions {

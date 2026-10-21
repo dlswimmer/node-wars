@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { HELPER_PATIENCE, createAdjutant, notePlayerOrder, updateAdjutant } from './adjutant';
-import { DIFFICULTIES } from './difficulty';
+import { DIFFICULTIES, difficultyForStars } from './difficulty';
 import { LEVELS } from './levels';
 import type { LevelDef } from './types';
 import {
@@ -20,6 +20,14 @@ describe('medals', () => {
     expect(medalsFor('general', true)).toBe(1.5);
     expect(medalsFor('general', false)).toBe(0);
     expect(medalsFor('soldier', true, true)).toBe(0.5);
+  });
+
+  it('pay ½, ¾, 1, 1½ and 2 for one to five stars', () => {
+    const pay = [1, 2, 3, 4, 5].map((stars) => medalsFor(difficultyForStars(stars).id, true));
+    expect(pay).toEqual([0.5, 0.75, 1, 1.5, 2]);
+    expect(difficultyForStars(1).id).toBe('recruit');
+    expect(difficultyForStars(3).id).toBe('soldier');
+    expect(difficultyForStars(4).id).toBe('general');
   });
 
   it('display as kid-readable fractions', () => {

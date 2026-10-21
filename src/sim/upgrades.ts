@@ -54,15 +54,21 @@ export const ADJUTANT_LEVELS = [
   'QUARTERMASTER: full bases send extra troops forward',
   'SCOUT: grabs gray bases it is sure to win',
   'FIELD OFFICER: attacks when the odds are good',
-  'COMMANDER: can auto-battle ranks you have mastered',
+  'COMMANDER: auto-battles your regions at stars you have mastered',
 ];
 
-/** Wins you need yourself at a rank before the Adjutant may auto-battle it. */
+/** Wins you need yourself at a star level before the Adjutant may auto-battle it. */
 export const MASTERY_WINS = 5;
 /** Share of the normal medals an auto-battle pays. */
 export const AUTO_BATTLE_REWARD = 0.5;
 
-const MEDAL_RATE: Record<DifficultyId, number> = { recruit: 0.5, soldier: 1, general: 1.5 };
+const MEDAL_RATE: Record<DifficultyId, number> = {
+  recruit: 0.5,
+  corporal: 0.75,
+  soldier: 1,
+  general: 1.5,
+  marshal: 2,
+};
 
 /** Medals for a campaign battle: 1 per win, scaled by rank (and halved for auto-battles). */
 export function medalsFor(rank: DifficultyId, won: boolean, auto = false): number {
