@@ -1,7 +1,8 @@
 import type Phaser from 'phaser';
 import { BASE_STATS, HOSPITAL_RANGE } from '../sim/config';
 import { createRng } from '../sim/rng';
-import type { Base, Feature, Point } from '../sim/types';
+import { insidePolygon } from '../sim/scenery';
+import type { Base, Bridge, Feature, Point, River } from '../sim/types';
 import { COLORS } from '../theme';
 
 /** Tactical-map background: a grid with heavier lines every 5 cells. */
@@ -174,7 +175,8 @@ const GROUND = 0x1b2416;
 const BORDER = 0x6f7d52;
 
 /**
- * The battlefield: ground and grid inside the map's outline, scenery, a soft dark edge, and
+ * The battlefield: ground and grid inside the map's outline, rivers and bridges, scenery, a
+ * soft dark edge, and
  * fog of war everywhere outside. Drawn once when the battle starts.
  */
 export function drawTerrain(
@@ -182,6 +184,8 @@ export function drawTerrain(
   outline: Point[],
   features: Feature[],
   area: { x: number; y: number; width: number; height: number },
+  rivers: River[] = [],
+  bridges: Bridge[] = [],
 ) {
   const far = 4000;
   g.fillStyle(FOG, 1);
@@ -189,6 +193,8 @@ export function drawTerrain(
   g.fillStyle(GROUND, 1);
   g.fillPoints(outline, true);
   drawClippedGrid(g, outline);
+  for (const r of rivers) drawRiver(g, r, outline);
+  for (const b of bridges) drawBridge(g, b);
   for (const f of features) drawFeature(g, f);
   // Darken just inside the edge so the land fades into the fog.
   for (const [width, alpha] of [
@@ -201,6 +207,71 @@ export function drawTerrain(
   }
   g.lineStyle(3, BORDER, 0.85);
   g.strokePoints(outline, true, true);
+}
+
+const SHORE_COLOR = 0x2b3a22;
+const WATER = 0x1a2f38;
+const RIPPLE = 0x2a4651;
+
+/** A river, cut off where it leaves the map's outline (it runs on under the fog). */
+function drawRiver(g: Phaser.GameObjects.Graphics, river: River, outline: Point[]) {
+  const pts = river.points;
+  const inside = pts.map((p) => insidePolygon(p, outline));
+  const first = inside.indexOf(true);
+  const last = inside.lastIndexOf(true);
+  if (first < 0) return;
+  // Find where the river crosses the edge, between a point outside and one inside.
+  const edge = (out: Point, inn: Point) => {
+    let [a, b] = [out, inn];
+    for (let i = 0; i < 12; i++) {
+      const m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      if (insidePolygon(m, outline)) b = m;
+      else a = m;
+    }
+    return b;
+  };
+  const line = pts.slice(first, last + 1);
+  if (first > 0) line.unshift(edge(pts[first - 1]!, pts[first]!));
+  if (last < pts.length - 1) line.push(edge(pts[last + 1]!, pts[last]!));
+  // Thick strokes leave gaps at the bends; a circle on every corner fills them.
+  const band = (width: number, color: number, alpha = 1) => {
+    g.lineStyle(width, color, alpha);
+    g.strokePoints(line, false);
+    g.fillStyle(color, alpha);
+    for (const p of line.slice(1, -1)) g.fillCircle(p.x, p.y, width / 2);
+  };
+  band(river.width + 12, SHORE_COLOR);
+  band(river.width, WATER);
+  band(river.width * 0.35, RIPPLE, 0.35);
+}
+
+/** A plank bridge with rails, running across its river. */
+function drawBridge(g: Phaser.GameObjects.Graphics, b: Bridge) {
+  const cos = Math.cos(b.angle);
+  const sin = Math.sin(b.angle);
+  const at = (along: number, across: number) => ({
+    x: b.x + along * cos - across * sin,
+    y: b.y + along * sin + across * cos,
+  });
+  const [hl, hw] = [b.length / 2, b.width / 2];
+  const deck = [at(-hl, -hw), at(hl, -hw), at(hl, hw), at(-hl, hw)];
+  g.fillStyle(0x111a0d, 0.5);
+  g.fillPoints(
+    deck.map((p) => ({ x: p.x + 4, y: p.y + 4 })),
+    true,
+  );
+  g.fillStyle(0x5b4a33, 1);
+  g.fillPoints(deck, true);
+  g.lineStyle(1.5, 0x3a2f20, 0.9);
+  for (let s = -hl + 6; s < hl; s += 8) {
+    const [p, q] = [at(s, -hw), at(s, hw)];
+    g.lineBetween(p.x, p.y, q.x, q.y);
+  }
+  g.lineStyle(4, 0x2e2618, 1);
+  for (const side of [-hw, hw]) {
+    const [p, q] = [at(-hl, side), at(hl, side)];
+    g.lineBetween(p.x, p.y, q.x, q.y);
+  }
 }
 
 /** The tactical grid, only where it lies inside the outline. */

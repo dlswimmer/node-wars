@@ -1,6 +1,6 @@
 import { BASE_STATS, DEFAULT_SEND_FRACTION } from './config';
 import type { Army, Base, World } from './types';
-import { getBonuses, isShielded, previewAttack, sendTroops } from './world';
+import { getBonuses, isShielded, previewAttack, sendTroops, travelDistance } from './world';
 
 /**
  * The Adjutant: an AI officer that helps run the player's army. Each level adds one duty.
@@ -75,6 +75,7 @@ function defend(world: World, adj: AdjutantState, mine: Base[]): boolean {
     const threat = (incoming.get(base.id) ?? 0) * getBonuses(world, enemyOf(adj.army)).attack;
     if (threat < base.troops) continue;
     const helper = nearest(
+      world,
       mine.filter((h) => h !== base && h.troops >= 10),
       base,
     );
@@ -97,7 +98,7 @@ function attack(
       if (from.troops < 8) continue;
       const p = previewAttack(world, adj.army, [from.id], to.id, DEFAULT_SEND_FRACTION);
       if (p.outcome !== 'win') continue;
-      const score = to.troops + Math.hypot(to.x - from.x, to.y - from.y) * 0.05;
+      const score = to.troops + travelDistance(world, from.id, to.id) * 0.05;
       if (!best || score < best.score) best = { from, to, score };
     }
   }
@@ -108,7 +109,7 @@ function attack(
 function pushForward(world: World, adj: AdjutantState, mine: Base[]): boolean {
   const enemyHq = world.bases.find((b) => b.kind === 'hq' && b.owner === enemyOf(adj.army));
   if (!enemyHq) return false;
-  const front = nearest(mine, enemyHq);
+  const front = nearest(world, mine, enemyHq);
   for (const b of mine) {
     if (b === front || b.troops < BASE_STATS[b.kind].capacity - 0.5) continue;
     if (front && send(world, adj, b, front)) return true;
@@ -116,9 +117,9 @@ function pushForward(world: World, adj: AdjutantState, mine: Base[]): boolean {
   return false;
 }
 
-function nearest(bases: Base[], to: Base): Base | undefined {
+function nearest(world: World, bases: Base[], to: Base): Base | undefined {
   return [...bases].sort(
-    (a, b) => Math.hypot(a.x - to.x, a.y - to.y) - Math.hypot(b.x - to.x, b.y - to.y),
+    (a, b) => travelDistance(world, a.id, to.id) - travelDistance(world, b.id, to.id),
   )[0];
 }
 

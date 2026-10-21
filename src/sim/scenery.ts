@@ -1,11 +1,13 @@
 import { BASE_STATS } from './config';
+import { distToPolyline } from './paths';
 import { createRng } from './rng';
 import type { Feature, FeatureKind, LevelDef, Point } from './types';
 
 /**
  * The look of a map: an organic outline around the bases (fog of war outside it) and
- * scattered scenery. Purely visual, and point-mirrored like the bases so neither side's half
- * looks different. Uses its own random stream so it never changes where bases go.
+ * scattered scenery (only lakes block troops), point-mirrored like the bases so neither
+ * side's half looks different. Uses its own random stream so it never changes where bases
+ * go.
  */
 
 /** Outline corners; even, so each corner has a mirror twin half a turn away. */
@@ -19,6 +21,8 @@ const OUTLINE_WOBBLE = 34;
 /** Scenery keeps this far from a base's edge, and from the label below it. */
 const BASE_CLEARANCE = 38;
 const LABEL_Y = 48;
+/** Scenery keeps this far from a river's bank. */
+const RIVER_CLEARANCE = 60;
 
 const FEATURE_SIZES: Record<FeatureKind, [number, number]> = {
   forest: [45, 75],
@@ -183,6 +187,10 @@ function makeFeatures(level: LevelDef, outline: Point[], rng: () => number): Fea
     // Its mirror twin must fit as well: a conquest region's outline isn't symmetric.
     for (const p of [f, { x: width - f.x, y: height - f.y }]) {
       if (!insidePolygon(p, outline) || edgeDistance(p, outline) < f.size + 12) return false;
+    }
+    // Keep off the water, with room to walk to and from the bridges.
+    for (const r of level.rivers ?? []) {
+      if (distToPolyline(f.x, f.y, r.points) < f.size + r.width / 2 + RIVER_CLEARANCE) return false;
     }
     for (const b of bases) {
       const clear = f.size + BASE_STATS[b.kind].radius + BASE_CLEARANCE;

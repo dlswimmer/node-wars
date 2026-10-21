@@ -1,3 +1,5 @@
+import { levelRoutes } from './paths';
+import { MAX_DETOUR, addRiver } from './rivers';
 import { createRng } from './rng';
 import { addScenery, fitsWithTwin, regionOutline } from './scenery';
 import type { BaseDef, BaseKind, LevelDef, Point } from './types';
@@ -78,7 +80,18 @@ export function mapName(seed: number): string {
 
 /** The same seed always gives the same map, so a map number can be played again. */
 export function generateLevel(seed: number): LevelDef {
-  return addScenery(layoutLevel(seed, false), seed);
+  const layout = layoutLevel(seed, false);
+  const level = addScenery(addRiver(layout, seed), seed);
+  return tooRoundabout(level) ? addScenery(layout, seed) : level;
+}
+
+/** Whether the walk between the two HQs is much longer than the straight line. */
+function tooRoundabout(level: LevelDef): boolean {
+  if (!level.rivers?.length) return false;
+  const a = level.bases.findIndex((b) => b.kind === 'hq' && b.owner === 'player');
+  const b = level.bases.findIndex((b) => b.kind === 'hq' && b.owner === 'enemy');
+  const [p, q] = [level.bases[a]!, level.bases[b]!];
+  return levelRoutes(level)[a]![b]!.length > MAX_DETOUR * Math.hypot(p.x - q.x, p.y - q.y);
 }
 
 /** Battlefield area of a conquest region (about a random map's), and of the tutorial one. */

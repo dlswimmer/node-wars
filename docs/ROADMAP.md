@@ -108,10 +108,11 @@ join seamlessly, so the front line flows from one into the next.
 - [ ] Bases placed inside each zone with even spacing (Poisson-disk), never too crowded
 - [ ] Terrain that shapes strategy:
   - Water and mountains block troops; bridges and passes become chokepoints worth holding
+    (rivers with bridges on random maps and lakes everywhere: done; mountains next)
   - Forest, mud, and hills slow troops; roads speed them up
-  - Troops follow real paths around terrain (paths between bases worked out once per map,
+  - (done) Troops follow real paths around terrain (paths between bases worked out once per map,
     so it stays fast with hundreds of units)
-  - The attack preview and the AI use real travel times, so "the long way round" matters
+  - (done) The attack preview and the AI use real travel times, so "the long way round" matters
   - Jets from Airfields ignore terrain; tanks are slowed most by forest and mud
 - [ ] Fairness by testing, not symmetry: generate many candidate zones, let bots play each one,
       keep only the ones where neither side's start is a big advantage

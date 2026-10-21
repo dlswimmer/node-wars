@@ -210,7 +210,8 @@ export class BattleScene extends Phaser.Scene {
     this.box = contentBox(this.world, this.level.outline);
     const ground = this.add.graphics();
     if (this.level.outline) {
-      drawTerrain(ground, this.level.outline, this.level.features ?? [], this.box);
+      const { outline, features = [], rivers, bridges } = this.level;
+      drawTerrain(ground, outline, features, this.box, rivers, bridges);
     } else {
       drawMapGrid(ground, this.box.width + 2000, this.box.height + 2000);
       ground.setPosition(this.box.x - 1000, this.box.y - 1000);
@@ -904,7 +905,10 @@ Drag from a BLUE base!`,
     this.orderGfx.lineStyle(cssToWorld(3, this.cameras.main.zoom), 0xffffff, 0.55);
     for (const id of this.selected) {
       const b = this.world.bases[id]!;
-      this.orderGfx.lineBetween(b.x, b.y, p.x, p.y);
+      // Over a target, the line follows the road the troops will really take.
+      const road = target && id !== target.id ? this.world.routes[id]![target.id]!.points : null;
+      if (road && road.length > 2) this.orderGfx.strokePoints(road, false);
+      else this.orderGfx.lineBetween(b.x, b.y, p.x, p.y);
     }
     if (!target || sources.length === 0) return;
 

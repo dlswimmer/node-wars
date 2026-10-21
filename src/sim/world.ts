@@ -13,6 +13,7 @@ import {
   TANK_SPEED,
   UNIT_SPEED,
 } from './config';
+import { distToPolyline, levelRoutes } from './paths';
 import { createRng } from './rng';
 import type {
   Army,
@@ -22,10 +23,14 @@ import type {
   Bonuses,
   Faction,
   LevelDef,
+  Point,
   Unit,
   UnitKind,
   World,
 } from './types';
+
+/** How far each unit strays sideways from the road's corners, so a swarm doesn't walk in line. */
+const ROUTE_SPREAD = 8;
 
 export interface WorldOptions {
   seed?: number;
@@ -66,7 +71,13 @@ export function createWorld(level: LevelDef, opts: WorldOptions = {}): World {
     nextUnitId: 1,
     nextSquadId: 1,
     rng: createRng(opts.seed ?? 1),
+    routes: levelRoutes(level),
   };
+}
+
+/** How far troops walk from one base to another, going around water. */
+export function travelDistance(world: World, fromId: number, toId: number): number {
+  return world.routes[fromId]?.[toId]?.length ?? 0;
 }
 
 export function getBonuses(world: World, army: Army): Bonuses {
@@ -131,10 +142,18 @@ export function sendTroops(
   const tankPower = TANK_POWER + world.boosts[army].tankPower;
   const tanks = from.kind === 'factory' ? Math.floor(count / tankPower) : 0;
   const soldiers = count - tanks * tankPower;
+  const corners = world.routes[fromId]![toId]!.points.slice(1, -1);
   for (let i = 0; i < tanks + soldiers; i++) {
     const tank = i < tanks;
     const [sx, sy] = jitter(world, from.x, from.y, fromR);
-    const [tx, ty] = jitter(world, to.x, to.y, toR);
+    const [ax, ay] = jitter(world, to.x, to.y, toR);
+    // Around water each unit walks the road's corners, nudged a little to spread the swarm.
+    let path: Point[] = [];
+    if (corners.length > 0) {
+      const [ox, oy] = jitter(world, 0, 0, ROUTE_SPREAD);
+      path = [...corners.map((p) => ({ x: p.x + ox, y: p.y + oy })), { x: ax, y: ay }];
+    }
+    const { x: tx, y: ty } = path.shift() ?? { x: ax, y: ay };
     world.units.push({
       id: world.nextUnitId++,
       kind: tank ? 'tank' : 'soldier',
@@ -150,6 +169,7 @@ export function sendTroops(
         ? i * TANK_LAUNCH_INTERVAL
         : tanks * TANK_LAUNCH_INTERVAL + (i - tanks) * LAUNCH_INTERVAL,
       squad,
+      path,
     });
   }
   return count;
@@ -202,7 +222,7 @@ export function previewAttack(
     sources.push(b);
     if (!target) continue;
     const s = speed * kindSpeed(b.kind, b.kind === 'factory');
-    travel = Math.max(travel, Math.hypot(b.x - target.x, b.y - target.y) / s);
+    travel = Math.max(travel, travelDistance(world, id, targetId) / s);
   }
   // Earlier orders still flying at the same target count toward this attack.
   let enRoute = 0;
@@ -224,7 +244,7 @@ export function previewAttack(
     for (const u of world.units)
       if (u.owner === owner && u.targetId === targetId) defenders += u.power;
   }
-  // Enemy troops flying at one of our sources along the line we'd take will meet our swarm
+  // Enemy troops flying at one of our sources along the road we'd take will meet our swarm
   // head-on and cancel out troop for troop, so they count against us. Swarms crossing the
   // path at an angle may or may not meet ours depending on timing, so they're left out: this
   // keeps the preview simple and never shows "win" for an attack that a counter-attack
@@ -235,7 +255,7 @@ export function previewAttack(
     const src = sources.find((b) => b.id === u.targetId);
     if (!src) continue;
     const corridor = BASE_STATS[src.kind].radius + CLASH_RADIUS;
-    if (distToSegment(u.x, u.y, src.x, src.y, target.x, target.y) <= corridor)
+    if (distToPolyline(u.x, u.y, world.routes[src.id]![targetId]!.points) <= corridor)
       oncoming += u.power * getBonuses(world, u.owner).attack;
   }
   const attack = getBonuses(world, army).attack;
@@ -284,16 +304,21 @@ function moveUnits(world: World, dt: number, bonuses: Record<Army, Bonuses>): vo
       survivors.push(u);
       continue;
     }
-    const dx = u.tx - u.x;
-    const dy = u.ty - u.y;
-    const dist = Math.hypot(dx, dy);
-    const move = u.speed * dt;
+    let move = u.speed * dt;
+    let dist = Math.hypot(u.tx - u.x, u.ty - u.y);
+    // Round the road's corners without losing any of this step's movement.
+    while (dist <= move && u.path?.length) {
+      move -= dist;
+      [u.x, u.y] = [u.tx, u.ty];
+      ({ x: u.tx, y: u.ty } = u.path.shift()!);
+      dist = Math.hypot(u.tx - u.x, u.ty - u.y);
+    }
     if (dist <= move) {
       const target = world.bases[u.targetId];
       if (target) resolveArrival(world, target, u, bonuses[u.owner].attack);
     } else {
-      u.x += (dx / dist) * move;
-      u.y += (dy / dist) * move;
+      u.x += ((u.tx - u.x) / dist) * move;
+      u.y += ((u.ty - u.y) / dist) * move;
       survivors.push(u);
     }
   }
@@ -428,21 +453,6 @@ function checkWinner(world: World): Army | null {
     if (!rivalHasHq && armyHasHq) return army;
   }
   return null;
-}
-
-function distToSegment(
-  px: number,
-  py: number,
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
-): number {
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const len2 = dx * dx + dy * dy;
-  const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / len2));
-  return Math.hypot(x1 + t * dx - px, y1 + t * dy - py);
 }
 
 function jitter(world: World, x: number, y: number, r: number): [number, number] {

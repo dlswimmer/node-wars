@@ -33,6 +33,16 @@ every push to `main` (CI runs lint, format, typecheck and tests first).
 - **Region battles use the region's exact shape** from the world map (scaled, never stretched);
   your HQ starts west/south, along the region's long axis.
 - **Medals are whole numbers:** one per star; every medal number lives in `src/sim/economy.ts`.
+- **Terrain is mirrored too, and rebuilt from the seed.** Rivers run through the map centre and
+  mirror onto themselves, so the save never stores terrain. Fairness by bot testing stays a
+  separate job. Rivers come from their own random stream so bases and scenery don't move.
+- **Paths are worked out once per map**, on a 20-unit grid where a cell is open only if all
+  of it is dry, then pulled tight into a few corners. Maps with nothing in the way keep exact
+  straight lines, so their balance doesn't change. Kid bots still judge by straight-line
+  distance on purpose (that's how a kid sees the map).
+- **Rivers only on random maps for now** (not the tutorial, Boot Camp or conquest regions). A
+  map with a base in the very centre gets no river, and one where the HQs' walk would be over
+  1.7x the straight line drops its river.
 - **Swarm clashes** cancel troop for troop mid-field (Armory counts; a tank absorbs soldiers).
 - **Bunker AI by rank:** only General and Marshal know a Bunker needs double troops and value
   Bunkers/Hospitals by position. Easier AIs waste troops on Bunkers. This keeps early ranks
@@ -49,8 +59,13 @@ every push to `main` (CI runs lint, format, typecheck and tests first).
 Done: Phase 1 skirmish, medals and Command Tent, the Adjutant helper, the conquest world map,
 random mirrored maps with scenery, Settings, and the Bunker and Field Hospital.
 
-Next up: **terrain (Phase 2)**: water and mountains that block, forest and mud that slow,
-real paths, and the preview and AI using real travel times. See ROADMAP.md.
+Terrain step 1 is done (2026-10-21): rivers with 1-3 bridges on about 40% of random maps,
+lakes that block everywhere, real paths (`src/sim/paths.ts`), and the preview, AI and Adjutant
+using real travel distances. The drag line follows the road once it is over a target.
+
+Next up, one step at a time: **mountains with passes**, and terrain switched on in conquest
+regions by star rating (1-2 stars light); then **forest and mud** that slow troops (tanks
+most); then polish. See ROADMAP.md.
 
 Also open:
 

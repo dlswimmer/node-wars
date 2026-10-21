@@ -38,6 +38,11 @@ export interface Unit {
   delay: number;
   /** Units sent by the same order share a squad id. */
   squad: number;
+  /**
+   * Corners still to come after (tx, ty) on the way around water; the last is the aim point
+   * near the target. Empty or missing when the way is straight.
+   */
+  path?: Point[];
 }
 
 /** Global multipliers an army earns from the special bases it holds. */
@@ -85,6 +90,14 @@ export interface World {
   nextUnitId: number;
   nextSquadId: number;
   rng: () => number;
+  /** The way from every base to every other one, around terrain (see paths.ts). */
+  routes: Route[][];
+}
+
+/** A way between two bases: the corners to walk through (both bases included) and its length. */
+export interface Route {
+  points: Point[];
+  length: number;
 }
 
 export interface BaseDef {
@@ -100,7 +113,7 @@ export interface Point {
   y: number;
 }
 
-/** Scenery drawn on the map. Purely visual for now (terrain gameplay comes in Phase 2). */
+/** Scenery drawn on the map. Lakes block troops; the rest is just for looks. */
 export type FeatureKind = 'forest' | 'rocks' | 'lake' | 'crater' | 'sandbags' | 'traps';
 
 export interface Feature {
@@ -126,4 +139,25 @@ export interface LevelDef {
   /** Edge of the battlefield (a closed polygon around the bases); outside is fog of war. */
   outline?: Point[];
   features?: Feature[];
+  /** Water that troops can only cross on a bridge. */
+  rivers?: River[];
+  bridges?: Bridge[];
+}
+
+/** A river: a line along the water's middle, running out past the map's edge at both ends. */
+export interface River {
+  points: Point[];
+  width: number;
+}
+
+/** A crossing centred on a river and running across it. */
+export interface Bridge {
+  x: number;
+  y: number;
+  /** Direction the road runs (across the river). */
+  angle: number;
+  /** Bank to bank. */
+  length: number;
+  /** How wide the road is. */
+  width: number;
 }

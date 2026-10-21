@@ -1,6 +1,13 @@
 import { BASE_STATS, HOSPITAL_RANGE, UNIT_SPEED } from './config';
 import { DIFFICULTIES, type Difficulty } from './difficulty';
-import { damageFactor, getBonuses, grownTroops, isShielded, sendTroops } from './world';
+import {
+  damageFactor,
+  getBonuses,
+  grownTroops,
+  isShielded,
+  sendTroops,
+  travelDistance,
+} from './world';
 import type { Army, Base, World } from './types';
 
 export interface AiState {
@@ -47,7 +54,7 @@ export function updateAi(world: World, ai: AiState, dt: number): void {
     if (isSnipe(world, ai, target)) continue;
 
     const nearest = [...sources]
-      .sort((a, b) => dist(a, target) - dist(b, target))
+      .sort((a, b) => dist(world, a, target) - dist(world, b, target))
       .slice(0, ai.idle > STALEMATE_SECONDS ? sources.length : s.aiMaxSources);
 
     let power = 0;
@@ -60,12 +67,12 @@ export function updateAi(world: World, ai: AiState, dt: number): void {
       const hit = damageFactor(target.kind, unit);
       power += Math.floor(src.troops * s.aiCommit) * attack * hit;
       used.push(src);
-      needed = estimateDefenders(target, dist(src, target)) + s.aiMargin;
+      needed = estimateDefenders(target, dist(world, src, target)) + s.aiMargin;
       if (power >= needed) break;
     }
     if (power < needed) continue;
 
-    const travel = dist(used[used.length - 1]!, target);
+    const travel = dist(world, used[used.length - 1]!, target);
     let score = needed + travel * 0.05;
     if (SPECIAL_KINDS.has(target.kind)) score -= 5;
     if (s.aiKnowsBases) score -= positionValue(world, ai.army, target);
@@ -96,7 +103,7 @@ function defend(world: World, ai: AiState): boolean {
   for (const base of threatened) {
     const helper = world.bases
       .filter((h) => h.owner === ai.army && h !== base && h.troops >= 8)
-      .sort((h1, h2) => dist(h1, base) - dist(h2, base))[0];
+      .sort((h1, h2) => dist(world, h1, base) - dist(world, h2, base))[0];
     if (helper) {
       sendTroops(world, ai.army, helper.id, base.id, ai.settings.aiCommit);
       ai.idle = 0;
@@ -129,20 +136,22 @@ function positionValue(world: World, army: Army, target: Base): number {
     );
     if (!home || !rival) return 2;
     // 1 when it sits right on the line between the HQs, falling off to 0 well to the side.
-    const detour = dist(home, target) + dist(target, rival) - dist(home, rival);
+    const detour =
+      dist(world, home, target) + dist(world, target, rival) - dist(world, home, rival);
     return 2 + 4 * Math.max(0, 1 - detour / 300);
   }
   if (target.kind === 'hospital') {
     const front = world.bases.some(
-      (b) => b.owner !== army && b.owner !== 'neutral' && dist(b, target) <= HOSPITAL_RANGE * 1.5,
+      (b) =>
+        b.owner !== army && b.owner !== 'neutral' && dist(world, b, target) <= HOSPITAL_RANGE * 1.5,
     );
     return front ? 5 : 2;
   }
   return 0;
 }
 
-function dist(a: Base, b: Base): number {
-  return Math.hypot(a.x - b.x, a.y - b.y);
+function dist(world: World, a: Base, b: Base): number {
+  return travelDistance(world, a.id, b.id);
 }
 
 /** Troops the target will have when the swarm arrives, counting its production on the way. */
