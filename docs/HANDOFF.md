@@ -69,7 +69,15 @@ Terrain steps 1 and 2 are done (2026-10-21): rivers with 1-3 bridges, mountain r
 passes, lakes that block, real paths (`src/sim/paths.ts`), the preview, AI and Adjutant using
 real travel distances, and terrain in conquest regions by star rating.
 
-Next up, one step at a time: **forest and mud** that slow troops (tanks most; needs separate
+Free-for-All is in Quick Battle (2026-10-21): three armies (you, red, purple) on a map laid out
+for one army and turned a third of the way round twice on an oval, so it is close to fair but
+not exact. Being knocked out ends your battle as a loss even while the other two fight on. It
+plays easier than one against one at the top ranks because the AIs fight each other too
+(bands in `balance.test.ts`; `npm run balance -- 100 ffa`). The bot "Skilled adult" does worse
+than a sharp kid there; worth a look if FFA gets tuned.
+
+Next up, one step at a time: **base visuals** (bases that look like what they are, the
+user's request), **forest and mud** that slow troops (tanks most; needs separate
 soldier and tank route tables), then polish (mountain and bridge looks, Bridge Fort). See
 ROADMAP.md.
 

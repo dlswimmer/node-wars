@@ -49,6 +49,7 @@ const MUTE_KEY = 'node-wars:muted';
 const VOLUME_KEY = 'node-wars:volume';
 const SHAKE_KEY = 'node-wars:shake';
 const HINTS_KEY = 'node-wars:attack-hints';
+const FFA_KEY = 'node-wars:free-for-all';
 
 /** Volume steps run 0..MAX_VOLUME. */
 export const MAX_VOLUME = 10;
@@ -68,6 +69,15 @@ function write(key: string, value: string): void {
   } catch {
     // Storage unavailable; the option lasts until the page closes.
   }
+}
+
+/** Quick Battle mode last picked: three armies (Free-for-All) or the usual one against one. */
+export function loadFreeForAll(): boolean {
+  return read(FFA_KEY) === '1';
+}
+
+export function saveFreeForAll(on: boolean): void {
+  write(FFA_KEY, on ? '1' : '0');
 }
 
 export function loadMuted(): boolean {

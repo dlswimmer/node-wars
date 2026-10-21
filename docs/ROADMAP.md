@@ -118,7 +118,7 @@ join seamlessly, so the front line flows from one into the next.
       mirrored and fair; further out, maps may be lopsided and bots measure how hard each one
       really is, which sets its stars and medals (a tougher map is worth more, not thrown away)
 - [ ] Three-army battles: the sim handles any number of armies (same rules for all); a
-      Free-for-All in Quick Battle first, then three-way regions at 4-5 stars on the conquest
+      Free-for-All in Quick Battle first (done), then three-way regions at 4-5 stars on the conquest
       map with their own balance bands, a second enemy colour and a bigger reward
 - [ ] Enemy personalities (Rusher, Turtle, Raider) so battles at the same rank feel different
 - [ ] Show a region's terrain (river, mountains) on the world map before you pick it

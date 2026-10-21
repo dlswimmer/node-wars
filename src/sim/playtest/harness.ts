@@ -1,7 +1,7 @@
 import { createAi, updateAi } from '../ai';
 import { worldOptionsFor, type Difficulty } from '../difficulty';
 import type { Army, LevelDef } from '../types';
-import { countBases, createWorld, step } from '../world';
+import { countBases, createWorld, isAlive, step } from '../world';
 import { createBot, updateBot, type HumanProfile } from './bots';
 
 export interface MatchResult {
@@ -23,15 +23,16 @@ export function runMatch(
   maxSeconds = 900,
 ): MatchResult {
   const world = createWorld(level, worldOptionsFor(difficulty, seed));
-  const ai = createAi('enemy', difficulty);
+  const ais = world.armies.filter((a) => a !== 'player').map((a) => createAi(a, difficulty));
   const bot = createBot(profile, seed * 7919 + 13);
   let peak = 0;
   let firstLoss: number | null = null;
   let prevOwned = countBases(world, 'player');
 
-  while (!world.winner && world.time < maxSeconds) {
+  // Knocked out while two other armies fight on counts as a loss, as it does in the game.
+  while (!world.winner && isAlive(world, 'player') && world.time < maxSeconds) {
     updateBot(world, bot, DT);
-    updateAi(world, ai, DT);
+    for (const ai of ais) updateAi(world, ai, DT);
     step(world, DT);
     const owned = countBases(world, 'player');
     if (owned < prevOwned && firstLoss === null) firstLoss = world.time;
@@ -39,7 +40,7 @@ export function runMatch(
     peak = Math.max(peak, owned);
   }
   return {
-    winner: world.winner ?? 'timeout',
+    winner: world.winner ?? (isAlive(world, 'player') ? 'timeout' : 'enemy'),
     seconds: world.time,
     peakPlayerBases: peak,
     firstLoss,
@@ -75,7 +76,9 @@ export function runMatchup(
   return {
     matches,
     winRate: rate('player'),
-    lossRate: rate('enemy'),
+    // Any other army winning is a loss (with three armies it may not be the enemy).
+    lossRate:
+      results.filter((r) => r.winner !== 'player' && r.winner !== 'timeout').length / matches,
     timeoutRate: rate('timeout'),
     medianSeconds: median(results.map((r) => r.seconds)),
     medianFirstLoss: losses.length ? median(losses) : null,

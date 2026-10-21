@@ -43,12 +43,18 @@ const FEATURE_WEIGHTS: [FeatureKind, number][] = [
 ];
 
 /**
- * Add an outline and scenery to a point-symmetric level. The outline is generated around the
- * bases unless one is given (a conquest region's shape, from regionOutline).
+ * Add an outline and scenery to a level. The outline is generated around the bases (mirrored
+ * for a point-symmetric level) unless one is given (a conquest region's shape, from
+ * regionOutline).
  */
-export function addScenery(level: LevelDef, seed: number, outline?: Point[]): LevelDef {
+export function addScenery(
+  level: LevelDef,
+  seed: number,
+  outline?: Point[],
+  mirrored = true,
+): LevelDef {
   const rng = createRng(seed * 40503 + 7);
-  const edge = outline ?? makeOutline(level, rng);
+  const edge = outline ?? makeOutline(level, rng, mirrored);
   return { ...level, outline: edge, features: makeFeatures(level, edge, rng) };
 }
 
@@ -106,12 +112,14 @@ export function centroid(poly: Point[]): Point {
   return { x: x / (3 * area), y: y / (3 * area) };
 }
 
-function makeOutline(level: LevelDef, rng: () => number): Point[] {
+/** `mirrored`: point-symmetric through the centre, like the bases of a two-army map. */
+function makeOutline(level: LevelDef, rng: () => number, mirrored = true): Point[] {
   const { width, height, bases } = level;
   const cx = width / 2;
   const cy = height / 2;
   const n = OUTLINE_POINTS;
-  const half = n / 2;
+  // A mirrored outline is worked out for half a turn and copied; otherwise all of it.
+  const half = mirrored ? n / 2 : n;
   const angle = (i: number) => (i / n) * Math.PI * 2;
 
   // How far out each ray must reach to clear every base (and its label) by the margin.
@@ -131,7 +139,9 @@ function makeOutline(level: LevelDef, rng: () => number): Point[] {
     return r;
   });
   // Labels hang down on both sides, so take the larger of each mirrored pair.
-  for (let i = 0; i < half; i++) need[i] = need[i + half] = Math.max(need[i]!, need[i + half]!);
+  if (mirrored) {
+    for (let i = 0; i < half; i++) need[i] = need[i + half] = Math.max(need[i]!, need[i + half]!);
+  }
 
   // Smooth 0..1 noise that repeats every half turn, so the outline mirrors cleanly.
   const noise = (spacing: number) => {
@@ -165,7 +175,7 @@ function makeOutline(level: LevelDef, rng: () => number): Point[] {
       y: Math.round(cy + Math.sin(angle(i)) * r),
     };
   });
-  return [...first, ...first.map((p) => ({ x: width - p.x, y: height - p.y }))];
+  return mirrored ? [...first, ...first.map((p) => ({ x: width - p.x, y: height - p.y }))] : first;
 }
 
 function makeFeatures(level: LevelDef, outline: Point[], rng: () => number): Feature[] {

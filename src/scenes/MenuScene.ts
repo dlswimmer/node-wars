@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { DPR, cssSize } from '../display';
 import { loadSave } from '../save';
 import { DIFFICULTIES, DIFFICULTY_ORDER, type DifficultyId } from '../sim/difficulty';
-import { loadDifficulty, saveDifficulty } from '../settings';
+import { loadDifficulty, loadFreeForAll, saveDifficulty, saveFreeForAll } from '../settings';
 import { COLORS, textStyle } from '../theme';
 import type { BattleData } from './BattleScene';
 import { drawMapGrid } from './drawing';
@@ -112,6 +112,7 @@ export class MenuScene extends Phaser.Scene {
 
     const last = loadDifficulty();
     const highlight = last ?? 'recruit';
+    const ffa = loadFreeForAll();
     DIFFICULTY_ORDER.forEach((id, i) => {
       const d = DIFFICULTIES[id];
       const x = cx + (i - 1) * 320;
@@ -125,7 +126,7 @@ export class MenuScene extends Phaser.Scene {
         labelSize: 48,
         onClick: () => {
           saveDifficulty(id);
-          const data: BattleData = { difficulty: id, mode: 'quick' };
+          const data: BattleData = { difficulty: id, mode: 'quick', ffa };
           this.scene.start('battle', data);
         },
       });
@@ -134,6 +135,27 @@ export class MenuScene extends Phaser.Scene {
         this.add.text(x, y - 82, tag, textStyle(24, COLORS.accent)).setOrigin(0.5, 1);
         this.tweens.add({ targets: button, scale: 1.05, duration: 600, yoyo: true, repeat: -1 });
       }
+    });
+
+    // One against one, or three armies all fighting each other.
+    const modes = [
+      { on: false, label: '1 VS 1', sublabel: 'You against red' },
+      { on: true, label: 'FREE-FOR-ALL', sublabel: '3 armies, all vs all' },
+    ];
+    modes.forEach((m, i) => {
+      const picked = m.on === ffa;
+      addButton(this, cx + (i - 0.5) * 280, 490, {
+        width: 260,
+        height: 90,
+        label: picked ? `✔ ${m.label}` : m.label,
+        sublabel: m.sublabel,
+        color: picked ? 0x2f5f8a : 0x2a3324,
+        labelSize: 34,
+        onClick: () => {
+          saveFreeForAll(m.on);
+          this.go('quick');
+        },
+      });
     });
 
     addButton(this, 110, 540, {

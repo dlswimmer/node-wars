@@ -1,7 +1,7 @@
 import { createRng } from './rng';
 import { addScenery, fitsWithTwin, regionOutline } from './scenery';
 import { NO_TERRAIN, RANDOM_TERRAIN, addTerrain, type TerrainOptions } from './terrain';
-import type { BaseDef, BaseKind, LevelDef, Point } from './types';
+import type { BaseDef, BaseKind, Faction, LevelDef, Point } from './types';
 
 /**
  * Random skirmish maps. Bases are placed on the player's half and then point-mirrored
@@ -347,13 +347,153 @@ function edgeHq(field: Field, y: number): { x: number; y: number } | null {
  * The camera fits the bases' bounding box, and the HUD sits in the screen corners, so keep
  * the corners of that box empty.
  */
-function crowdsCorner(bases: Spot[]): boolean {
+function crowdsCorner(bases: Spot[], share = 1): boolean {
   const xs = bases.map((b) => b.x);
   const ys = bases.map((b) => b.y);
   const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
   return bases.some((b) => {
-    const nearSide = Math.min(b.x - x0, x1 - b.x) < (x1 - x0) * CORNER_X;
-    const nearEdge = Math.min(b.y - y0, y1 - b.y) < (y1 - y0) * CORNER_Y;
+    const nearSide = Math.min(b.x - x0, x1 - b.x) < (x1 - x0) * CORNER_X * share;
+    const nearEdge = Math.min(b.y - y0, y1 - b.y) < (y1 - y0) * CORNER_Y * share;
     return nearSide && nearEdge;
   });
+}
+
+/** Size of a Free-for-All map: a little taller than a two-army one, to fit three corners. */
+export const FFA_WIDTH = 1400;
+export const FFA_HEIGHT = 860;
+/** Share of the usual empty screen corners a Free-for-All map keeps (see crowdsCorner). */
+const FFA_CORNER = 0.5;
+
+/**
+ * A three-army Free-for-All map: you start on the left, the enemy upper right and the rival
+ * lower right. One army's third of the map is laid out and turned a third of the way round
+ * twice (on an oval, so it fits a wide screen). The turn isn't exact on a wide map, so it is
+ * close to fair but not perfectly, which is fine for a Quick Battle; bots measure how it
+ * plays. No rivers or mountains yet.
+ */
+export function generateFreeForAll(seed: number): LevelDef {
+  const rng = createRng(seed * 2246822519 + 1);
+  for (let attempt = 0; attempt < 500; attempt++) {
+    const bases = tryFreeForAll(rng);
+    if (bases) {
+      const level: LevelDef = {
+        id: `ffa-${seed}`,
+        name: mapName(seed),
+        seed,
+        width: FFA_WIDTH,
+        height: FFA_HEIGHT,
+        bases,
+      };
+      return addScenery(level, seed, undefined, false);
+    }
+  }
+  throw new Error(`Could not lay out Free-for-All map ${seed}`);
+}
+
+function tryFreeForAll(rng: () => number): BaseDef[] | null {
+  const [w, h] = [FFA_WIDTH, FFA_HEIGHT];
+  const [cx, cy] = [w / 2, h / 2];
+  const [ra, rb] = [cx - EDGE_X, cy - EDGE_Y];
+  const between = (a: number, b: number) => a + rng() * (b - a);
+  const pick = <T>(xs: T[]) => xs[Math.floor(rng() * xs.length)]!;
+  /** Point at angle and radius on the oval (1 = its edge). */
+  const at = (angle: number, r: number) => ({
+    x: cx + Math.cos(angle) * r * ra,
+    y: cy + Math.sin(angle) * r * rb,
+  });
+  /** The same spot in the other two armies' thirds. */
+  const turned = (p: Spot, k: number): Spot => {
+    const angle = Math.atan2((p.y - cy) / rb, (p.x - cx) / ra) + (k * Math.PI * 2) / 3;
+    const r = Math.hypot((p.x - cx) / ra, (p.y - cy) / rb);
+    const q = at(angle, r);
+    return { kind: p.kind, x: Math.round(q.x), y: Math.round(q.y) };
+  };
+
+  const third: Spot[] = [];
+  const centre: Spot | null = rng() < 0.5 ? { kind: pick(SPECIALS), x: cx, y: cy } : null;
+  const copies = (p: Spot) => [p, turned(p, 1), turned(p, 2)];
+  // Turning on an oval doesn't keep distances, so every copy is checked against every other.
+  const clearance = (p: Spot) => {
+    const mine = copies(p);
+    const others = third.flatMap(copies);
+    if (centre) others.push(centre);
+    let d = Infinity;
+    for (const [i, q] of mine.entries()) {
+      for (const o of [...mine.slice(i + 1), ...others])
+        d = Math.min(d, Math.hypot(o.x - q.x, o.y - q.y));
+    }
+    return d;
+  };
+  const inBounds = (p: Spot) =>
+    copies(p).every(
+      (q) => q.x >= EDGE_X && q.x <= w - EDGE_X && q.y >= EDGE_Y && q.y <= h - EDGE_Y,
+    );
+  /** Try random spots in this army's third; keep the most open of a few. */
+  const place = (kind: BaseKind, sample: () => { x: number; y: number }, candidates = 1) => {
+    let best: Spot | null = null;
+    let bestGap = 0;
+    let found = 0;
+    for (let i = 0; i < 80 && found < candidates; i++) {
+      const s = sample();
+      const spot = { kind, x: Math.round(s.x), y: Math.round(s.y) };
+      if (!inBounds(spot)) continue;
+      const gap = clearance(spot);
+      if (gap < MIN_SPACING) continue;
+      found++;
+      if (gap > bestGap) [best, bestGap] = [spot, gap];
+    }
+    if (best) third.push(best);
+    return best !== null;
+  };
+  // This army's third of the oval: a wedge around due west.
+  const wedge = (r0: number, r1: number) => () =>
+    at(Math.PI + between(-Math.PI / 3, Math.PI / 3), between(r0, r1));
+
+  const hq = at(Math.PI + between(-0.08, 0.08), between(0.9, 1));
+  if (!place('hq', () => hq)) return null;
+  const nearKind: BaseKind = rng() < 0.5 ? 'barracks' : 'outpost';
+  const near = () => {
+    const angle = between(-1.4, 1.4);
+    const r = between(MIN_SPACING + 10, 220);
+    return { x: hq.x + Math.cos(angle) * r, y: hq.y + Math.sin(angle) * r };
+  };
+  if (!place(nearKind, near)) return null;
+  const special = pick(SPECIALS.filter((k) => k !== centre?.kind));
+  if (!place(special, wedge(0.3, 0.6), 3)) return null;
+  const perArmy = 4 + Math.floor(rng() * 2);
+  const hasBarracks = () => third.some((b) => b.kind === 'barracks');
+  while (third.length < perArmy || !hasBarracks()) {
+    const kind = !hasBarracks() || rng() < 0.4 ? 'barracks' : 'outpost';
+    if (!place(kind, wedge(0.3, 1), 12)) return null;
+  }
+
+  const owners: Faction[] = ['player', 'enemy', 'rival'];
+  const all = [...owners.flatMap((_, k) => third.map((b) => turned(b, k)))];
+  if (centre) all.push(centre);
+  // Three armies fill the map out to its corners, so only the very corners stay empty.
+  if (crowdsCorner(all, FFA_CORNER)) return null;
+
+  // Garrisons grow from each HQ towards the middle, the same in every army's third.
+  const reach = Math.hypot(cx - hq.x, cy - hq.y) - MIN_SPACING;
+  const troopsAt = (b: Spot) => {
+    const d = Math.hypot(b.x - hq.x, b.y - hq.y) - MIN_SPACING;
+    const t = Math.min(1, Math.max(0, d / reach));
+    const troops = NEAR_TROOPS + (FAR_TROOPS - NEAR_TROOPS) * t + (KIND_TROOPS[b.kind] ?? 0);
+    return Math.max(MIN_TROOPS, Math.round(troops));
+  };
+  const list: BaseDef[] = owners.flatMap((owner, k) =>
+    third.map((b) => {
+      const isHq = b.kind === 'hq';
+      const p = turned(b, k);
+      return {
+        kind: b.kind,
+        x: p.x,
+        y: p.y,
+        owner: isHq ? owner : 'neutral',
+        troops: isHq ? HQ_TROOPS : troopsAt(b),
+      };
+    }),
+  );
+  if (centre) list.push({ ...centre, owner: 'neutral', troops: troopsAt(centre) });
+  return list;
 }

@@ -5,10 +5,12 @@ import {
   MIN_BASES,
   MIN_SPACING,
   MIN_WIDTH,
+  generateFreeForAll,
   generateLevel,
   mapName,
   randomMapSeed,
 } from './mapgen';
+import { insidePolygon } from './scenery';
 import type { BaseDef, LevelDef } from './types';
 
 const SEEDS = Array.from({ length: 200 }, (_, i) => i * 487 + 1);
@@ -121,6 +123,52 @@ describe('bunkers and field hospitals on random maps', () => {
       for (const kind of ['bunker', 'hospital']) {
         expect(generateLevel(s).bases.filter((b) => b.kind === kind).length % 2).toBe(0);
       }
+    }
+  });
+});
+
+describe('generateFreeForAll', () => {
+  const maps = Array.from({ length: 60 }, (_, i) => generateFreeForAll(i * 389 + 2));
+
+  it('gives the same map for the same seed', () => {
+    expect(generateFreeForAll(321)).toEqual(generateFreeForAll(321));
+  });
+
+  it('starts three armies, one HQ each: you on the left, the others on the right', () => {
+    for (const l of maps) {
+      const hqs = l.bases.filter((b) => b.kind === 'hq');
+      expect(hqs.map((b) => b.owner).sort()).toEqual(['enemy', 'player', 'rival']);
+      const player = hqs.find((b) => b.owner === 'player')!;
+      for (const other of hqs) if (other !== player) expect(other.x).toBeGreaterThan(l.width / 2);
+      expect(l.bases.filter((b) => b.owner !== 'neutral')).toHaveLength(3);
+    }
+  });
+
+  it('gives every army the same kinds of base and keeps bases spread out', () => {
+    for (const l of maps) {
+      const kinds = (owner: string) => {
+        const hq = l.bases.findIndex((b) => b.owner === owner);
+        return l.bases
+          .slice(hq, hq + (l.bases.length - (l.bases.length % 3)) / 3)
+          .map((b) => b.kind);
+      };
+      expect(kinds('enemy')).toEqual(kinds('player'));
+      expect(kinds('rival')).toEqual(kinds('player'));
+      for (const [i, a] of l.bases.entries()) {
+        expect(a.x).toBeGreaterThan(0);
+        expect(a.x).toBeLessThan(l.width);
+        expect(a.y).toBeGreaterThan(0);
+        expect(a.y).toBeLessThan(l.height);
+        for (const b of l.bases.slice(i + 1)) {
+          expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(MIN_SPACING - 2);
+        }
+      }
+    }
+  });
+
+  it('draws an outline around every base', () => {
+    for (const l of maps) {
+      for (const b of l.bases) expect(insidePolygon(b, l.outline!)).toBe(true);
     }
   });
 });

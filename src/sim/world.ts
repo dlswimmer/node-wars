@@ -440,7 +440,8 @@ function recover(world: World, army: Army, lost: number, x: number, y: number): 
   world.events.push({ type: 'heal', baseId: best.id, amount });
 }
 
-function isAlive(world: World, army: Army): boolean {
+/** Whether an army still has a base or troops on the move. */
+export function isAlive(world: World, army: Army): boolean {
   return world.bases.some((b) => b.owner === army) || world.units.some((u) => u.owner === army);
 }
 

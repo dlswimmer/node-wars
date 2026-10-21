@@ -2,12 +2,12 @@
  * Balance report: simulated players of different skill levels play many matches at every
  * difficulty. Run with `npm run balance` (optionally `-- 500` for more matches per cell), or
  * `npm run balance -- 100 random` to play every match on a different random map
- * (`regions` for conquest-map regions). Covers every tier, including the two only the
+ * (`regions` for conquest-map regions, `ffa` for three-army Free-for-All maps). Covers every tier, including the two only the
  * conquest map uses.
  */
 import { DIFFICULTIES, STAR_DIFFICULTY } from '../src/sim/difficulty';
 import { LEVELS } from '../src/sim/levels';
-import { generateLevel } from '../src/sim/mapgen';
+import { generateFreeForAll, generateLevel } from '../src/sim/mapgen';
 import { PROFILES } from '../src/sim/playtest/bots';
 import { regionLevel } from '../src/sim/worldmap';
 import { runMatchup, type LevelSource } from '../src/sim/playtest/harness';
@@ -24,7 +24,9 @@ const sources: { name: string; level: LevelSource; bases: string }[] =
     ? [{ name: 'Random maps', level: generateLevel, bases: '' }]
     : mode === 'regions'
       ? [{ name: 'Conquest regions', level: region, bases: '' }]
-      : LEVELS.map((l) => ({ name: l.name, level: l, bases: `/${l.bases.length}` }));
+      : mode === 'ffa'
+        ? [{ name: 'Free-for-All (3 armies)', level: generateFreeForAll, bases: '' }]
+        : LEVELS.map((l) => ({ name: l.name, level: l, bases: `/${l.bases.length}` }));
 
 for (const source of sources) {
   console.log(`\n${source.name}: ${matches} matches per cell\n`);

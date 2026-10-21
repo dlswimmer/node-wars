@@ -20,7 +20,7 @@ import {
   type DifficultyId,
 } from '../sim/difficulty';
 import { LEVELS } from '../sim/levels';
-import { generateLevel, randomMapSeed } from '../sim/mapgen';
+import { generateFreeForAll, generateLevel, randomMapSeed } from '../sim/mapgen';
 import { regionLevel } from '../sim/worldmap';
 import type { Base, LevelDef, Point, World } from '../sim/types';
 import {
@@ -29,6 +29,7 @@ import {
   createWorld,
   damageFactor,
   getBonuses,
+  isAlive,
   isShielded,
   previewAttack,
   sendTroops,
@@ -75,6 +76,8 @@ export interface BattleData {
   map?: number;
   /** Campaign: the conquest-map region being fought over (its stars set the difficulty). */
   region?: string;
+  /** Quick Battle: three armies, everyone against everyone. */
+  ffa?: boolean;
 }
 
 type Gesture = 'none' | 'drag' | 'pan' | 'pinch';
@@ -99,6 +102,8 @@ export class BattleScene extends Phaser.Scene {
   auto = false;
   /** Map number being played (0 = Boot Camp), so PLAY AGAIN replays the same map. */
   map = 0;
+  /** Three-army Free-for-All (Quick Battle). */
+  ffa = false;
   /** Medals earned by this battle (campaign), set when it ends. */
   reward = 0;
   /** Conquest-map region being fought over (campaign). */
@@ -110,7 +115,8 @@ export class BattleScene extends Phaser.Scene {
   private adjutant: AdjutantState | null = null;
   private adjutantOn = true;
 
-  private ai!: AiState;
+  /** One AI for every army but yours. */
+  private ais: AiState[] = [];
   private baseGfx!: Phaser.GameObjects.Graphics;
   /** Reused unit sprites; one per visible unit, extras hidden. */
   private unitSprites: Phaser.GameObjects.Image[] = [];
@@ -167,7 +173,8 @@ export class BattleScene extends Phaser.Scene {
     this.difficulty = DIFFICULTIES[data.difficulty ?? loadDifficulty() ?? 'soldier'];
     this.mode = data.mode ?? 'quick';
     this.auto = this.mode === 'campaign' && !!data.auto;
-    this.map = data.map ?? (isFirstBattle() ? 0 : randomMapSeed());
+    this.ffa = this.mode === 'quick' && !!data.ffa;
+    this.map = data.map ?? (isFirstBattle() && !this.ffa ? 0 : randomMapSeed());
     this.region = this.mode === 'campaign' ? (data.region ?? null) : null;
     if (this.region) {
       this.stars = loadSave().conquest.regions[this.region]?.stars ?? 1;
@@ -179,9 +186,11 @@ export class BattleScene extends Phaser.Scene {
     const save = loadSave();
     this.level = this.region
       ? regionLevel(save.conquest.seed, this.region)
-      : this.map === 0
-        ? LEVELS[0]!
-        : generateLevel(this.map);
+      : this.ffa
+        ? generateFreeForAll(this.map)
+        : this.map === 0
+          ? LEVELS[0]!
+          : generateLevel(this.map);
     const seed = Date.now() & 0xffff;
     this.revealed = [];
     this.world = createWorld(
@@ -190,7 +199,9 @@ export class BattleScene extends Phaser.Scene {
         ? campaignWorldOptions(this.difficulty, seed, save.upgrades)
         : worldOptionsFor(this.difficulty, seed),
     );
-    this.ai = createAi('enemy', this.difficulty);
+    this.ais = this.world.armies
+      .filter((a) => a !== 'player')
+      .map((a) => createAi(a, this.difficulty));
     const adjutantLevel = this.mode === 'campaign' ? save.upgrades.adjutant : 0;
     this.adjutant = adjutantLevel > 0 ? createAdjutant(adjutantLevel, this.auto) : null;
     this.adjutantOn = true;
@@ -272,7 +283,7 @@ export class BattleScene extends Phaser.Scene {
   update(_time: number, deltaMs: number) {
     const dt = Math.min(deltaMs / 1000, MAX_DT);
     if (!this.gameOver && !this.paused) {
-      updateAi(this.world, this.ai, dt);
+      for (const ai of this.ais) updateAi(this.world, ai, dt);
       if (this.adjutant && (this.adjutantOn || this.auto)) {
         updateAdjutant(this.world, this.adjutant, dt);
       }
@@ -284,7 +295,8 @@ export class BattleScene extends Phaser.Scene {
       for (const set of [this.selected, this.armed]) {
         for (const id of set) if (this.world.bases[id]?.owner !== 'player') set.delete(id);
       }
-      if (this.world.winner) this.endBattle();
+      // With three armies you can be knocked out while the other two fight on.
+      if (this.world.winner || !isAlive(this.world, 'player')) this.endBattle();
     }
     if (!this.paused) this.ageEffects(dt);
     this.render();
@@ -307,6 +319,7 @@ export class BattleScene extends Phaser.Scene {
       auto: this.auto,
       map: this.map,
       region: this.region ?? undefined,
+      ffa: this.ffa,
     });
   }
 

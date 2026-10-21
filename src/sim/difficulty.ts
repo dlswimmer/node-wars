@@ -133,7 +133,8 @@ export function difficultyForStars(stars: number): Difficulty {
 export function worldOptionsFor(d: Difficulty, seed: number): WorldOptions {
   return {
     seed,
-    handicap: { enemy: d.enemyProduction },
+    // Every AI army gets the rank's production (a third army only in a Free-for-All).
+    handicap: { enemy: d.enemyProduction, rival: d.enemyProduction },
     shield: { player: d.shieldSeconds },
     // Kid-friendly: taking the enemy HQ wins; losing your own HQ doesn't end your game.
     hqVictory: ['player'],
