@@ -1,0 +1,83 @@
+# Conquest map (design plan)
+
+The step between single battles and the full persistent world (Phase 2). Not built yet.
+
+## The idea
+
+The campaign becomes a map you conquer piece by piece. Your first battle is easy and has no
+difficulty rating. Win it, and the camera **zooms out**: your territory turns blue, and the
+territories touching it appear, each with a difficulty rating. You choose how hard your next
+fight is. Win again and that piece joins your territory, revealing its neighbours. Over time
+you can see everywhere you've won and how far you've pushed.
+
+## The map
+
+- **Organic pieces, not squares.** The world is split into irregular regions like puzzle
+  pieces or countries on a map (Voronoi cells with wobbly, noise-shaped borders), generated
+  from a world seed.
+- **Pieces touch.** New battles are always regions that share a border with one you hold.
+- **Fog of war** covers everything beyond your frontier; winning lifts it from the new
+  neighbours.
+- **Each region is a battle.** Its battle map is generated from the region's own seed, and the
+  battle's outline is the region's shape, so the fight looks like the piece you picked
+  (this reuses the outline and scenery generator from random maps).
+- **Colours:** blue for yours, gray with a difficulty badge for available fights, dark for
+  fogged. (Rival faction colours arrive in Phase 4.)
+
+## Difficulty and rewards
+
+- Each available region shows **1-5 stars** and what it pays.
+- Stars replace picking a rank in the campaign (Quick Battle keeps the ranks):
+
+  | Stars | Roughly like                       | Medals per win |
+  | ----- | ---------------------------------- | -------------- |
+  | ★     | Recruit                            | ½              |
+  | ★★    | between Recruit and Soldier        | ¾              |
+  | ★★★   | Soldier                            | 1              |
+  | ★★★★  | General                            | 1½             |
+  | ★★★★★ | harder than General (new top tier) | 2              |
+
+- **Choice at every step:** the frontier always offers a mix, at least one easier and one
+  harder neighbour, so a kid can play safe or push for more medals.
+- **Harder further out:** regions far from the start lean toward more stars, so the map
+  itself becomes the difficulty curve over time.
+
+## Winning and losing
+
+- **Win:** the region becomes yours, the camera zooms out, and its neighbours are revealed
+  with a short animation.
+- **Lose:** nothing is taken from you; that region stays available to retry, or you can pick
+  another.
+
+## Saving
+
+The save (`src/save.ts`) moves to version 2: world seed, which regions you hold, and stars and
+wins per region. Version-1 saves migrate (medals and upgrades carry over; the conquest map
+starts fresh).
+
+## How it connects to what exists
+
+- **Medals and the Command Tent** work as they do now; stars set the payout.
+- **The Adjutant's auto-battle** later applies to regions you've already conquered, at star
+  levels you've mastered, rather than to ranks.
+- **Phase 2** grows from this: held regions keep producing and earning, rivals counter-attack
+  them, and terrain gets gameplay. The conquest map is the world map those systems live on.
+
+## Engineering sketch
+
+1. `src/sim/worldmap.ts` (pure, seeded): region points, relaxed for even sizes; Voronoi cells
+   with noisy borders; an adjacency graph; star ratings from distance to the start plus
+   per-region variety, with each frontier guaranteed a mix. Unit tests for determinism,
+   adjacency, and that every frontier offers an easier and a harder option.
+2. Region → battle: turn a region's polygon into a battle outline (scaled to battle size) and
+   generate bases inside it with the random-map generator.
+3. `WorldMapScene`: draws the map, pans and zooms (touch and mouse), tap a region to see its
+   stars and reward, then FIGHT. Zoom-out and reveal animation after a win.
+4. A 5-star difficulty above General, tuned with the bots.
+5. Save v2 and migration, then a browser check at phone and iPad sizes.
+
+## Open questions
+
+1. When he loses, should that region's stars go down a notch (an easier retry), or stay?
+2. Should the world be finite (a whole island to conquer, then a new world) or keep growing?
+3. Should the first battle stay Boot Camp, or become a small generated starting region?
