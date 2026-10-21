@@ -51,6 +51,8 @@ import { UNIT_TEXTURE, ensureUnitTextures } from './unitTextures';
 const MAX_DT = 0.1;
 /** The Adjutant's troops are tinted purple so you can tell its orders from yours. */
 const ADJUTANT_COLOR = 0xa77bff;
+/** How far below a base's centre its troop count sits, as a share of its radius. */
+const TROOP_LABEL_DROP = 0.4;
 /** Finger-friendly hit area around a base, in CSS pixels. */
 const TOUCH_PADDING_CSS = 30;
 /** Pointer travel (CSS px) before a press counts as a drag rather than a tap. */
@@ -243,7 +245,9 @@ export class BattleScene extends Phaser.Scene {
           textStyle(22, COLORS.textDim),
         )
         .setOrigin(0.5, 0);
-      return this.add.text(b.x, b.y, '', textStyle(b.kind === 'hq' ? 34 : 30)).setOrigin(0.5);
+      // The count sits on the front of the building, leaving its roof in view.
+      const y = b.y + BASE_STATS[b.kind].radius * TROOP_LABEL_DROP;
+      return this.add.text(b.x, y, '', textStyle(b.kind === 'hq' ? 34 : 30)).setOrigin(0.5);
     });
     this.previewLabel = this.add
       .text(0, 0, '', { ...textStyle(30), align: 'center' })
@@ -837,7 +841,7 @@ Drag from a BLUE base!`,
         this.baseGfx.strokeCircle(b.x, b.y, r + 14);
       }
       drawCapacityRing(this.baseGfx, b, color);
-      drawBase(this.baseGfx, b, color);
+      drawBase(this.baseGfx, b, color, this.world.time);
       this.troopLabels[b.id]!.setText(String(Math.floor(b.troops)));
     }
 

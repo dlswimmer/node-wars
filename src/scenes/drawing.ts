@@ -27,116 +27,224 @@ function polygon(sides: number, r: number, x: number, y: number, rotation = -Mat
   return pts;
 }
 
-function star(r: number, x: number, y: number) {
-  const pts: Phaser.Types.Math.Vector2Like[] = [];
-  for (let i = 0; i < 10; i++) {
-    const a = -Math.PI / 2 + (i / 10) * Math.PI * 2;
-    const rr = i % 2 === 0 ? r : r * 0.5;
-    pts.push({ x: x + Math.cos(a) * rr, y: y + Math.sin(a) * rr });
-  }
-  return pts;
+/** Darker or lighter version of a colour (f < 1 darkens, f > 1 lightens). */
+function shade(color: number, f: number): number {
+  const ch = (shift: number) => {
+    const c = (color >> shift) & 0xff;
+    const v = f < 1 ? c * f : c + (255 - c) * (f - 1);
+    return Math.max(0, Math.min(255, Math.round(v))) << shift;
+  };
+  return ch(16) | ch(8) | ch(0);
 }
 
-/** Faint white for the marks inside a base, so the troop count on top stays easy to read. */
-const MARK = 0xffffff;
-const MARK_ALPHA = 0.25;
+const OUTLINE = 0x000000;
+const CONCRETE = 0x6d705f;
+const WOOD = 0x6b5434;
+const WHITE = 0xf2f2e6;
+const SANDBAG = 0x8a7d55;
+const DOOR = 0x1a1a14;
 
 /**
- * Each base kind gets a distinct silhouette so it is recognisable without reading, plus a
- * faint mark inside that hints at what it does.
+ * Each base kind is drawn as a small building seen from above and a little from the front:
+ * the roof in its army's colour (so who owns it reads at a glance) and a darker front wall.
+ * Shapes stay bold, since a base is only a finger wide on a phone, and the middle stays plain
+ * enough for the troop count drawn on top. `time` turns the radar dish.
  */
-export function drawBase(g: Phaser.GameObjects.Graphics, base: Base, color: number) {
+export function drawBase(g: Phaser.GameObjects.Graphics, base: Base, color: number, time = 0) {
   const r = BASE_STATS[base.kind].radius;
   const { x, y } = base;
-  g.fillStyle(color, 1);
-  g.lineStyle(3, 0x000000, 0.6);
+  const roof = color;
+  const wall = shade(color, 0.55);
+  const light = shade(color, 1.35);
+  // A shadow on the ground under every building, about the size of its tap area.
+  g.fillStyle(0x000000, 0.35);
+  g.fillEllipse(x + 3, y + r * 0.25, r * 2.1, r * 1.7);
+
+  /** A box: a roof rectangle with a darker front wall below it. */
+  const block = (cx: number, top: number, w: number, d: number, h: number, c = roof) => {
+    g.fillStyle(shade(c, 0.55), 1);
+    g.fillRect(cx - w / 2, top + d, w, h);
+    g.fillStyle(c, 1);
+    g.fillRect(cx - w / 2, top, w, d);
+    g.lineStyle(2, OUTLINE, 0.7);
+    g.strokeRect(cx - w / 2, top, w, d + h);
+    g.lineStyle(1.5, shade(c, 1.4), 0.8);
+    g.lineBetween(cx - w / 2 + 2, top + 2, cx + w / 2 - 2, top + 2);
+  };
+  /** A ring of sandbags around the building. */
+  const sandbags = (count: number, rx: number, ry: number) => {
+    g.fillStyle(SANDBAG, 1);
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2;
+      g.fillEllipse(x + Math.cos(a) * rx, y + Math.sin(a) * ry + 4, 12, 8);
+    }
+  };
+
   switch (base.kind) {
-    case 'hq':
-      g.fillCircle(x, y, r);
-      g.strokeCircle(x, y, r);
-      g.fillStyle(MARK, MARK_ALPHA);
-      g.fillPoints(star(r * 0.8, x, y), true);
+    case 'hq': {
+      // The command building: sandbags round it and a flag on the roof.
+      sandbags(18, r * 0.98, r * 0.86);
+      block(x, y - r * 0.62, r * 1.5, r * 1.0, r * 0.36);
+      g.fillStyle(DOOR, 1);
+      g.fillRect(x - r * 0.12, y + r * 0.42, r * 0.24, r * 0.32);
+      for (const dx of [-0.5, 0.34]) g.fillRect(x + dx * r, y + r * 0.46, r * 0.16, r * 0.12);
+      const [px, py] = [x + r * 0.58, y - r * 0.58];
+      g.lineStyle(3, 0x2b2b22, 1);
+      g.lineBetween(px, py, px, py - r * 0.9);
+      g.fillStyle(light, 1);
+      g.fillTriangle(px, py - r * 0.9, px + r * 0.55, py - r * 0.74, px, py - r * 0.56);
+      g.lineStyle(1.5, OUTLINE, 0.7);
+      g.strokeTriangle(px, py - r * 0.9, px + r * 0.55, py - r * 0.74, px, py - r * 0.56);
       return;
-    case 'barracks':
-      g.fillRect(x - r, y - r, r * 2, r * 2);
-      g.strokeRect(x - r, y - r, r * 2, r * 2);
-      // Rows of bunks along the top and bottom.
-      g.fillStyle(MARK, MARK_ALPHA);
-      for (const dy of [-0.72, 0.52]) {
-        for (const dx of [-0.75, -0.25, 0.25])
-          g.fillRect(x + dx * r + 2, y + dy * r, r * 0.4, r * 0.2);
+    }
+    case 'barracks': {
+      // A long army hut with a round, ribbed metal roof.
+      const [w, d] = [r * 1.9, r * 1.15];
+      const top = y - r * 0.68;
+      const corners = { tl: d / 2, tr: d / 2, bl: 4, br: 4 };
+      g.fillStyle(wall, 1);
+      g.fillRect(x - w / 2, top + d * 0.75, w, r * 0.5);
+      g.fillStyle(roof, 1);
+      g.fillRoundedRect(x - w / 2, top, w, d, corners);
+      g.lineStyle(2, shade(color, 0.7), 0.9);
+      for (let i = 1; i < 7; i++) {
+        const lx = x - w / 2 + (w * i) / 7;
+        g.lineBetween(lx, top + 3, lx, top + d - 2);
       }
+      g.lineStyle(2, OUTLINE, 0.7);
+      g.strokeRoundedRect(x - w / 2, top, w, d, corners);
+      g.strokeRect(x - w / 2, top + d * 0.75, w, r * 0.5);
+      g.fillStyle(DOOR, 1);
+      g.fillRect(x - r * 0.16, top + d * 0.82, r * 0.32, r * 0.4);
       return;
+    }
     case 'outpost': {
-      const tri = polygon(3, r * 1.15, x, y + r * 0.15);
-      g.fillPoints(tri, true);
-      g.strokePoints(tri, true);
-      // A little flag on the peak.
-      const top = tri[0]!;
-      g.lineStyle(2, MARK, 0.6);
-      g.lineBetween(top.x, top.y, top.x, top.y - r * 0.55);
-      g.fillStyle(MARK, 0.6);
-      g.fillTriangle(
-        top.x,
-        top.y - r * 0.55,
-        top.x + r * 0.4,
-        top.y - r * 0.42,
-        top.x,
-        top.y - r * 0.3,
-      );
+      // A wooden watchtower: crossed legs, a platform and a pointed roof in army colour.
+      g.lineStyle(4, WOOD, 1);
+      for (const dx of [-0.6, 0.6]) g.lineBetween(x + dx * r, y + r * 0.85, x + dx * r * 0.7, y);
+      g.lineStyle(2, WOOD, 1);
+      g.lineBetween(x - r * 0.62, y + r * 0.55, x + r * 0.62, y + r * 0.25);
+      g.lineBetween(x + r * 0.62, y + r * 0.55, x - r * 0.62, y + r * 0.25);
+      block(x, y - r * 0.15, r * 1.3, r * 0.32, r * 0.22, WOOD);
+      const [left, right, peak] = [x - r * 0.85, x + r * 0.85, y - r * 1.05];
+      const eaves = y - r * 0.12;
+      g.fillStyle(roof, 1);
+      g.fillTriangle(left, eaves, right, eaves, x, peak);
+      g.fillStyle(light, 1);
+      g.fillTriangle(left, eaves, x, eaves, x, peak);
+      g.lineStyle(2, OUTLINE, 0.7);
+      g.strokeTriangle(left, eaves, right, eaves, x, peak);
       return;
     }
     case 'factory': {
-      g.fillPoints(polygon(6, r, x, y, 0), true);
-      g.strokePoints(polygon(6, r, x, y, 0), true);
-      // A gear.
-      g.lineStyle(3, MARK, MARK_ALPHA);
-      g.strokeCircle(x, y, r * 0.55);
-      for (let i = 0; i < 8; i++) {
-        const a = (i / 8) * Math.PI * 2;
-        g.lineBetween(
-          x + Math.cos(a) * r * 0.55,
-          y + Math.sin(a) * r * 0.55,
-          x + Math.cos(a) * r * 0.75,
-          y + Math.sin(a) * r * 0.75,
-        );
+      // A works with a saw-tooth roof and a smoking chimney.
+      const [w, top] = [r * 1.8, y - r * 0.45];
+      g.fillStyle(CONCRETE, 1);
+      g.fillRect(x + r * 0.4, y - r * 1.15, r * 0.34, r * 0.9);
+      g.lineStyle(2, OUTLINE, 0.7);
+      g.strokeRect(x + r * 0.4, y - r * 1.15, r * 0.34, r * 0.9);
+      g.fillStyle(0xbfbfb0, 0.35);
+      g.fillCircle(x + r * 0.62, y - r * 1.35, r * 0.22);
+      g.fillCircle(x + r * 0.85, y - r * 1.6, r * 0.28);
+      block(x, top, w, r * 0.75, r * 0.45);
+      for (let i = 0; i < 4; i++) {
+        const lx = x - w / 2 + (w * i) / 4;
+        g.fillStyle(light, 1);
+        g.fillTriangle(lx, top, lx + w / 4, top, lx + w / 4, top - r * 0.32);
+        g.lineStyle(2, OUTLINE, 0.7);
+        g.strokeTriangle(lx, top, lx + w / 4, top, lx + w / 4, top - r * 0.32);
+      }
+      g.fillStyle(DOOR, 1);
+      g.fillRect(x - r * 0.3, y + r * 0.42, r * 0.6, r * 0.33);
+      return;
+    }
+    case 'radar': {
+      // A dish on a mast over a control hut, slowly turning.
+      g.fillStyle(CONCRETE, 1);
+      g.fillRect(x - r * 0.55, y + r * 0.25, r * 1.1, r * 0.45);
+      g.lineStyle(2, OUTLINE, 0.7);
+      g.strokeRect(x - r * 0.55, y + r * 0.25, r * 1.1, r * 0.45);
+      g.lineStyle(5, 0x3a3a30, 1);
+      g.lineBetween(x, y + r * 0.3, x, y - r * 0.1);
+      const turn = Math.cos(time * 0.8);
+      const dishW = r * 1.7 * Math.max(0.25, Math.abs(turn));
+      const dishY = y - r * 0.25;
+      g.fillStyle(turn > 0 ? WHITE : shade(WHITE, 0.7), 1);
+      g.fillEllipse(x, dishY, dishW, r * 1.25);
+      g.fillStyle(roof, 1);
+      g.fillEllipse(x, dishY, dishW * 0.7, r * 0.85);
+      g.lineStyle(2, OUTLINE, 0.7);
+      g.strokeEllipse(x, dishY, dishW, r * 1.25);
+      const tip = { x: x + turn * r * 0.5, y: y - r * 0.95 };
+      g.lineStyle(2, 0x2b2b22, 1);
+      g.lineBetween(x, dishY, tip.x, tip.y);
+      g.fillStyle(0xff5a5f, 1);
+      g.fillCircle(tip.x, tip.y, 3);
+      return;
+    }
+    case 'armory': {
+      // A weapons store: a solid shed with a shell painted on top and ammo crates beside it.
+      block(x - r * 0.15, y - r * 0.7, r * 1.35, r * 0.95, r * 0.45);
+      g.fillStyle(light, 0.9);
+      g.fillRoundedRect(x - r * 0.3, y - r * 0.6, r * 0.3, r * 0.7, {
+        tl: r * 0.15,
+        tr: r * 0.15,
+        bl: 0,
+        br: 0,
+      });
+      const crates = [
+        [0.72, 0.2],
+        [0.72, -0.25],
+        [0.38, 0.5],
+      ] as const;
+      for (const [dx, dy] of crates) {
+        const [cx, cy, s] = [x + dx * r, y + dy * r, r * 0.42];
+        g.fillStyle(0x7a6236, 1);
+        g.fillRect(cx - s / 2, cy - s / 2, s, s);
+        g.lineStyle(1.5, 0x2e2416, 1);
+        g.strokeRect(cx - s / 2, cy - s / 2, s, s);
+        g.lineBetween(cx - s / 2, cy - s / 2, cx + s / 2, cy + s / 2);
+        g.lineBetween(cx + s / 2, cy - s / 2, cx - s / 2, cy + s / 2);
       }
       return;
     }
-    case 'radar':
-      g.fillCircle(x, y, r);
-      g.strokeCircle(x, y, r);
-      g.lineStyle(2, MARK, 0.35);
-      g.strokeCircle(x, y, r * 0.65);
-      g.strokeCircle(x, y, r * 0.3);
-      return;
-    case 'armory':
-      g.fillPoints(polygon(4, r * 1.2, x, y), true);
-      g.strokePoints(polygon(4, r * 1.2, x, y), true);
-      // A smaller diamond inside, like a cut gem: troops hit harder.
-      g.lineStyle(2, MARK, 0.35);
-      g.strokePoints(polygon(4, r * 0.7, x, y), true);
-      return;
     case 'bunker': {
-      // A thick, dark-rimmed octagon with a firing slit: heavy and hard to crack.
-      const outer = polygon(8, r * 1.1, x, y, Math.PI / 8);
-      g.fillPoints(outer, true);
-      g.lineStyle(8, 0x000000, 0.55);
-      g.strokePoints(outer, true);
-      g.lineStyle(3, MARK, 0.3);
-      g.strokePoints(polygon(8, r * 0.8, x, y, Math.PI / 8), true);
-      g.fillStyle(0x000000, 0.45);
-      g.fillRect(x - r * 0.5, y - r * 0.68, r, r * 0.16);
+      // A squat concrete pillbox ringed with sandbags, its roof in army colour.
+      sandbags(16, r, r * 0.85);
+      const body = polygon(8, r * 0.85, x, y + r * 0.12, Math.PI / 8);
+      g.fillStyle(CONCRETE, 1);
+      g.fillPoints(body, true);
+      g.lineStyle(3, OUTLINE, 0.75);
+      g.strokePoints(body, true);
+      const top = polygon(8, r * 0.62, x, y - r * 0.08, Math.PI / 8);
+      g.fillStyle(roof, 1);
+      g.fillPoints(top, true);
+      g.lineStyle(2, OUTLINE, 0.6);
+      g.strokePoints(top, true);
+      // The firing slit.
+      g.fillStyle(0x000000, 0.85);
+      g.fillRect(x - r * 0.45, y + r * 0.5, r * 0.9, r * 0.13);
       return;
     }
     case 'hospital': {
-      // A rounded tent with a big white cross.
-      g.fillRoundedRect(x - r, y - r, r * 2, r * 2, r * 0.45);
-      g.strokeRoundedRect(x - r, y - r, r * 2, r * 2, r * 0.45);
-      const [arm, len] = [r * 0.24, r * 0.72];
-      g.fillStyle(MARK, 0.85);
-      g.fillRect(x - arm, y - len, arm * 2, len * 2);
-      g.fillRect(x - len, y - arm, len * 2, arm * 2);
+      // A field tent with a ridge pole and a big cross on top.
+      const [w, d] = [r * 1.8, r * 1.4];
+      const top = y - r * 0.75;
+      g.fillStyle(wall, 1);
+      g.fillTriangle(x - w / 2, top + d, x + w / 2, top + d, x, top + d + r * 0.35);
+      g.fillStyle(roof, 1);
+      g.fillRect(x - w / 2, top, w / 2, d);
+      g.fillStyle(light, 1);
+      g.fillRect(x, top, w / 2, d);
+      g.lineStyle(2, OUTLINE, 0.7);
+      g.strokeRect(x - w / 2, top, w, d);
+      g.lineStyle(3, shade(color, 0.5), 1);
+      g.lineBetween(x, top, x, top + d);
+      const [arm, len] = [r * 0.2, r * 0.55];
+      const cy = top + d * 0.42;
+      g.fillStyle(WHITE, 1);
+      g.fillRect(x - arm, cy - len, arm * 2, len * 2);
+      g.fillRect(x - len, cy - arm, len * 2, arm * 2);
       return;
     }
   }

@@ -57,7 +57,7 @@ every push to `main` (CI runs lint, format, typecheck and tests first).
   empty; +5 recruits on capture). Both helped the AI more than a new kid and broke the
   tutorial's 90% win band. It stays "the strong builder".
 - **Base powers are passive for now.** The user chose clearer passives (tap a base you don't own
-  to see its power; a faint mark inside each shape) over tap-to-use abilities. The ability bar
+  to see its power; each base drawn as the building it is) over tap-to-use abilities. The ability bar
   stays planned for Phase 3 (see BASES.md).
 
 ## State on 2026-10-20

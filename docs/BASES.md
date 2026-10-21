@@ -6,10 +6,15 @@ starting points for the bot balance harness, not final values.
 ## Design rules
 
 - **Tap to learn.** Tapping a base you don't own shows its name and power in one line, and
-  every shape has a faint mark inside (bunks, a flag, a gear, a gem, a cross).
+  every base is drawn as the building it is (see below).
 - **One sentence per base.** A kid should be able to say what a base does in one breath
   ("the Bunker is twice as hard to take"). If it needs two sentences, it's two bases.
-- **A shape you recognise without reading.** Every kind gets its own silhouette and icon.
+- **A building you recognise without reading.** Every kind is drawn as what it is, seen from
+  above and a little from the front, its roof in the owner's colour: the HQ a command post
+  with sandbags and a flag, the Barracks a round army hut, the Outpost a watchtower, the
+  Factory a works with a saw-tooth roof and smoking chimney, the Radar a turning dish, the
+  Armory a shed with ammo crates, the Bunker a sandbagged pillbox, the Field Hospital a tent
+  with a cross. The troop count sits on the front, leaving the roof in view.
 - **Every base is worth fighting for**, but special bases build troops slowly, so a map of
   only specials can't win on numbers alone.
 - **Rock-paper-scissors between units**, never a hard counter: anything can take anything
