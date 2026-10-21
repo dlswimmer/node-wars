@@ -1,6 +1,6 @@
-import { BASE_STATS, UNIT_SPEED } from './config';
+import { BASE_STATS, HOSPITAL_RANGE, UNIT_SPEED } from './config';
 import { DIFFICULTIES, type Difficulty } from './difficulty';
-import { getBonuses, isShielded, sendTroops } from './world';
+import { damageFactor, getBonuses, grownTroops, isShielded, sendTroops } from './world';
 import type { Army, Base, World } from './types';
 
 export interface AiState {
@@ -54,7 +54,11 @@ export function updateAi(world: World, ai: AiState, dt: number): void {
     const used: Base[] = [];
     let needed = 0;
     for (const src of nearest) {
-      power += Math.floor(src.troops * s.aiCommit) * attack;
+      // Soldiers only do half damage to a Bunker and a Factory's tanks full, but easier
+      // enemies don't think of that and learn the hard way.
+      const unit = src.kind === 'factory' || !s.aiKnowsBases ? 'tank' : 'soldier';
+      const hit = damageFactor(target.kind, unit);
+      power += Math.floor(src.troops * s.aiCommit) * attack * hit;
       used.push(src);
       needed = estimateDefenders(target, dist(src, target)) + s.aiMargin;
       if (power >= needed) break;
@@ -64,6 +68,7 @@ export function updateAi(world: World, ai: AiState, dt: number): void {
     const travel = dist(used[used.length - 1]!, target);
     let score = needed + travel * 0.05;
     if (SPECIAL_KINDS.has(target.kind)) score -= 5;
+    if (s.aiKnowsBases) score -= positionValue(world, ai.army, target);
     if (score < bestScore) {
       bestScore = score;
       bestTarget = target;
@@ -112,6 +117,30 @@ function isSnipe(world: World, ai: AiState, target: Base): boolean {
   return recentlyHit || world.units.some((u) => u.targetId === target.id && u.owner !== ai.army);
 }
 
+/**
+ * Extra worth of a Bunker or Field Hospital from where it stands: a Bunker on the road
+ * between the two HQs is a chokepoint, and a Hospital is worth most close to the front.
+ */
+function positionValue(world: World, army: Army, target: Base): number {
+  if (target.kind === 'bunker') {
+    const home = world.bases.find((b) => b.kind === 'hq' && b.owner === army);
+    const rival = world.bases.find(
+      (b) => b.kind === 'hq' && b.owner !== army && b.owner !== 'neutral',
+    );
+    if (!home || !rival) return 2;
+    // 1 when it sits right on the line between the HQs, falling off to 0 well to the side.
+    const detour = dist(home, target) + dist(target, rival) - dist(home, rival);
+    return 2 + 4 * Math.max(0, 1 - detour / 300);
+  }
+  if (target.kind === 'hospital') {
+    const front = world.bases.some(
+      (b) => b.owner !== army && b.owner !== 'neutral' && dist(b, target) <= HOSPITAL_RANGE * 1.5,
+    );
+    return front ? 5 : 2;
+  }
+  return 0;
+}
+
 function dist(a: Base, b: Base): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
@@ -120,6 +149,5 @@ function dist(a: Base, b: Base): number {
 function estimateDefenders(target: Base, distance: number): number {
   if (target.owner === 'neutral') return target.troops;
   const stats = BASE_STATS[target.kind];
-  const travel = distance / UNIT_SPEED;
-  return Math.min(stats.capacity, target.troops + stats.rate * travel);
+  return grownTroops(target.kind, target.troops, stats.rate, distance / UNIT_SPEED);
 }

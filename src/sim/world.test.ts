@@ -441,3 +441,113 @@ describe('clashes', () => {
     expect(previewAttack(world, 'player', [0], 1, 1).outcome).toBe('lose');
   });
 });
+
+describe('bunkers', () => {
+  const bunkerLevel = (troops: number, from: 'barracks' | 'factory' = 'barracks'): LevelDef => ({
+    ...tinyLevel(),
+    bases: [
+      { kind: from, x: 50, y: 100, owner: 'player', troops: 40 },
+      { kind: 'bunker', x: 200, y: 100, owner: 'neutral', troops },
+      { kind: 'barracks', x: 350, y: 100, owner: 'enemy', troops: 20 },
+    ],
+  });
+
+  it('makes each soldier knock off half a defender', () => {
+    const world = createWorld(bunkerLevel(15));
+    sendTroops(world, 'player', 0, 1, 0.5); // 20 soldiers do 10 damage
+    settle(world);
+    expect(world.bases[1]!.owner).toBe('neutral');
+    expect(world.bases[1]!.troops).toBeCloseTo(5);
+  });
+
+  it('falls to twice as many soldiers as defenders', () => {
+    const world = createWorld(bunkerLevel(10));
+    sendTroops(world, 'player', 0, 1, 0.5);
+    settle(world);
+    expect(world.bases[1]!.owner).toBe('player');
+  });
+
+  it('takes full damage from tanks', () => {
+    const world = createWorld(bunkerLevel(15, 'factory'));
+    sendTroops(world, 'player', 0, 1, 0.5); // 6 tanks (18) + 2 soldiers (1)
+    settle(world);
+    expect(world.bases[1]!.owner).toBe('player');
+    expect(world.bases[1]!.troops).toBeCloseTo(4, 0); // plus a moment of production
+  });
+
+  it('is counted double in the attack preview, except against tanks', () => {
+    const soldiers = (troops: number) =>
+      previewAttack(createWorld(bunkerLevel(troops)), 'player', [0], 1, 0.5).outcome;
+    expect(soldiers(6)).toBe('win'); // 20 soldiers hit for 10
+    expect(soldiers(9)).toBe('close');
+    expect(soldiers(12)).toBe('lose');
+    const tanks = previewAttack(createWorld(bunkerLevel(15, 'factory')), 'player', [0], 1, 0.5);
+    expect(tanks.outcome).toBe('win');
+  });
+
+  it('agrees with what actually happens', () => {
+    for (const troops of [6, 9, 10, 11, 14]) {
+      const world = createWorld(bunkerLevel(troops));
+      const { outcome } = previewAttack(world, 'player', [0], 1, 0.5);
+      sendTroops(world, 'player', 0, 1, 0.5);
+      settle(world);
+      expect(world.bases[1]!.owner === 'player', `${troops} defenders`).toBe(outcome !== 'lose');
+    }
+  });
+});
+
+describe('field hospitals', () => {
+  const hospitalLevel = (hospitalOwner: 'player' | 'enemy', hospitalX = 120): LevelDef => ({
+    ...tinyLevel(),
+    width: 1200,
+    bases: [
+      { kind: 'barracks', x: 50, y: 100, owner: 'player', troops: 20 },
+      { kind: 'outpost', x: 300, y: 100, owner: 'neutral', troops: 30 },
+      { kind: 'hospital', x: hospitalX, y: 100, owner: hospitalOwner, troops: 0 },
+      { kind: 'barracks', x: 550, y: 100, owner: 'enemy', troops: 20 },
+    ],
+  });
+  const heals = (world: World) =>
+    world.events.filter((e) => e.type === 'heal').reduce((s, e) => s + e.amount, 0);
+
+  it('brings back a quarter of the troops lost attacking a base in range', () => {
+    const world = createWorld(hospitalLevel('player'));
+    sendTroops(world, 'player', 0, 1, 0.5); // 10 soldiers bounce off 30 defenders
+    let healed = 0;
+    for (let t = 0; t < 30 && world.units.length > 0; t += 0.05) {
+      step(world, 0.05);
+      healed += heals(world);
+    }
+    expect(healed).toBeCloseTo(2.5);
+    expect(world.bases[2]!.troops).toBeGreaterThan(2.5); // plus its own production
+  });
+
+  it('brings back a quarter of the troops lost in a clash in range', () => {
+    const level = hospitalLevel('player', 300);
+    level.bases[1] = { kind: 'outpost', x: 300, y: 300, owner: 'neutral', troops: 0 };
+    const world = createWorld(level);
+    // 10 against 10 head-on: both swarms wipe out around x = 300, next to the hospital.
+    sendTroops(world, 'player', 0, 3, 0.5);
+    sendTroops(world, 'enemy', 3, 0, 0.5);
+    let healed = 0;
+    for (let t = 0; t < 30 && world.units.length > 0; t += 0.05) {
+      step(world, 0.05);
+      healed += heals(world);
+    }
+    expect(healed).toBeCloseTo(2.5);
+    expect(world.events.every((e) => e.type !== 'heal' || e.baseId === 2)).toBe(true);
+  });
+
+  it("doesn't help troops that fall out of range or belong to another army", () => {
+    for (const level of [hospitalLevel('player', 1000), hospitalLevel('enemy')]) {
+      const world = createWorld(level);
+      sendTroops(world, 'player', 0, 1, 0.5);
+      let healed = 0;
+      for (let t = 0; t < 30 && world.units.length > 0; t += 0.05) {
+        step(world, 0.05);
+        healed += heals(world);
+      }
+      expect(healed).toBe(0);
+    }
+  });
+});

@@ -100,3 +100,20 @@ describe('randomMapSeed', () => {
     expect(randomMapSeed(() => 0.999999)).toBe(99999);
   });
 });
+
+describe('bunkers and field hospitals on random maps', () => {
+  it('show up on some maps but not all, mirrored like every other base', () => {
+    const seeds = Array.from({ length: 60 }, (_, i) => i * 131 + 7);
+    const has = (kind: string) =>
+      seeds.filter((s) => generateLevel(s).bases.some((b) => b.kind === kind)).length;
+    for (const kind of ['bunker', 'hospital']) {
+      expect(has(kind), kind).toBeGreaterThan(seeds.length * 0.15);
+      expect(has(kind), kind).toBeLessThan(seeds.length * 0.75);
+    }
+    for (const s of seeds) {
+      for (const kind of ['bunker', 'hospital']) {
+        expect(generateLevel(s).bases.filter((b) => b.kind === kind).length % 2).toBe(0);
+      }
+    }
+  });
+});

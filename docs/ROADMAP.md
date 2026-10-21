@@ -62,9 +62,10 @@ Goal: one battle that is genuinely exciting for an 8-year-old, and a solid base 
   - Radar: faster troops everywhere, and reveals incoming attacks earlier
   - Armory: stronger troops everywhere
   - Outpost: troops sent from it move 40% faster (a launch pad for the front line) (done)
-  - Bunker (new): defenders count double, a tough nut to crack
+  - Bunker: defenders count double, a tough nut to crack (done)
   - Airfield (new): sends jets that fly straight over terrain
-  - Field hospital (new): some of your troops lost nearby come back
+  - Field hospital: some of your troops lost nearby come back (done)
+  - Tap a base you don't own to see its power in one line (done)
 
 ## Phase 1.5: Medals and upgrades
 

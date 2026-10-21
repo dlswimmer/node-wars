@@ -140,3 +140,44 @@ describe('AI defense', () => {
     expect(help.every((u) => u.targetId === 1)).toBe(true);
   });
 });
+
+describe('AI and the new bases', () => {
+  const withTarget = (kind: 'bunker' | 'outpost', troops: number): LevelDef => {
+    const level = duel(30, troops);
+    level.bases[1] = { kind, x: 250, y: 100, owner: 'neutral', troops };
+    return level;
+  };
+
+  it('knows a Bunker needs twice the troops', () => {
+    // The troops it would send take an Outpost with 10, but not a Bunker with 10.
+    const outpost = createWorld(withTarget('outpost', 10));
+    updateAi(outpost, createAi('enemy', fast({ aiMargin: 2, aiKnowsBases: true })), 1);
+    expect(outpost.units.length).toBeGreaterThan(0);
+    const bunker = createWorld(withTarget('bunker', 10));
+    updateAi(bunker, createAi('enemy', fast({ aiMargin: 2, aiKnowsBases: true })), 1);
+    expect(bunker.units).toHaveLength(0);
+  });
+
+  it('prefers a Bunker on the road between the HQs over an equal base off to the side', () => {
+    const level: LevelDef = {
+      ...duel(60, 0),
+      height: 600,
+      bases: [
+        { kind: 'hq', x: 50, y: 100, owner: 'player', troops: 50 },
+        { kind: 'outpost', x: 250, y: 500, owner: 'neutral', troops: 3 },
+        { kind: 'bunker', x: 250, y: 100, owner: 'neutral', troops: 3 },
+        { kind: 'hq', x: 350, y: 100, owner: 'enemy', troops: 60 },
+      ],
+    };
+    const world = createWorld(level);
+    updateAi(world, createAi('enemy', fast({ aiKnowsBases: true })), 1);
+    expect(world.units.length).toBeGreaterThan(0);
+    expect(world.units.every((u) => u.targetId === 2)).toBe(true);
+  });
+
+  it('on easier ranks, attacks a Bunker as if it were any other base', () => {
+    const world = createWorld(withTarget('bunker', 10));
+    updateAi(world, createAi('enemy', fast({ aiMargin: 2, aiKnowsBases: false })), 1);
+    expect(world.units.length).toBeGreaterThan(0);
+  });
+});

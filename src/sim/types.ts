@@ -3,7 +3,8 @@ export type Faction = 'player' | 'enemy' | 'neutral';
 /** Factions that actually fight (neutral bases never attack or grow). */
 export type Army = Exclude<Faction, 'neutral'>;
 
-export type BaseKind = 'hq' | 'barracks' | 'outpost' | 'factory' | 'radar' | 'armory';
+export type BaseKind =
+  'hq' | 'barracks' | 'outpost' | 'factory' | 'radar' | 'armory' | 'bunker' | 'hospital';
 
 export interface Base {
   id: number;
@@ -60,7 +61,9 @@ export type SimEvent =
   | { type: 'hit'; baseId: number; by: Army }
   | { type: 'blocked'; baseId: number; by: Army }
   /** Opposing units met mid-field and cancelled each other out (at least partly). */
-  | { type: 'clash'; x: number; y: number };
+  | { type: 'clash'; x: number; y: number }
+  /** Troops lost in a fight near a Field Hospital came back to it (can be a fraction). */
+  | { type: 'heal'; baseId: number; amount: number };
 
 export interface World {
   width: number;

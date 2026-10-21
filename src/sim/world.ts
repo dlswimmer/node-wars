@@ -1,7 +1,10 @@
 import {
   BASE_STATS,
   BONUS_PER_BASE,
+  BUNKER_DAMAGE,
   CLASH_RADIUS,
+  HOSPITAL_RANGE,
+  HOSPITAL_RECOVERY,
   LAUNCH_INTERVAL,
   MAX_MOVE_STEP,
   OUTPOST_SPEED,
@@ -11,7 +14,18 @@ import {
   UNIT_SPEED,
 } from './config';
 import { createRng } from './rng';
-import type { Army, ArmyBoosts, Base, Bonuses, Faction, LevelDef, Unit, World } from './types';
+import type {
+  Army,
+  ArmyBoosts,
+  Base,
+  BaseKind,
+  Bonuses,
+  Faction,
+  LevelDef,
+  Unit,
+  UnitKind,
+  World,
+} from './types';
 
 export interface WorldOptions {
   seed?: number;
@@ -70,6 +84,20 @@ export function getBonuses(world: World, army: Army): Bonuses {
     speed: 1 + radars * BONUS_PER_BASE.radar,
     attack: 1 + armories * BONUS_PER_BASE.armory,
   };
+}
+
+/**
+ * Troops a base of this kind will have after building for `seconds` at `rate` per second,
+ * stopping at its capacity (troops above it, from reinforcements, stay).
+ */
+export function grownTroops(kind: BaseKind, troops: number, rate: number, seconds: number): number {
+  const capacity = BASE_STATS[kind].capacity;
+  return troops >= capacity ? troops : Math.min(capacity, troops + rate * seconds);
+}
+
+/** How much of a hit lands on a base: Bunkers halve everything but tanks. */
+export function damageFactor(target: BaseKind, unit: UnitKind): number {
+  return target === 'bunker' && unit !== 'tank' ? BUNKER_DAMAGE : 1;
 }
 
 export function isShielded(world: World, owner: Faction): boolean {
@@ -159,13 +187,18 @@ export function previewAttack(
 ): AttackPreview {
   const target = world.bases[targetId];
   const speed = UNIT_SPEED * getBonuses(world, army).speed * world.boosts[army].speed;
+  const tankPower = TANK_POWER + world.boosts[army].tankPower;
   let count = 0;
+  /** Troops riding in tanks, which hit a Bunker at full power. */
+  let inTanks = 0;
   let travel = 0;
   const sources: Base[] = [];
   for (const id of sourceIds) {
     const b = world.bases[id];
     if (!b || b.owner !== army || id === targetId) continue;
-    count += Math.floor(b.troops * fraction);
+    const n = Math.floor(b.troops * fraction);
+    count += n;
+    if (b.kind === 'factory') inTanks += Math.floor(n / tankPower) * tankPower;
     sources.push(b);
     if (!target) continue;
     const s = speed * kindSpeed(b.kind, b.kind === 'factory');
@@ -173,7 +206,11 @@ export function previewAttack(
   }
   // Earlier orders still flying at the same target count toward this attack.
   let enRoute = 0;
-  for (const u of world.units) if (u.owner === army && u.targetId === targetId) enRoute += u.power;
+  for (const u of world.units) {
+    if (u.owner !== army || u.targetId !== targetId) continue;
+    enRoute += u.power;
+    if (u.kind === 'tank') inTanks += u.power;
+  }
   if (!target) return { count, enRoute, outcome: 'lose' };
   if (target.owner === army) return { count, enRoute, outcome: 'reinforce' };
   if (isShielded(world, target.owner)) return { count, enRoute, outcome: 'shielded' };
@@ -183,7 +220,7 @@ export function previewAttack(
   if (owner !== 'neutral') {
     const stats = BASE_STATS[target.kind];
     const rate = stats.rate * getBonuses(world, owner).production * world.handicap[owner];
-    defenders = Math.min(stats.capacity, defenders + rate * travel);
+    defenders = grownTroops(target.kind, defenders, rate, travel);
     for (const u of world.units)
       if (u.owner === owner && u.targetId === targetId) defenders += u.power;
   }
@@ -201,7 +238,14 @@ export function previewAttack(
     if (distToSegment(u.x, u.y, src.x, src.y, target.x, target.y) <= corridor)
       oncoming += u.power * getBonuses(world, u.owner).attack;
   }
-  const power = (count + enRoute) * getBonuses(world, army).attack - oncoming;
+  const attack = getBonuses(world, army).attack;
+  // Oncoming enemies are taken off the tanks first, so a Bunker preview never hopes too much.
+  const tankHit = Math.max(0, inTanks * attack - oncoming);
+  const soldierHit = Math.max(
+    0,
+    (count + enRoute - inTanks) * attack - Math.max(0, oncoming - inTanks * attack),
+  );
+  const power = tankHit + soldierHit * damageFactor(target.kind, 'soldier');
   const outcome = power < defenders ? 'lose' : power < defenders + CLOSE_MARGIN ? 'close' : 'win';
   return { count, enRoute, outcome };
 }
@@ -218,11 +262,8 @@ export function step(world: World, dt: number): void {
 
   for (const b of world.bases) {
     if (b.owner === 'neutral') continue;
-    const stats = BASE_STATS[b.kind];
-    if (b.troops < stats.capacity) {
-      const rate = stats.rate * bonuses[b.owner].production * world.handicap[b.owner];
-      b.troops = Math.min(stats.capacity, b.troops + rate * dt);
-    }
+    const rate = BASE_STATS[b.kind].rate * bonuses[b.owner].production * world.handicap[b.owner];
+    b.troops = grownTroops(b.kind, b.troops, rate, dt);
   }
 
   // Small sub-steps so swarms flying head-on always come within clash range.
@@ -318,9 +359,13 @@ function clash(world: World, a: Unit, b: Unit, bonuses: Record<Army, Bonuses>): 
   const attackB = bonuses[b.owner].attack;
   const strengthA = a.power * attackA;
   const strengthB = b.power * attackB;
+  const [beforeA, beforeB] = [a.power, b.power];
   a.power = strengthA - strengthB > 1e-6 ? (strengthA - strengthB) / attackA : 0;
   b.power = strengthB - strengthA > 1e-6 ? (strengthB - strengthA) / attackB : 0;
-  world.events.push({ type: 'clash', x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+  const [x, y] = [(a.x + b.x) / 2, (a.y + b.y) / 2];
+  world.events.push({ type: 'clash', x, y });
+  recover(world, a.owner, beforeA - a.power, x, y);
+  recover(world, b.owner, beforeB - b.power, x, y);
 }
 
 function resolveArrival(world: World, base: Base, unit: Unit, attack: number): void {
@@ -334,7 +379,7 @@ function resolveArrival(world: World, base: Base, unit: Unit, attack: number): v
   }
   base.lastAttackedBy = unit.owner;
   base.lastAttackedAt = world.time;
-  base.troops -= attack * unit.power;
+  base.troops -= attack * unit.power * damageFactor(base.kind, unit.kind);
   // Ties go to the attacker so a kid's "6 against 6" works instead of leaving an empty base.
   if (base.troops <= 1e-6) {
     world.events.push({ type: 'capture', baseId: base.id, from: base.owner, to: unit.owner });
@@ -342,7 +387,31 @@ function resolveArrival(world: World, base: Base, unit: Unit, attack: number): v
     base.troops = Math.max(0, -base.troops);
   } else {
     world.events.push({ type: 'hit', baseId: base.id, by: unit.owner });
+    // The attacker is lost in a failed hit; a hospital of theirs nearby saves some.
+    recover(world, unit.owner, unit.power, base.x, base.y);
   }
+}
+
+/**
+ * Some of the troops `army` just lost in a fight at (x, y) come back to its nearest Field
+ * Hospital in range, if it has one.
+ */
+function recover(world: World, army: Army, lost: number, x: number, y: number): void {
+  if (lost <= 0) return;
+  let best: Base | undefined;
+  let bestDist = HOSPITAL_RANGE;
+  for (const b of world.bases) {
+    if (b.kind !== 'hospital' || b.owner !== army) continue;
+    const d = Math.hypot(b.x - x, b.y - y);
+    if (d <= bestDist) {
+      best = b;
+      bestDist = d;
+    }
+  }
+  if (!best) return;
+  const amount = lost * HOSPITAL_RECOVERY;
+  best.troops += amount;
+  world.events.push({ type: 'heal', baseId: best.id, amount });
 }
 
 function isAlive(world: World, army: Army): boolean {

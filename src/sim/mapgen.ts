@@ -34,7 +34,15 @@ const KIND_TROOPS: Partial<Record<BaseKind, number>> = {
   factory: 6,
   radar: 6,
   armory: 6,
+  // A Bunker's defenders count double, so it starts with fewer of them.
+  bunker: -6,
+  hospital: 2,
 };
+/** Chance a (not small) map gets a pair of Bunkers, and of Field Hospitals. */
+const BUNKER_CHANCE = 0.45;
+const HOSPITAL_CHANCE = 0.4;
+/** No neutral base starts with fewer troops than this. */
+const MIN_TROOPS = 4;
 
 const OPERATIONS = [
   'Thunder',
@@ -280,6 +288,14 @@ function tryLayout(
   // maps of only slow Outposts turned into endless see-saws in bot matches.
   const perSide = small ? 3 : centre ? 4 + Math.floor(rng() * 3) : 4 + Math.floor(rng() * 4);
   const anywhere = () => [between(left, cx), between(top, bottom)] as [number, number];
+  // Sometimes a Bunker on the way to the middle and a Field Hospital behind the front, in
+  // place of a filler base (so maps don't get more crowded). Each tries a few spots and is
+  // simply left out if none fits.
+  const front = () => [between(width * 0.22, cx - 60), between(top, bottom)] as [number, number];
+  const behind = () =>
+    [between(width * 0.18, width * 0.4), between(top, bottom)] as [number, number];
+  if (!small && rng() < BUNKER_CHANCE && half.length < perSide - 1) place('bunker', front, 4);
+  if (!small && rng() < HOSPITAL_CHANCE && half.length < perSide - 1) place('hospital', behind, 4);
   const hasBarracks = () => half.some((b) => b.kind === 'barracks');
   while (half.length < perSide || !hasBarracks()) {
     const kind = !hasBarracks() || rng() < 0.4 ? 'barracks' : 'outpost';
@@ -296,7 +312,8 @@ function tryLayout(
   const reach = Math.hypot(cx - hq.x, cy - hq.y) - MIN_SPACING;
   const troopsAt = (b: Spot) => {
     const t = Math.min(1, Math.max(0, (Math.hypot(b.x - hq.x, b.y - hq.y) - MIN_SPACING) / reach));
-    return Math.round(NEAR_TROOPS + (FAR_TROOPS - NEAR_TROOPS) * t + (KIND_TROOPS[b.kind] ?? 0));
+    const troops = NEAR_TROOPS + (FAR_TROOPS - NEAR_TROOPS) * t + (KIND_TROOPS[b.kind] ?? 0);
+    return Math.max(MIN_TROOPS, Math.round(troops));
   };
   // Each base is followed by its mirror twin (region maps rely on this order).
   const list: BaseDef[] = [];

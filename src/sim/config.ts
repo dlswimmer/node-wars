@@ -12,13 +12,19 @@ export interface BaseStats {
 }
 
 export const BASE_STATS: Record<BaseKind, BaseStats> = {
-  hq: { label: 'HQ', rate: 1.6, capacity: 80, radius: 40, perk: 'Fast troop production' },
+  hq: {
+    label: 'HQ',
+    rate: 1.6,
+    capacity: 80,
+    radius: 40,
+    perk: 'Builds troops fastest. Capture the enemy HQ to win',
+  },
   barracks: {
     label: 'Barracks',
     rate: 1.2,
     capacity: 50,
     radius: 32,
-    perk: 'Good troop production',
+    perk: 'Builds troops quickly, second only to an HQ',
   },
   outpost: {
     label: 'Outpost',
@@ -48,6 +54,20 @@ export const BASE_STATS: Record<BaseKind, BaseStats> = {
     radius: 30,
     perk: 'All your troops hit harder',
   },
+  bunker: {
+    label: 'Bunker',
+    rate: 0.4,
+    capacity: 60,
+    radius: 32,
+    perk: 'Defenders count double (tanks hit it at full power)',
+  },
+  hospital: {
+    label: 'Hospital',
+    rate: 0.4,
+    capacity: 40,
+    radius: 30,
+    perk: 'A quarter of your troops lost nearby come back here',
+  },
 };
 
 /** Bonus granted per special base owned, stacking additively. */
@@ -56,6 +76,16 @@ export const BONUS_PER_BASE = {
   radar: 0.2,
   armory: 0.25,
 } as const;
+
+/**
+ * Share of a soldier's hit that lands on a Bunker (its defenders count double). Tanks always
+ * hit at full power; jets, once Airfields arrive, will hit at this rate too.
+ */
+export const BUNKER_DAMAGE = 0.5;
+/** Share of an army's troops lost in a fight near its Field Hospital that come back there. */
+export const HOSPITAL_RECOVERY = 0.25;
+/** How far (world units) from a Field Hospital a fight still counts as near it. */
+export const HOSPITAL_RANGE = 220;
 
 export const UNIT_SPEED = 75;
 /** Seconds between each unit leaving when a squad is sent. */

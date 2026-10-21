@@ -1,5 +1,5 @@
 import type Phaser from 'phaser';
-import { BASE_STATS } from '../sim/config';
+import { BASE_STATS, HOSPITAL_RANGE } from '../sim/config';
 import { createRng } from '../sim/rng';
 import type { Base, Feature, Point } from '../sim/types';
 import { COLORS } from '../theme';
@@ -36,7 +36,14 @@ function star(r: number, x: number, y: number) {
   return pts;
 }
 
-/** Each base kind gets a distinct silhouette so it is recognisable without reading. */
+/** Faint white for the marks inside a base, so the troop count on top stays easy to read. */
+const MARK = 0xffffff;
+const MARK_ALPHA = 0.25;
+
+/**
+ * Each base kind gets a distinct silhouette so it is recognisable without reading, plus a
+ * faint mark inside that hints at what it does.
+ */
 export function drawBase(g: Phaser.GameObjects.Graphics, base: Base, color: number) {
   const r = BASE_STATS[base.kind].radius;
   const { x, y } = base;
@@ -46,33 +53,105 @@ export function drawBase(g: Phaser.GameObjects.Graphics, base: Base, color: numb
     case 'hq':
       g.fillCircle(x, y, r);
       g.strokeCircle(x, y, r);
-      g.fillStyle(0xffffff, 0.25);
+      g.fillStyle(MARK, MARK_ALPHA);
       g.fillPoints(star(r * 0.8, x, y), true);
       return;
     case 'barracks':
       g.fillRect(x - r, y - r, r * 2, r * 2);
       g.strokeRect(x - r, y - r, r * 2, r * 2);
+      // Rows of bunks along the top and bottom.
+      g.fillStyle(MARK, MARK_ALPHA);
+      for (const dy of [-0.72, 0.52]) {
+        for (const dx of [-0.75, -0.25, 0.25])
+          g.fillRect(x + dx * r + 2, y + dy * r, r * 0.4, r * 0.2);
+      }
       return;
-    case 'outpost':
-      g.fillPoints(polygon(3, r * 1.15, x, y + r * 0.15), true);
-      g.strokePoints(polygon(3, r * 1.15, x, y + r * 0.15), true);
+    case 'outpost': {
+      const tri = polygon(3, r * 1.15, x, y + r * 0.15);
+      g.fillPoints(tri, true);
+      g.strokePoints(tri, true);
+      // A little flag on the peak.
+      const top = tri[0]!;
+      g.lineStyle(2, MARK, 0.6);
+      g.lineBetween(top.x, top.y, top.x, top.y - r * 0.55);
+      g.fillStyle(MARK, 0.6);
+      g.fillTriangle(
+        top.x,
+        top.y - r * 0.55,
+        top.x + r * 0.4,
+        top.y - r * 0.42,
+        top.x,
+        top.y - r * 0.3,
+      );
       return;
-    case 'factory':
+    }
+    case 'factory': {
       g.fillPoints(polygon(6, r, x, y, 0), true);
       g.strokePoints(polygon(6, r, x, y, 0), true);
+      // A gear.
+      g.lineStyle(3, MARK, MARK_ALPHA);
+      g.strokeCircle(x, y, r * 0.55);
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        g.lineBetween(
+          x + Math.cos(a) * r * 0.55,
+          y + Math.sin(a) * r * 0.55,
+          x + Math.cos(a) * r * 0.75,
+          y + Math.sin(a) * r * 0.75,
+        );
+      }
       return;
+    }
     case 'radar':
       g.fillCircle(x, y, r);
       g.strokeCircle(x, y, r);
-      g.lineStyle(2, 0xffffff, 0.35);
+      g.lineStyle(2, MARK, 0.35);
       g.strokeCircle(x, y, r * 0.65);
       g.strokeCircle(x, y, r * 0.3);
       return;
     case 'armory':
       g.fillPoints(polygon(4, r * 1.2, x, y), true);
       g.strokePoints(polygon(4, r * 1.2, x, y), true);
+      // A smaller diamond inside, like a cut gem: troops hit harder.
+      g.lineStyle(2, MARK, 0.35);
+      g.strokePoints(polygon(4, r * 0.7, x, y), true);
       return;
+    case 'bunker': {
+      // A thick, dark-rimmed octagon with a firing slit: heavy and hard to crack.
+      const outer = polygon(8, r * 1.1, x, y, Math.PI / 8);
+      g.fillPoints(outer, true);
+      g.lineStyle(8, 0x000000, 0.55);
+      g.strokePoints(outer, true);
+      g.lineStyle(3, MARK, 0.3);
+      g.strokePoints(polygon(8, r * 0.8, x, y, Math.PI / 8), true);
+      g.fillStyle(0x000000, 0.45);
+      g.fillRect(x - r * 0.5, y - r * 0.68, r, r * 0.16);
+      return;
+    }
+    case 'hospital': {
+      // A rounded tent with a big white cross.
+      g.fillRoundedRect(x - r, y - r, r * 2, r * 2, r * 0.45);
+      g.strokeRoundedRect(x - r, y - r, r * 2, r * 2, r * 0.45);
+      const [arm, len] = [r * 0.24, r * 0.72];
+      g.fillStyle(MARK, 0.85);
+      g.fillRect(x - arm, y - len, arm * 2, len * 2);
+      g.fillRect(x - len, y - arm, len * 2, arm * 2);
+      return;
+    }
   }
+}
+
+/** The faint circle a Field Hospital saves troops within, shown when it's picked or tapped. */
+export function drawHospitalRange(
+  g: Phaser.GameObjects.Graphics,
+  base: Base,
+  color: number,
+  strength: number,
+) {
+  g.fillStyle(color, 0.06 * strength);
+  g.fillCircle(base.x, base.y, HOSPITAL_RANGE);
+  g.lineStyle(3, 0xffffff, 0.3 * strength);
+  g.strokeCircle(base.x, base.y, HOSPITAL_RANGE);
 }
 
 /** Ring around a base showing how full it is relative to its capacity. */

@@ -28,6 +28,11 @@ export interface Difficulty {
   aiSnipeGuard: number;
   /** Whether the enemy sends reinforcements to its bases that are under attack. */
   aiDefends: boolean;
+  /**
+   * Whether the enemy plays Bunkers and Field Hospitals cleverly: it knows a Bunker needs twice
+   * the troops, and values Bunkers at chokepoints and Hospitals near the front.
+   */
+  aiKnowsBases: boolean;
 }
 
 export const DIFFICULTIES: Record<DifficultyId, Difficulty> = {
@@ -44,6 +49,7 @@ export const DIFFICULTIES: Record<DifficultyId, Difficulty> = {
     enemyProduction: 0.9,
     aiSnipeGuard: 12,
     aiDefends: false,
+    aiKnowsBases: false,
   },
   corporal: {
     id: 'corporal',
@@ -58,6 +64,7 @@ export const DIFFICULTIES: Record<DifficultyId, Difficulty> = {
     enemyProduction: 0.9,
     aiSnipeGuard: 10,
     aiDefends: false,
+    aiKnowsBases: false,
   },
   soldier: {
     id: 'soldier',
@@ -72,6 +79,7 @@ export const DIFFICULTIES: Record<DifficultyId, Difficulty> = {
     enemyProduction: 0.9,
     aiSnipeGuard: 8,
     aiDefends: false,
+    aiKnowsBases: false,
   },
   general: {
     id: 'general',
@@ -86,6 +94,7 @@ export const DIFFICULTIES: Record<DifficultyId, Difficulty> = {
     enemyProduction: 1,
     aiSnipeGuard: 0,
     aiDefends: true,
+    aiKnowsBases: true,
   },
   marshal: {
     id: 'marshal',
@@ -100,6 +109,7 @@ export const DIFFICULTIES: Record<DifficultyId, Difficulty> = {
     enemyProduction: 1.05,
     aiSnipeGuard: 0,
     aiDefends: true,
+    aiKnowsBases: true,
   },
 };
 

@@ -5,6 +5,8 @@ starting points for the bot balance harness, not final values.
 
 ## Design rules
 
+- **Tap to learn.** Tapping a base you don't own shows its name and power in one line, and
+  every shape has a faint mark inside (bunks, a flag, a gear, a gem, a cross).
 - **One sentence per base.** A kid should be able to say what a base does in one breath
   ("the Bunker is twice as hard to take"). If it needs two sentences, it's two bases.
 - **A shape you recognise without reading.** Every kind gets its own silhouette and icon.
@@ -81,20 +83,30 @@ starting points for the bot balance harness, not final values.
 
 ## New bases
 
-### Bunker (thick octagon) — Phase 1 candidate
+### Bunker (thick octagon) — live
 
 - **Power:** defenders count double. Twice as many troops are needed to take it.
-- Tanks ignore this (they do full damage), and jets do half damage.
+- Tanks ignore this (they do full damage), and jets will do half damage.
 - Stats: 0.4/s, holds 60. Bunkers are rewarding to hold and painful to take, ideal at
-  chokepoints.
+  chokepoints. Swarm clashes mid-field are unaffected.
+- The attack preview counts the doubling (and tanks), so green still means a win.
+- General and Marshal enemies know the rule and value Bunkers on the road between the HQs;
+  easier enemies treat them like any base and learn the hard way.
+- Random maps and conquest regions get a mirrored pair about half the time (never the tutorial
+  or Boot Camp), with a smaller neutral garrison since every defender counts twice.
 - Upgrades: Concrete (holds 80), Pillboxes (shoots one incoming attacker every 2 s).
 - Active: **Lockdown**: can't be damaged for 8 seconds.
 
-### Field Hospital (white cross) — Phase 1 candidate
+### Field Hospital (white cross) — live
 
 - **Power:** a quarter of your troops lost in fights near it come back here.
-- "Near" is a range ring shown when you tap it.
+- "Near" is 220 map units: a faint range ring shows while it's picked or after a tap, and a
+  small green "+N" pops up as troops come back.
+- Counts mid-field clashes and failed attacks on bases (attackers that bounce off). Only the
+  nearest of your hospitals in range gets them.
 - Stats: 0.4/s, holds 40.
+- General and Marshal enemies value Hospitals near the front.
+- Random maps and conquest regions get a mirrored pair a bit less than half the time.
 - Upgrades: Medics (a third come back), Big Tent (bigger range).
 - Active: **Patch Up**: every base in range gets +5 troops.
 
@@ -159,14 +171,13 @@ starting points for the bot balance harness, not final values.
 
 ## Rollout
 
-| When      | Bases                                                      |
-| --------- | ---------------------------------------------------------- |
-| Live      | HQ, Barracks, Outpost, Factory, Radar, Armory              |
-| Phase 1   | Bunker, Field Hospital (with random maps that place them)  |
-| Phase 1.5 | Supply Depot; upgrades for every base in the prestige tree |
-| Phase 2   | Artillery, Airfield, Bridge Fort (with terrain and zones)  |
-| Phase 3   | Oil Field, Command Center; active abilities for all bases  |
-| Phase 4+  | Shipyard, Missile Silo, Spaceport                          |
+| When      | Bases                                                                 |
+| --------- | --------------------------------------------------------------------- |
+| Live      | HQ, Barracks, Outpost, Factory, Radar, Armory, Bunker, Field Hospital |
+| Phase 1.5 | Supply Depot; upgrades for every base in the prestige tree            |
+| Phase 2   | Artillery, Airfield, Bridge Fort (with terrain and zones)             |
+| Phase 3   | Oil Field, Command Center; active abilities for all bases             |
+| Phase 4+  | Shipyard, Missile Silo, Spaceport                                     |
 
 ## AI notes
 

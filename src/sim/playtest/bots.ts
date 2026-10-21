@@ -120,7 +120,9 @@ export function updateBot(world: World, bot: BotState, dt: number): void {
     let bestScore = Infinity;
     for (const t of others) {
       // Kids judge by the number they see, not production during the trip.
-      if (power < t.troops + p.margin) continue;
+      // Skilled players also know a Bunker takes twice the troops; others learn the hard way.
+      const needed = t.kind === 'bunker' && p.valuesSpecials ? t.troops * 2 : t.troops;
+      if (power < needed + p.margin) continue;
       const d = Math.hypot(t.x - main.x, t.y - main.y);
       let score = t.troops + d * 0.04;
       if (p.valuesSpecials && BASE_STATS[t.kind].perk.startsWith('All')) score -= 6;

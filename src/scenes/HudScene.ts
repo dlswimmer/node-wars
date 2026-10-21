@@ -17,6 +17,8 @@ const DEFEAT_TIPS = [
   'Tip: a green ring means your attack will win.',
   'Tip: drag across two of your bases to attack with both!',
   'Tip: hold the Factory and your army grows faster.',
+  'Tip: a Bunker needs twice the troops. Tanks hit it hard!',
+  'Tip: fight near your Hospital to get troops back.',
   'Tip: a red ring around your base means help it fast!',
 ];
 

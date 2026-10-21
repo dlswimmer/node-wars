@@ -42,7 +42,7 @@ import {
   screenShake,
 } from '../settings';
 import { COLORS, FACTION_COLORS, textStyle } from '../theme';
-import { drawBase, drawCapacityRing, drawMapGrid, drawTerrain } from './drawing';
+import { drawBase, drawCapacityRing, drawHospitalRange, drawMapGrid, drawTerrain } from './drawing';
 import type { HudScene } from './HudScene';
 import { UNIT_TEXTURE, ensureUnitTextures } from './unitTextures';
 
@@ -124,6 +124,11 @@ export class BattleScene extends Phaser.Scene {
   private lastClashFx = new Map<number, number>();
   /** The floating message currently shown at each base, so a new one replaces it. */
   private hints = new Map<number, Phaser.GameObjects.Text>();
+  /** Troops a Field Hospital got back that haven't been shown as a "+N" pop yet. */
+  private healed = new Map<number, number>();
+  private lastHealPop = new Map<number, number>();
+  /** Until when (game clock, ms) a tapped Field Hospital shows its range ring. */
+  private rangeUntil = new Map<number, number>();
   /** Bases that were in danger last frame, so the warning sound plays once per new threat. */
   private lastThreats = new Set<number>();
   /** Squads the player sent that are still flying, with their targets. */
@@ -194,6 +199,9 @@ export class BattleScene extends Phaser.Scene {
     this.effects = [];
     this.lastHitFx.clear();
     this.hints.clear();
+    this.healed.clear();
+    this.lastHealPop.clear();
+    this.rangeUntil.clear();
     this.playerSquads.clear();
     this.gesture = 'none';
     this.paused = false;
@@ -269,6 +277,7 @@ export class BattleScene extends Phaser.Scene {
       }
       step(this.world, dt);
       this.handleEvents();
+      this.popHeals();
       this.checkFinishedSquads();
       // Captured bases can no longer be ordered around.
       for (const set of [this.selected, this.armed]) {
@@ -457,6 +466,7 @@ export class BattleScene extends Phaser.Scene {
       return;
     }
     const base = baseAt(this.world, w.x, w.y, this.touchPadding());
+    if (base?.kind === 'hospital') this.rangeUntil.set(base.id, this.time.now + 2500);
 
     if (base?.owner === 'player') {
       this.tapMightReinforce = this.armed.size > 0 && !this.armed.has(base.id);
@@ -533,7 +543,14 @@ export class BattleScene extends Phaser.Scene {
     if (base && this.armed.size > 0) {
       this.issueOrder([...this.armed], base.id);
     } else if (base && base.owner !== 'player') {
-      this.hint(base, 'Drag from a BLUE base!', COLORS.textDim);
+      // Say what the base is good for, so a kid knows why it's worth taking.
+      const { label, perk } = BASE_STATS[base.kind];
+      this.hint(
+        base,
+        `${label.toUpperCase()}: ${perk}
+Drag from a BLUE base!`,
+        COLORS.textDim,
+      );
     }
     this.armed.clear();
   }
@@ -630,6 +647,10 @@ export class BattleScene extends Phaser.Scene {
         this.clashEffect(e.x, e.y);
         continue;
       }
+      if (e.type === 'heal') {
+        this.healed.set(e.baseId, (this.healed.get(e.baseId) ?? 0) + e.amount);
+        continue;
+      }
       const base = this.world.bases[e.baseId];
       if (!base) continue;
       const r = BASE_STATS[base.kind].radius;
@@ -658,6 +679,32 @@ export class BattleScene extends Phaser.Scene {
           this.addEffect('ring', base.x, base.y, r + 6, COLORS.shield, 0.4);
         }
       }
+    }
+  }
+
+  /** A small "+N" over a Field Hospital as saved troops come back, at most a few a second. */
+  private popHeals() {
+    for (const [id, amount] of this.healed) {
+      const base = this.world.bases[id];
+      const whole = Math.floor(amount + 1e-6);
+      const last = this.lastHealPop.get(id) ?? -Infinity;
+      if (!base || whole < 1 || this.world.time - last < 0.5) continue;
+      this.healed.set(id, amount - whole);
+      this.lastHealPop.set(id, this.world.time);
+      const size = Math.max(22, cssToWorld(15, this.cameras.main.zoom));
+      const r = BASE_STATS[base.kind].radius;
+      const text = this.add
+        .text(base.x + r * 0.9, base.y - r * 0.6, `+${whole}`, textStyle(size, '#7dff9a'))
+        .setOrigin(0, 1)
+        .setDepth(19);
+      this.tweens.add({
+        targets: text,
+        y: text.y - size,
+        alpha: 0,
+        duration: 900,
+        ease: 'Quad.easeOut',
+        onComplete: () => text.destroy(),
+      });
     }
   }
 
@@ -718,7 +765,7 @@ export class BattleScene extends Phaser.Scene {
     const fitsAbove = above - size >= view.top;
     const y = fitsAbove ? above : base.y + r + 44;
     const text = this.add
-      .text(base.x, y, message, textStyle(size, color))
+      .text(base.x, y, message, { ...textStyle(size, color), align: 'center' })
       .setOrigin(0.5, fitsAbove ? 1 : 0)
       .setDepth(20);
     const half = text.width / 2 + 8;
@@ -752,6 +799,14 @@ export class BattleScene extends Phaser.Scene {
     this.lastThreats = threats;
 
     this.baseGfx.clear();
+    // Field Hospitals show how far they reach while picked, and for a moment after a tap.
+    for (const b of bases) {
+      if (b.kind !== 'hospital') continue;
+      const picked = this.selected.has(b.id) || this.armed.has(b.id);
+      const left = (this.rangeUntil.get(b.id) ?? 0) - this.time.now;
+      const strength = picked ? 1 : Math.min(1, left / 600);
+      if (strength > 0) drawHospitalRange(this.baseGfx, b, FACTION_COLORS[b.owner], strength);
+    }
     for (const b of bases) {
       const color = FACTION_COLORS[b.owner];
       const r = BASE_STATS[b.kind].radius;

@@ -17,16 +17,18 @@ to get an app icon that opens full-screen. Sound can be muted with the speaker b
   the base is yours. Sending troops to your own base reinforces it.
 - Swarms that meet mid-field fight and cancel out troop for troop, so you can send troops to
   **intercept** an attack before it reaches your base.
-- Special bases power up your whole army while you hold them:
+- Every base has a power while you hold it (tap one you don't own to see it):
 
-  | Base     | Shape    | Bonus while you hold it                            |
-  | -------- | -------- | -------------------------------------------------- |
-  | HQ       | Star     | Fastest troop production                           |
-  | Barracks | Square   | Good troop production                              |
-  | Outpost  | Triangle | Small forward base                                 |
-  | Factory  | Hexagon  | +25% production everywhere, and it sends **tanks** |
-  | Radar    | Rings    | +20% troop speed                                   |
-  | Armory   | Diamond  | +25% attack power                                  |
+  | Base     | Shape          | Power while you hold it                                   |
+  | -------- | -------------- | --------------------------------------------------------- |
+  | HQ       | Star           | Fastest troop production; capture red's to win            |
+  | Barracks | Square         | Good troop production                                     |
+  | Outpost  | Triangle, flag | Troops sent from here move 40% faster                     |
+  | Factory  | Hexagon, gear  | +25% production everywhere, and it sends **tanks**        |
+  | Radar    | Rings          | +20% troop speed                                          |
+  | Armory   | Diamond        | +25% attack power                                         |
+  | Bunker   | Thick octagon  | Defenders count double (tanks still hit it at full power) |
+  | Hospital | White cross    | A quarter of your troops lost nearby come back here (+N)  |
 
 Troops sent from a Factory roll out as **tanks**: slower, but each one hits like 3 soldiers.
 
