@@ -1,5 +1,5 @@
 import { BASE_STATS } from './config';
-import { SHORE, distToPolyline, levelRoutes, routesReachEverywhere } from './paths';
+import { SHORE, levelRoutes, nearPolyline, routesReachEverywhere } from './paths';
 import { createRng } from './rng';
 import { addScenery, edgeDistance, insidePolygon } from './scenery';
 import type { Bridge, LevelDef, Point, Ridge, River } from './types';
@@ -93,8 +93,8 @@ function fair(level: LevelDef): boolean {
 function clearOfBases(level: LevelDef, points: Point[], width: number): boolean {
   return level.bases.every(
     (b) =>
-      distToPolyline(b.x, b.y, points) >= BASE_STATS[b.kind].radius + width / 2 + BASE_GAP &&
-      distToPolyline(b.x, b.y + LABEL_Y, points) >= width / 2 + LABEL_GAP,
+      !nearPolyline(b.x, b.y, points, BASE_STATS[b.kind].radius + width / 2 + BASE_GAP) &&
+      !nearPolyline(b.x, b.y + LABEL_Y, points, width / 2 + LABEL_GAP),
   );
 }
 
@@ -219,10 +219,10 @@ function makeRidges(
           clearOfBases(level, pts, width) &&
           pts.every((p) => insidePolygon(p, outline) && edgeDistance(p, outline) >= width / 2) &&
           (level.rivers ?? []).every((r) =>
-            pts.every((p) => distToPolyline(p.x, p.y, r.points) >= (width + r.width) / 2 + 50),
+            pts.every((p) => !nearPolyline(p.x, p.y, r.points, (width + r.width) / 2 + 50)),
           ) &&
           ridges.every((o) =>
-            pts.every((p) => distToPolyline(p.x, p.y, o.points) >= (width + o.width) / 2 + 60),
+            pts.every((p) => !nearPolyline(p.x, p.y, o.points, (width + o.width) / 2 + 60)),
           ),
       );
       // The range mustn't touch its own twin across the centre.

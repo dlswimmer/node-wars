@@ -1,5 +1,5 @@
 import { BASE_STATS } from './config';
-import { distToPolyline } from './paths';
+import { nearPolyline } from './paths';
 import { createRng } from './rng';
 import type { Feature, FeatureKind, LevelDef, Point } from './types';
 
@@ -227,11 +227,11 @@ function makeFeatures(level: LevelDef, outline: Point[], rng: () => number): Fea
 /** Whether a patch of scenery this big at this spot would sit on water or rock. */
 function onTerrain(level: LevelDef, p: Point, size: number): boolean {
   return (
-    (level.rivers ?? []).some(
-      (r) => distToPolyline(p.x, p.y, r.points) < size + r.width / 2 + RIVER_CLEARANCE,
+    (level.rivers ?? []).some((r) =>
+      nearPolyline(p.x, p.y, r.points, size + r.width / 2 + RIVER_CLEARANCE),
     ) ||
-    (level.ridges ?? []).some(
-      (r) => distToPolyline(p.x, p.y, r.points) < size + r.width / 2 + RIDGE_CLEARANCE,
+    (level.ridges ?? []).some((r) =>
+      nearPolyline(p.x, p.y, r.points, size + r.width / 2 + RIDGE_CLEARANCE),
     )
   );
 }

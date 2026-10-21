@@ -9,9 +9,16 @@ import {
   mapName,
   randomMapSeed,
 } from './mapgen';
-import type { BaseDef } from './types';
+import type { BaseDef, LevelDef } from './types';
 
 const SEEDS = Array.from({ length: 200 }, (_, i) => i * 487 + 1);
+const cache = new Map<number, LevelDef>();
+/** Each seed's map, made once and shared by the tests (terrain makes maps slower to build). */
+const mapFor = (seed: number) => {
+  let level = cache.get(seed);
+  if (!level) cache.set(seed, (level = generateLevel(seed)));
+  return level;
+};
 
 describe('generateLevel', () => {
   it('gives the same map for the same seed', () => {
@@ -28,7 +35,7 @@ describe('generateLevel', () => {
 
   it('mirrors every base onto an identical twin for the other side', () => {
     for (const seed of SEEDS) {
-      const { width, height, bases } = generateLevel(seed);
+      const { width, height, bases } = mapFor(seed);
       const twinOwner = (b: BaseDef) =>
         b.owner === 'player' ? 'enemy' : b.owner === 'enemy' ? 'player' : 'neutral';
       for (const b of bases) {
@@ -43,7 +50,7 @@ describe('generateLevel', () => {
 
   it('keeps bases spread out on a phone-shaped map', () => {
     for (const seed of SEEDS) {
-      const { width, height, bases } = generateLevel(seed);
+      const { width, height, bases } = mapFor(seed);
       expect(width).toBeGreaterThanOrEqual(MIN_WIDTH);
       expect(width).toBeLessThanOrEqual(MAX_WIDTH);
       expect(bases.length).toBeGreaterThanOrEqual(MIN_BASES);
@@ -64,7 +71,7 @@ describe('generateLevel', () => {
 
   it('gives each army one HQ, far apart, with a starter base nearby', () => {
     for (const seed of SEEDS) {
-      const { width, bases } = generateLevel(seed);
+      const { width, bases } = mapFor(seed);
       const hqs = bases.filter((b) => b.kind === 'hq');
       expect(hqs.map((b) => b.owner).sort()).toEqual(['enemy', 'player']);
       const [a, b] = hqs as [BaseDef, BaseDef];
@@ -83,7 +90,7 @@ describe('generateLevel', () => {
 
   it('puts special bases in the middle, guarded by more troops than the edges', () => {
     for (const seed of SEEDS) {
-      const { width, bases } = generateLevel(seed);
+      const { width, bases } = mapFor(seed);
       const specials = bases.filter((b) => ['factory', 'radar', 'armory'].includes(b.kind));
       expect(specials.length).toBeGreaterThan(0);
       for (const s of specials) expect(Math.abs(s.x - width / 2)).toBeLessThan(width * 0.2 + 1);

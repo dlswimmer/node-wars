@@ -74,10 +74,10 @@ export function blockedAt(
     if ((lx / (f.size * 0.85 + shore)) ** 2 + (ly / (f.size * 0.68 + shore)) ** 2 <= 1) return true;
   }
   for (const r of level.ridges ?? []) {
-    if (distToPolyline(x, y, r.points) <= r.width / 2 + shore) return true;
+    if (nearPolyline(x, y, r.points, r.width / 2 + shore)) return true;
   }
   for (const r of level.rivers ?? []) {
-    if (distToPolyline(x, y, r.points) > r.width / 2 + shore) continue;
+    if (!nearPolyline(x, y, r.points, r.width / 2 + shore)) continue;
     if (!bridges || !(level.bridges ?? []).some((b) => onBridge(b, x, y))) return true;
   }
   return false;
@@ -90,6 +90,21 @@ export function onBridge(b: Bridge, x: number, y: number): boolean {
   const along = dx * Math.cos(b.angle) + dy * Math.sin(b.angle);
   const across = -dx * Math.sin(b.angle) + dy * Math.cos(b.angle);
   return Math.abs(along) <= b.length / 2 && Math.abs(across) <= b.width / 2;
+}
+
+/**
+ * Whether a point is within `limit` of a polyline. Much faster than distToPolyline for long
+ * lines, since segments whose box is too far away are skipped without measuring.
+ */
+export function nearPolyline(x: number, y: number, points: Point[], limit: number): boolean {
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1]!;
+    const b = points[i]!;
+    if (x < Math.min(a.x, b.x) - limit || x > Math.max(a.x, b.x) + limit) continue;
+    if (y < Math.min(a.y, b.y) - limit || y > Math.max(a.y, b.y) + limit) continue;
+    if (distToSegment(x, y, a.x, a.y, b.x, b.y) <= limit) return true;
+  }
+  return false;
 }
 
 export function distToPolyline(x: number, y: number, points: Point[]): number {
@@ -183,7 +198,7 @@ function findRoutes(level: LevelDef): { table: Route[][]; ok: boolean } {
     const a = bases[i]!;
     routes[i]![i] = straight(a, a);
     const start = cellOf(a);
-    const parent = search(open, cols, rows, start);
+    const parent = search(open, cols, rows, start, bases.slice(i + 1).map(cellOf));
     for (let j = i + 1; j < bases.length; j++) {
       const b = bases[j]!;
       const end = cellOf(b);
@@ -204,8 +219,18 @@ function findRoutes(level: LevelDef): { table: Route[][]; ok: boolean } {
   return { table: routes, ok };
 }
 
-/** Dijkstra over open cells (8 directions, no cutting corners); returns each cell's parent. */
-function search(open: Uint8Array, cols: number, rows: number, start: number): Int32Array {
+/**
+ * Dijkstra over open cells (8 directions, no cutting corners) until every target cell is
+ * reached; returns each cell's parent.
+ */
+function search(
+  open: Uint8Array,
+  cols: number,
+  rows: number,
+  start: number,
+  targets: number[],
+): Int32Array {
+  const waiting = new Set(targets);
   const n = cols * rows;
   const dist = new Float64Array(n).fill(Infinity);
   const parent = new Int32Array(n).fill(-1);
@@ -215,6 +240,8 @@ function search(open: Uint8Array, cols: number, rows: number, start: number): In
   while (heap.size > 0) {
     const [k, d] = heap.pop();
     if (d > dist[k]!) continue;
+    waiting.delete(k);
+    if (waiting.size === 0) break;
     const c = k % cols;
     const r = (k - c) / cols;
     for (let dr = -1; dr <= 1; dr++) {
