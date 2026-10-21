@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BASE_STATS } from './config';
-import type { LevelDef } from './types';
+import type { Army, LevelDef, Unit, World } from './types';
 import {
   baseAt,
   basesAlongSegment,
@@ -300,5 +300,144 @@ describe('outposts', () => {
       return units.reduce((s, u) => s + u.speed, 0) / units.length;
     };
     expect(avg(1)).toBeGreaterThan(avg(2) * 1.25);
+  });
+});
+
+describe('clashes', () => {
+  const duelLevel = (playerTroops: number, enemyTroops: number): LevelDef => ({
+    ...tinyLevel(),
+    bases: [
+      { kind: 'barracks', x: 50, y: 100, owner: 'player', troops: playerTroops },
+      { kind: 'barracks', x: 350, y: 100, owner: 'enemy', troops: enemyTroops },
+    ],
+  });
+
+  /** Total power still flying for an army. */
+  const flying = (world: World, army: Army) =>
+    world.units.filter((u) => u.owner === army).reduce((sum, u) => sum + u.power, 0);
+
+  /** Step until the swarms have met and only one side (or nobody) is left in the air. */
+  function fight(world: World) {
+    for (let t = 0; t < 10; t += 0.05) {
+      step(world, 0.05);
+      if (flying(world, 'player') === 0 || flying(world, 'enemy') === 0) return;
+    }
+  }
+
+  /** Put a unit in the air by hand, heading for a base. */
+  function place(world: World, owner: Army, x: number, power = 1, kind: Unit['kind'] = 'soldier') {
+    const targetId = owner === 'player' ? 1 : 0;
+    const target = world.bases[targetId]!;
+    world.units.push({
+      id: world.nextUnitId++,
+      kind,
+      power,
+      owner,
+      targetId,
+      x,
+      y: 100,
+      tx: target.x,
+      ty: target.y,
+      speed: 75,
+      delay: 0,
+      squad: 0,
+    });
+  }
+
+  it('lets equal swarms meeting head-on wipe each other out', () => {
+    const world = createWorld(duelLevel(30, 30));
+    sendTroops(world, 'player', 0, 1, 1);
+    sendTroops(world, 'enemy', 1, 0, 1);
+    fight(world);
+    expect(flying(world, 'player')).toBe(0);
+    expect(flying(world, 'enemy')).toBe(0);
+  });
+
+  it('lets a bigger swarm punch through with the difference left', () => {
+    const world = createWorld(duelLevel(30, 10));
+    sendTroops(world, 'player', 0, 1, 1);
+    sendTroops(world, 'enemy', 1, 0, 1);
+    fight(world);
+    expect(flying(world, 'enemy')).toBe(0);
+    expect(flying(world, 'player')).toBeCloseTo(20);
+  });
+
+  it('reports clashes as events where the units met', () => {
+    const world = createWorld(duelLevel(0, 0));
+    place(world, 'player', 195);
+    place(world, 'enemy', 205);
+    step(world, 0.01);
+    expect(world.units).toHaveLength(0);
+    const clash = world.events.find((e) => e.type === 'clash');
+    expect(clash).toMatchObject({ type: 'clash', y: 100 });
+  });
+
+  it('lets a tank absorb soldiers, losing one troop of worth per soldier', () => {
+    const world = createWorld(duelLevel(0, 0));
+    place(world, 'player', 200, 3, 'tank');
+    place(world, 'enemy', 204);
+    step(world, 0.01);
+    expect(world.units).toHaveLength(1);
+    expect(world.units[0]).toMatchObject({ kind: 'tank', owner: 'player', power: 2 });
+    place(world, 'enemy', world.units[0]!.x + 4);
+    place(world, 'enemy', world.units[0]!.x + 6);
+    step(world, 0.01);
+    expect(world.units).toHaveLength(0);
+  });
+
+  it('gives the Armory bonus to the side that hits harder', () => {
+    const level = duelLevel(0, 0);
+    level.bases.push({ kind: 'armory', x: 50, y: 180, owner: 'player', troops: 0 });
+    const world = createWorld(level);
+    const attack = getBonuses(world, 'player').attack;
+    place(world, 'player', 200);
+    place(world, 'enemy', 204);
+    step(world, 0.01);
+    expect(flying(world, 'enemy')).toBe(0);
+    expect(flying(world, 'player')).toBeCloseTo((attack - 1) / attack);
+  });
+
+  it('never makes units of the same army clash', () => {
+    const world = createWorld(duelLevel(0, 0));
+    place(world, 'player', 200);
+    place(world, 'player', 202);
+    world.units[1]!.targetId = 0; // flying the other way, right through each other
+    world.units[1]!.tx = 50;
+    step(world, 0.05);
+    expect(world.units).toHaveLength(2);
+  });
+
+  it("doesn't let units still waiting at their base clash", () => {
+    const world = createWorld(duelLevel(0, 0));
+    place(world, 'player', 200);
+    place(world, 'enemy', 202);
+    world.units[1]!.delay = 1;
+    step(world, 0.05);
+    expect(world.units).toHaveLength(2);
+  });
+
+  it('plays out the same way every time with the same seed', () => {
+    const run = () => {
+      const world = createWorld(duelLevel(40, 25), { seed: 9 });
+      sendTroops(world, 'player', 0, 1, 1);
+      sendTroops(world, 'enemy', 1, 0, 1);
+      for (let i = 0; i < 100; i++) step(world, 0.05);
+      return JSON.stringify([world.units, world.bases]);
+    };
+    expect(run()).toBe(run());
+  });
+
+  it('warns in the preview when an enemy swarm is coming straight down the same road', () => {
+    const level = duelLevel(30, 30);
+    const world = createWorld(level);
+    // An attack on the enemy barracks itself looks fine...
+    world.bases[1]!.troops = 10;
+    expect(previewAttack(world, 'player', [0], 1, 1).outcome).toBe('win');
+    // ...until a big enemy swarm heads our way along the same line.
+    world.bases[1]!.troops = 40;
+    sendTroops(world, 'enemy', 1, 0, 0.75);
+    world.bases[1]!.troops = 10;
+    for (let i = 0; i < 20; i++) step(world, 0.05);
+    expect(previewAttack(world, 'player', [0], 1, 1).outcome).toBe('lose');
   });
 });

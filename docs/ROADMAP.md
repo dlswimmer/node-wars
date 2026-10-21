@@ -40,7 +40,7 @@ Goal: one battle that is genuinely exciting for an 8-year-old, and a solid base 
 - [x] Fixes from three playtest rounds (simulated kids on phone and iPad, plus QA)
 - [x] Battle feedback: capture bursts, screen shake, "under attack" warnings, win/lose preview
 - [x] Opening shield, capture the enemy HQ to win, confetti and defeat tips
-- [ ] Swarms that fight each other when they meet mid-field
+- [x] Swarms that fight each other when they meet mid-field
 - [x] Sound effects (synthesized in code) with a mute button
 - [ ] First-battle tutorial (animated hand showing the drag)
 - [ ] Medals for each battle (win, win fast, win without losing a base)

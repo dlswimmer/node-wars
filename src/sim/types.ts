@@ -58,7 +58,9 @@ export interface ArmyBoosts {
 export type SimEvent =
   | { type: 'capture'; baseId: number; from: Faction; to: Army }
   | { type: 'hit'; baseId: number; by: Army }
-  | { type: 'blocked'; baseId: number; by: Army };
+  | { type: 'blocked'; baseId: number; by: Army }
+  /** Opposing units met mid-field and cancelled each other out (at least partly). */
+  | { type: 'clash'; x: number; y: number };
 
 export interface World {
   width: number;

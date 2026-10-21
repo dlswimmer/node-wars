@@ -131,6 +131,12 @@ export const sfx = {
     noise(0.35, 0.6);
     play([{ freq: 330, to: 140, duration: 0.35, type: 'sawtooth', volume: 0.14 }]);
   },
+  /** Swarms meeting mid-field: a short low crunch. */
+  clash() {
+    if (throttled('clash', 0.12)) return;
+    noise(0.07, 0.35);
+    play([{ freq: 180, to: 90, duration: 0.07, type: 'square', volume: 0.06 }]);
+  },
   failed() {
     if (throttled('failed', 0.3)) return;
     play([{ freq: 220, to: 160, duration: 0.18, type: 'triangle', volume: 0.18 }]);

@@ -1,7 +1,9 @@
 import {
   BASE_STATS,
   BONUS_PER_BASE,
+  CLASH_RADIUS,
   LAUNCH_INTERVAL,
+  MAX_MOVE_STEP,
   OUTPOST_SPEED,
   TANK_LAUNCH_INTERVAL,
   TANK_POWER,
@@ -159,10 +161,12 @@ export function previewAttack(
   const speed = UNIT_SPEED * getBonuses(world, army).speed * world.boosts[army].speed;
   let count = 0;
   let travel = 0;
+  const sources: Base[] = [];
   for (const id of sourceIds) {
     const b = world.bases[id];
     if (!b || b.owner !== army || id === targetId) continue;
     count += Math.floor(b.troops * fraction);
+    sources.push(b);
     if (!target) continue;
     const s = speed * kindSpeed(b.kind, b.kind === 'factory');
     travel = Math.max(travel, Math.hypot(b.x - target.x, b.y - target.y) / s);
@@ -183,7 +187,21 @@ export function previewAttack(
     for (const u of world.units)
       if (u.owner === owner && u.targetId === targetId) defenders += u.power;
   }
-  const power = (count + enRoute) * getBonuses(world, army).attack;
+  // Enemy troops flying at one of our sources along the line we'd take will meet our swarm
+  // head-on and cancel out troop for troop, so they count against us. Swarms crossing the
+  // path at an angle may or may not meet ours depending on timing, so they're left out: this
+  // keeps the preview simple and never shows "win" for an attack that a counter-attack
+  // coming straight down the same road is sure to eat up.
+  let oncoming = 0;
+  for (const u of world.units) {
+    if (u.owner === army) continue;
+    const src = sources.find((b) => b.id === u.targetId);
+    if (!src) continue;
+    const corridor = BASE_STATS[src.kind].radius + CLASH_RADIUS;
+    if (distToSegment(u.x, u.y, src.x, src.y, target.x, target.y) <= corridor)
+      oncoming += u.power * getBonuses(world, u.owner).attack;
+  }
+  const power = (count + enRoute) * getBonuses(world, army).attack - oncoming;
   const outcome = power < defenders ? 'lose' : power < defenders + CLOSE_MARGIN ? 'close' : 'win';
   return { count, enRoute, outcome };
 }
@@ -207,6 +225,17 @@ export function step(world: World, dt: number): void {
     }
   }
 
+  // Small sub-steps so swarms flying head-on always come within clash range.
+  const moves = Math.max(1, Math.ceil(dt / MAX_MOVE_STEP - 1e-9));
+  for (let i = 0; i < moves; i++) {
+    moveUnits(world, dt / moves, bonuses);
+    resolveClashes(world, bonuses);
+  }
+
+  world.winner = checkWinner(world);
+}
+
+function moveUnits(world: World, dt: number, bonuses: Record<Army, Bonuses>): void {
   const survivors: Unit[] = [];
   for (const u of world.units) {
     if (u.delay > 0) {
@@ -228,8 +257,70 @@ export function step(world: World, dt: number): void {
     }
   }
   world.units = survivors;
+}
 
-  world.winner = checkWinner(world);
+/**
+ * Opposing units that meet mid-field fight it out. Each side's strength is its power times its
+ * Armory bonus (the same "attack x power" an arrival hits a base with); equal strengths cancel
+ * out, and the stronger unit flies on with what's left, so a soldier that runs into a tank
+ * leaves it worth 2. Units are bucketed per army into a grid of CLASH_RADIUS cells, so each
+ * unit only looks at enemies in the 3x3 cells around it instead of every unit on the map.
+ */
+function resolveClashes(world: World, bonuses: Record<Army, Bonuses>): void {
+  const grids = new Map<Army, Map<number, Unit[]>>();
+  for (const u of world.units) {
+    // Units still waiting to leave their base are safe inside it.
+    if (u.delay > 0) continue;
+    // Flying units (jets, once Airfields arrive) will skip clashes here.
+    let grid = grids.get(u.owner);
+    if (!grid) {
+      grid = new Map();
+      grids.set(u.owner, grid);
+    }
+    const key = cellKey(Math.floor(u.x / CLASH_RADIUS), Math.floor(u.y / CLASH_RADIUS));
+    const cell = grid.get(key);
+    if (cell) cell.push(u);
+    else grid.set(key, [u]);
+  }
+  if (grids.size < 2) return;
+
+  const r2 = CLASH_RADIUS * CLASH_RADIUS;
+  let anyDead = false;
+  for (const u of world.units) {
+    if (u.delay > 0 || u.power <= 0) continue;
+    const cx = Math.floor(u.x / CLASH_RADIUS);
+    const cy = Math.floor(u.y / CLASH_RADIUS);
+    scan: for (const [army, grid] of grids) {
+      if (army === u.owner) continue;
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          const cell = grid.get(cellKey(cx + dx, cy + dy));
+          if (!cell) continue;
+          for (const v of cell) {
+            if (v.power <= 0 || (v.x - u.x) ** 2 + (v.y - u.y) ** 2 > r2) continue;
+            clash(world, u, v, bonuses);
+            anyDead = true;
+            if (u.power <= 0) break scan;
+          }
+        }
+      }
+    }
+  }
+  if (anyDead) world.units = world.units.filter((u) => u.power > 0);
+}
+
+function cellKey(cx: number, cy: number): number {
+  return cx * 65536 + cy;
+}
+
+function clash(world: World, a: Unit, b: Unit, bonuses: Record<Army, Bonuses>): void {
+  const attackA = bonuses[a.owner].attack;
+  const attackB = bonuses[b.owner].attack;
+  const strengthA = a.power * attackA;
+  const strengthB = b.power * attackB;
+  a.power = strengthA - strengthB > 1e-6 ? (strengthA - strengthB) / attackA : 0;
+  b.power = strengthB - strengthA > 1e-6 ? (strengthB - strengthA) / attackB : 0;
+  world.events.push({ type: 'clash', x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 }
 
 function resolveArrival(world: World, base: Base, unit: Unit, attack: number): void {
@@ -268,6 +359,21 @@ function checkWinner(world: World): Army | null {
     if (!rivalHasHq && armyHasHq) return army;
   }
   return null;
+}
+
+function distToSegment(
+  px: number,
+  py: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+): number {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len2 = dx * dx + dy * dy;
+  const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / len2));
+  return Math.hypot(x1 + t * dx - px, y1 + t * dy - py);
 }
 
 function jitter(world: World, x: number, y: number, r: number): [number, number] {

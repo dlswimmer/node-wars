@@ -68,7 +68,7 @@ export const DIFFICULTIES: Record<DifficultyId, Difficulty> = {
     aiMargin: 2,
     aiMaxSources: 3,
     shieldSeconds: 0,
-    enemyProduction: 1.05,
+    enemyProduction: 1,
     aiSnipeGuard: 0,
     aiDefends: true,
   },

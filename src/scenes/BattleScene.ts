@@ -69,7 +69,7 @@ export interface BattleData {
 type Gesture = 'none' | 'drag' | 'pan' | 'pinch';
 
 interface Effect {
-  kind: 'ring' | 'flash';
+  kind: 'ring' | 'flash' | 'spark';
   x: number;
   y: number;
   radius: number;
@@ -104,6 +104,8 @@ export class BattleScene extends Phaser.Scene {
   private armedLabel!: Phaser.GameObjects.Text;
   private effects: Effect[] = [];
   private lastHitFx = new Map<number, number>();
+  /** When the last clash spark was drawn in each patch of the map, so big fights don't spam. */
+  private lastClashFx = new Map<number, number>();
   /** The floating message currently shown at each base, so a new one replaces it. */
   private hints = new Map<number, Phaser.GameObjects.Text>();
   /** Bases that were in danger last frame, so the warning sound plays once per new threat. */
@@ -586,6 +588,10 @@ export class BattleScene extends Phaser.Scene {
 
   private handleEvents() {
     for (const e of this.world.events) {
+      if (e.type === 'clash') {
+        this.clashEffect(e.x, e.y);
+        continue;
+      }
       const base = this.world.bases[e.baseId];
       if (!base) continue;
       const r = BASE_STATS[base.kind].radius;
@@ -615,6 +621,20 @@ export class BattleScene extends Phaser.Scene {
         }
       }
     }
+  }
+
+  /** A spark where swarms meet: at most one per patch of the map every so often. */
+  private clashEffect(x: number, y: number) {
+    const patch = Math.floor(x / 40) * 65536 + Math.floor(y / 40);
+    const last = this.lastClashFx.get(patch) ?? -1;
+    if (this.world.time - last < 0.1) return;
+    this.lastClashFx.set(patch, this.world.time);
+    if (this.lastClashFx.size > 200) this.lastClashFx.clear();
+    if (this.effects.length < 120) {
+      const size = Math.max(18, cssToWorld(12, this.cameras.main.zoom));
+      this.addEffect('spark', x, y, size, 0xffc94d, 0.3);
+    }
+    sfx.clash();
   }
 
   /** Tell the player when one of their attacks has fully landed without taking the base. */
@@ -722,6 +742,23 @@ export class BattleScene extends Phaser.Scene {
       if (fx.kind === 'ring') {
         this.fxGfx.lineStyle(8 * (1 - t) + 1, fx.color, 1 - t);
         this.fxGfx.strokeCircle(fx.x, fx.y, fx.radius + 70 * t);
+      } else if (fx.kind === 'spark') {
+        // A white-hot dot with four short streaks flying out.
+        const r = fx.radius * (0.6 + t);
+        this.fxGfx.fillStyle(0xffffff, 0.9 * (1 - t));
+        this.fxGfx.fillCircle(fx.x, fx.y, fx.radius * 0.5 * (1 - t * 0.6));
+        this.fxGfx.lineStyle(fx.radius * 0.22, fx.color, 1 - t);
+        for (let i = 0; i < 4; i++) {
+          const a = i * (Math.PI / 2) + Math.PI / 4 + fx.x;
+          const c = Math.cos(a);
+          const sn = Math.sin(a);
+          this.fxGfx.lineBetween(
+            fx.x + c * r * 0.4,
+            fx.y + sn * r * 0.4,
+            fx.x + c * r,
+            fx.y + sn * r,
+          );
+        }
       } else {
         this.fxGfx.fillStyle(fx.color, 0.55 * (1 - t));
         this.fxGfx.fillCircle(fx.x, fx.y, fx.radius);

@@ -15,6 +15,8 @@ to get an app icon that opens full-screen. Sound can be muted with the speaker b
   green **ATTACK!**, yellow **CLOSE!**, or red **NOT ENOUGH**.
 - Troops that reach an enemy or neutral base fight its defenders. Get more there than they have and
   the base is yours. Sending troops to your own base reinforces it.
+- Swarms that meet mid-field fight and cancel out troop for troop, so you can send troops to
+  **intercept** an attack before it reaches your base.
 - Special bases power up your whole army while you hold them:
 
   | Base     | Shape    | Bonus while you hold it                            |

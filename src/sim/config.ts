@@ -70,3 +70,10 @@ export const TANK_LAUNCH_INTERVAL = 0.35;
 /** Tanks move at this fraction of soldier speed. */
 export const TANK_SPEED = 0.6;
 export const DEFAULT_SEND_FRACTION = 0.5;
+/** Opposing units closer than this mid-field clash and cancel out. */
+export const CLASH_RADIUS = 12;
+/**
+ * Unit movement is split into steps no longer than this, so two swarms flying head-on can't
+ * skip past each other between steps (the bot harness steps 0.1s at a time).
+ */
+export const MAX_MOVE_STEP = 1 / 30;
