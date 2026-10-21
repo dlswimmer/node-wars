@@ -76,8 +76,9 @@ plays easier than one against one at the top ranks because the AIs fight each ot
 (bands in `balance.test.ts`; `npm run balance -- 100 ffa`). The bot "Skilled adult" does worse
 than a sharp kid there; worth a look if FFA gets tuned.
 
-Next up, one step at a time: **base visuals** (bases that look like what they are, the
-user's request), **forest and mud** that slow troops (tanks most; needs separate
+Bases are drawn as the buildings they are (2026-10-21; `drawBase` in `src/scenes/drawing.ts`).
+
+Next up, one step at a time: **forest and mud** that slow troops (tanks most; needs separate
 soldier and tank route tables), then polish (mountain and bridge looks, Bridge Fort). See
 ROADMAP.md.
 
