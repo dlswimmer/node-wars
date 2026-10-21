@@ -226,6 +226,35 @@ export function drawBase(g: Phaser.GameObjects.Graphics, base: Base, color: numb
       g.fillRect(x - r * 0.45, y + r * 0.5, r * 0.9, r * 0.13);
       return;
     }
+    case 'airfield': {
+      // A runway with a dashed centre line, a round-roofed hangar and a little tower.
+      const [w, h] = [r * 2.1, r * 0.62];
+      const ry = y + r * 0.22;
+      g.fillStyle(0x2f312a, 1);
+      g.fillRoundedRect(x - w / 2, ry, w, h, 4);
+      g.lineStyle(2, OUTLINE, 0.7);
+      g.strokeRoundedRect(x - w / 2, ry, w, h, 4);
+      g.fillStyle(WHITE, 0.85);
+      for (let i = 0; i < 5; i++) {
+        g.fillRect(x - w / 2 + 6 + (i * (w - 12)) / 5, ry + h / 2 - 1.5, (w - 12) / 10, 3);
+      }
+      const [hw, hd] = [r * 1.15, r * 0.7];
+      const top = y - r * 0.75;
+      const hangar = { tl: hd / 2, tr: hd / 2, bl: 3, br: 3 };
+      g.fillStyle(wall, 1);
+      g.fillRect(x - r * 0.75, top + hd * 0.7, hw, r * 0.32);
+      g.fillStyle(roof, 1);
+      g.fillRoundedRect(x - r * 0.75, top, hw, hd, hangar);
+      g.lineStyle(2, OUTLINE, 0.7);
+      g.strokeRoundedRect(x - r * 0.75, top, hw, hd, hangar);
+      g.strokeRect(x - r * 0.75, top + hd * 0.7, hw, r * 0.32);
+      g.fillStyle(DOOR, 1);
+      g.fillRect(x - r * 0.45, top + hd * 0.78, hw * 0.5, r * 0.24);
+      block(x + r * 0.68, y - r * 0.85, r * 0.42, r * 0.34, r * 0.55, CONCRETE);
+      g.fillStyle(0x9fd3e6, 1);
+      g.fillRect(x + r * 0.5, y - r * 0.82, r * 0.36, r * 0.12);
+      return;
+    }
     case 'hospital': {
       // A field tent with a ridge pole and a big cross on top.
       const [w, d] = [r * 1.8, r * 1.4];

@@ -103,9 +103,13 @@ export function updateBot(world: World, bot: BotState, dt: number): void {
 
   if (p.defends && defend(world, mine)) return;
 
-  // Humans look at the biggest number they own first.
-  const byTroops = [...mine].sort((a, b) => b.troops - a.troops);
+  // Humans look at the biggest number they own first. The preview says jets can't capture,
+  // so an Airfield only ever joins in as the second base.
+  const byTroops = [...mine].sort(
+    (a, b) => Number(a.kind === 'airfield') - Number(b.kind === 'airfield') || b.troops - a.troops,
+  );
   const main = byTroops[0]!;
+  if (main.kind === 'airfield') return;
   if (main.troops < 4) return;
 
   const sources = [main];

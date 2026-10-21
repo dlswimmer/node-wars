@@ -8,6 +8,7 @@ import {
   LAUNCH_INTERVAL,
   MAX_MOVE_STEP,
   OUTPOST_SPEED,
+  JET_SPEED,
   TANK_LAUNCH_INTERVAL,
   TANK_POWER,
   TANK_SPEED,
@@ -143,9 +144,12 @@ export function sendTroops(
   const tankPower = TANK_POWER + world.boosts[army].tankPower;
   const tanks = from.kind === 'factory' ? Math.floor(count / tankPower) : 0;
   const soldiers = count - tanks * tankPower;
-  const corners = world.routes[fromId]![toId]!.points.slice(1, -1);
+  // Jets (from an Airfield) fly straight; everyone else walks the road around terrain.
+  const jets = from.kind === 'airfield';
+  const corners = jets ? [] : world.routes[fromId]![toId]!.points.slice(1, -1);
   for (let i = 0; i < tanks + soldiers; i++) {
     const tank = i < tanks;
+    const kind: UnitKind = tank ? 'tank' : jets ? 'jet' : 'soldier';
     const [sx, sy] = jitter(world, from.x, from.y, fromR);
     const [ax, ay] = jitter(world, to.x, to.y, toR);
     // Around water each unit walks the road's corners, nudged a little to spread the swarm.
@@ -157,7 +161,7 @@ export function sendTroops(
     const { x: tx, y: ty } = path.shift() ?? { x: ax, y: ay };
     world.units.push({
       id: world.nextUnitId++,
-      kind: tank ? 'tank' : 'soldier',
+      kind,
       power: tank ? tankPower : 1,
       owner: army,
       targetId: toId,
@@ -165,7 +169,7 @@ export function sendTroops(
       y: sy,
       tx,
       ty,
-      speed: speed * kindSpeed(from.kind, tank) * (0.9 + world.rng() * 0.2),
+      speed: speed * kindSpeed(from.kind, kind) * (0.9 + world.rng() * 0.2),
       delay: tank
         ? i * TANK_LAUNCH_INTERVAL
         : tanks * TANK_LAUNCH_INTERVAL + (i - tanks) * LAUNCH_INTERVAL,
@@ -176,13 +180,27 @@ export function sendTroops(
   return count;
 }
 
-/** Speed multiplier for a unit leaving a base of this kind. */
-function kindSpeed(kind: Base['kind'], tank: boolean): number {
-  if (tank) return TANK_SPEED;
-  return kind === 'outpost' ? OUTPOST_SPEED : 1;
+/** Speed multiplier for a unit of this kind leaving a base of this kind. */
+function kindSpeed(from: Base['kind'], unit: UnitKind): number {
+  if (unit === 'tank') return TANK_SPEED;
+  if (unit === 'jet') return JET_SPEED;
+  return from === 'outpost' ? OUTPOST_SPEED : 1;
 }
 
-export type AttackOutcome = 'reinforce' | 'win' | 'close' | 'lose' | 'shielded';
+/** How far a unit of this kind travels from one base to another (jets fly straight). */
+function tripLength(world: World, fromId: number, toId: number, unit: UnitKind): number {
+  if (unit !== 'jet') return travelDistance(world, fromId, toId);
+  const [a, b] = [world.bases[fromId]!, world.bases[toId]!];
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+/** The kind of unit troops sent from a base of this kind become (counting leftovers as tanks). */
+function sentAs(kind: Base['kind']): UnitKind {
+  return kind === 'factory' ? 'tank' : kind === 'airfield' ? 'jet' : 'soldier';
+}
+
+/** 'raid': only jets would arrive, which knock troops off but can't capture. */
+export type AttackOutcome = 'reinforce' | 'win' | 'close' | 'lose' | 'raid' | 'shielded';
 
 export interface AttackPreview {
   /** Troops that would be sent. */
@@ -212,6 +230,8 @@ export function previewAttack(
   let count = 0;
   /** Troops riding in tanks, which hit a Bunker at full power. */
   let inTanks = 0;
+  /** Troops flying as jets, which knock troops off but can't capture. */
+  let inJets = 0;
   let travel = 0;
   const sources: Base[] = [];
   for (const id of sourceIds) {
@@ -220,10 +240,14 @@ export function previewAttack(
     const n = Math.floor(b.troops * fraction);
     count += n;
     if (b.kind === 'factory') inTanks += Math.floor(n / tankPower) * tankPower;
+    if (b.kind === 'airfield') inJets += n;
     sources.push(b);
     if (!target) continue;
-    const s = speed * kindSpeed(b.kind, b.kind === 'factory');
-    travel = Math.max(travel, travelDistance(world, id, targetId) / s);
+    const unit = sentAs(b.kind);
+    travel = Math.max(
+      travel,
+      tripLength(world, id, targetId, unit) / (speed * kindSpeed(b.kind, unit)),
+    );
   }
   // Earlier orders still flying at the same target count toward this attack.
   let enRoute = 0;
@@ -231,6 +255,7 @@ export function previewAttack(
     if (u.owner !== army || u.targetId !== targetId) continue;
     enRoute += u.power;
     if (u.kind === 'tank') inTanks += u.power;
+    if (u.kind === 'jet') inJets += u.power;
   }
   if (!target) return { count, enRoute, outcome: 'lose' };
   if (target.owner === army) return { count, enRoute, outcome: 'reinforce' };
@@ -252,7 +277,8 @@ export function previewAttack(
   // coming straight down the same road is sure to eat up.
   let oncoming = 0;
   for (const u of world.units) {
-    if (u.owner === army) continue;
+    // Jets fly over swarms, so they never meet ours head-on.
+    if (u.owner === army || u.kind === 'jet') continue;
     const src = sources.find((b) => b.id === u.targetId);
     if (!src) continue;
     const corridor = BASE_STATS[src.kind].radius + CLASH_RADIUS;
@@ -264,9 +290,12 @@ export function previewAttack(
   const tankHit = Math.max(0, inTanks * attack - oncoming);
   const soldierHit = Math.max(
     0,
-    (count + enRoute - inTanks) * attack - Math.max(0, oncoming - inTanks * attack),
+    (count + enRoute - inTanks - inJets) * attack - Math.max(0, oncoming - inTanks * attack),
   );
-  const power = tankHit + soldierHit * damageFactor(target.kind, 'soldier');
+  // Jets fly over the oncoming swarm and arrive first, but only tanks and soldiers capture.
+  const capture = tankHit + soldierHit * damageFactor(target.kind, 'soldier');
+  if (capture <= 0) return { count, enRoute, outcome: inJets > 0 ? 'raid' : 'lose' };
+  const power = capture + inJets * attack * damageFactor(target.kind, 'jet');
   const outcome = power < defenders ? 'lose' : power < defenders + CLOSE_MARGIN ? 'close' : 'win';
   return { count, enRoute, outcome };
 }
@@ -338,7 +367,8 @@ function resolveClashes(world: World, bonuses: Record<Army, Bonuses>): void {
   for (const u of world.units) {
     // Units still waiting to leave their base are safe inside it.
     if (u.delay > 0) continue;
-    // Flying units (jets, once Airfields arrive) will skip clashes here.
+    // Jets fly over the fighting.
+    if (u.kind === 'jet') continue;
     let grid = grids.get(u.owner);
     if (!grid) {
       grid = new Map();
@@ -354,7 +384,7 @@ function resolveClashes(world: World, bonuses: Record<Army, Bonuses>): void {
   const r2 = CLASH_RADIUS * CLASH_RADIUS;
   let anyDead = false;
   for (const u of world.units) {
-    if (u.delay > 0 || u.power <= 0) continue;
+    if (u.delay > 0 || u.power <= 0 || u.kind === 'jet') continue;
     const cx = Math.floor(u.x / CLASH_RADIUS);
     const cy = Math.floor(u.y / CLASH_RADIUS);
     scan: for (const [army, grid] of grids) {
@@ -406,6 +436,12 @@ function resolveArrival(world: World, base: Base, unit: Unit, attack: number): v
   base.lastAttackedBy = unit.owner;
   base.lastAttackedAt = world.time;
   base.troops -= attack * unit.power * damageFactor(base.kind, unit.kind);
+  // Jets knock troops off but can't capture: the base holds on, empty.
+  if (unit.kind === 'jet') {
+    base.troops = Math.max(0, base.troops);
+    world.events.push({ type: 'hit', baseId: base.id, by: unit.owner });
+    return;
+  }
   // Ties go to the attacker so a kid's "6 against 6" works instead of leaving an empty base.
   if (base.troops <= 1e-6) {
     world.events.push({ type: 'capture', baseId: base.id, from: base.owner, to: unit.owner });

@@ -35,8 +35,13 @@ export function createAi(
  * where the player turtles behind a full HQ still comes to an end.
  */
 const STALEMATE_SECONDS = 12;
+/**
+ * After this long, the AI pools its bases into every attack, so a battle that has turned into
+ * swapping the same few bases back and forth still comes to an end.
+ */
+const LONG_BATTLE_SECONDS = 360;
 
-const SPECIAL_KINDS = new Set(['factory', 'radar', 'armory']);
+const SPECIAL_KINDS = new Set(['factory', 'radar', 'armory', 'airfield']);
 
 /** Makes at most one attack per decision. Difficulty controls how often and how cleverly. */
 export function updateAi(world: World, ai: AiState, dt: number): void {
@@ -49,13 +54,16 @@ export function updateAi(world: World, ai: AiState, dt: number): void {
 
   if (s.aiDefends && defend(world, ai)) return;
   const p = ai.personality;
-  const stalled = ai.idle > STALEMATE_SECONDS;
+  const stalled = ai.idle > STALEMATE_SECONDS || world.time > LONG_BATTLE_SECONDS;
   // A turtle still takes neutral bases, but holds off attacking an army until its bases are
   // nearly full, then throws everything at once.
   const wave = p.wave !== undefined;
   const holding = wave && !stalled && fullness(world, ai.army) < p.wave!;
   const attack = getBonuses(world, ai.army).attack;
-  const sources = world.bases.filter((b) => b.owner === ai.army && b.troops >= s.aiMinTroops);
+  // Jets can't capture, so Airfields don't count towards an attack; they raid ahead of it.
+  const ready = (b: Base) => b.owner === ai.army && b.troops >= s.aiMinTroops;
+  const sources = world.bases.filter((b) => ready(b) && b.kind !== 'airfield');
+  const airfields = world.bases.filter((b) => ready(b) && b.kind === 'airfield');
   if (sources.length === 0) return;
 
   let bestTarget: Base | undefined;
@@ -103,6 +111,7 @@ export function updateAi(world: World, ai: AiState, dt: number): void {
   if (!bestTarget) return;
   ai.idle = 0;
   for (const src of bestSources) sendTroops(world, ai.army, src.id, bestTarget.id, s.aiCommit);
+  for (const a of airfields) sendTroops(world, ai.army, a.id, bestTarget.id, s.aiCommit);
 }
 
 /** How full an army's bases are, 0..1. */

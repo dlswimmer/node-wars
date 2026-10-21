@@ -624,3 +624,83 @@ describe('three armies', () => {
     expect(world.boosts.enemy.speed).toBe(1);
   });
 });
+
+describe('airfields and jets', () => {
+  const airLevel = (extra: Partial<LevelDef> = {}): LevelDef => ({
+    id: 'air',
+    name: 'Air',
+    width: 800,
+    height: 400,
+    bases: [
+      { kind: 'airfield', x: 100, y: 200, owner: 'player', troops: 30 },
+      { kind: 'barracks', x: 700, y: 200, owner: 'enemy', troops: 10 },
+      { kind: 'barracks', x: 100, y: 350, owner: 'player', troops: 5 },
+      { kind: 'bunker', x: 700, y: 60, owner: 'enemy', troops: 10 },
+    ],
+    ...extra,
+  });
+
+  it('send fast jets that fly straight over a river', () => {
+    const world = createWorld(
+      airLevel({
+        rivers: [
+          {
+            points: [
+              { x: 400, y: -200 },
+              { x: 400, y: 600 },
+            ],
+            width: 40,
+          },
+        ],
+        bridges: [{ x: 400, y: 380, angle: 0, length: 104, width: 60 }],
+      }),
+    );
+    sendTroops(world, 'player', 0, 1, 0.5);
+    expect(world.units.every((u) => u.kind === 'jet' && (u.path ?? []).length === 0)).toBe(true);
+    for (let t = 0; t < 2; t += 0.05) step(world, 0.05);
+    // Soldiers would still be walking; jets have crossed far from the bridge.
+    for (const u of world.units) expect(Math.abs(u.y - 200)).toBeLessThan(20);
+  });
+
+  it('knock troops off but never capture', () => {
+    const world = createWorld(airLevel());
+    sendTroops(world, 'player', 0, 1, 1);
+    settle(world);
+    expect(world.bases[1]!.owner).toBe('enemy');
+    expect(world.bases[1]!.troops).toBe(0);
+  });
+
+  // Production is off so only the jets change the numbers.
+  const still = { handicap: { player: 0, enemy: 0 } };
+
+  it('land as reinforcements at your own base', () => {
+    const world = createWorld(airLevel(), still);
+    sendTroops(world, 'player', 0, 2, 0.5);
+    settle(world);
+    expect(world.bases[2]!.troops).toBeCloseTo(5 + 15, 0);
+  });
+
+  it('do half damage to a Bunker', () => {
+    const world = createWorld(airLevel(), still);
+    world.bases[0]!.troops = 10;
+    sendTroops(world, 'player', 0, 3, 1);
+    settle(world);
+    expect(world.bases[3]!.troops).toBeCloseTo(5, 0);
+  });
+
+  it('fly over swarms instead of clashing', () => {
+    const world = createWorld(airLevel());
+    sendTroops(world, 'player', 0, 1, 1);
+    sendTroops(world, 'enemy', 1, 0, 1);
+    for (let t = 0; t < 6; t += 0.05) {
+      step(world, 0.05);
+      expect(world.events.some((e) => e.type === 'clash')).toBe(false);
+    }
+  });
+
+  it('show as a raid in the attack preview when only jets would arrive', () => {
+    const world = createWorld(airLevel());
+    expect(previewAttack(world, 'player', [0], 1, 0.5).outcome).toBe('raid');
+    expect(previewAttack(world, 'player', [0, 2], 1, 0.5).outcome).not.toBe('raid');
+  });
+});

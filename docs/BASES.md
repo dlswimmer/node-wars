@@ -30,12 +30,12 @@ starting points for the bot balance harness, not final values.
 
 ## Units
 
-| Unit    | From      | Worth | Speed     | Notes                                                                                          |
-| ------- | --------- | ----- | --------- | ---------------------------------------------------------------------------------------------- |
-| Soldier | most      | 1     | 1.0       | **Live.** The swarm.                                                                           |
-| Tank    | Factory   | 3     | 0.6       | **Live.** Full damage to Bunkers; slowed most by mud/forest (Phase 2).                         |
-| Jet     | Airfield  | 1     | 2.2       | Raiders: fly over terrain and knock troops off, but **never capture**; half damage to Bunkers. |
-| Shell   | Artillery | 3 dmg | arcs, 1.5 | Not a unit you send: fired automatically, can't capture.                                       |
+| Unit    | From      | Worth | Speed     | Notes                                                                                                    |
+| ------- | --------- | ----- | --------- | -------------------------------------------------------------------------------------------------------- |
+| Soldier | most      | 1     | 1.0       | **Live.** The swarm.                                                                                     |
+| Tank    | Factory   | 3     | 0.6       | **Live.** Full damage to Bunkers; slowed most by mud/forest (Phase 2).                                   |
+| Jet     | Airfield  | 1     | 2.2       | **Live.** Raiders: fly over terrain and knock troops off, but **never capture**; half damage to Bunkers. |
+| Shell   | Artillery | 3 dmg | arcs, 1.5 | Not a unit you send: fired automatically, can't capture.                                                 |
 
 ## Production bases
 
@@ -129,11 +129,15 @@ starting points for the bot balance harness, not final values.
 - Stats: 0.4/s, holds 30. A range ring is shown.
 - Active: **Barrage**: five shells at one target.
 
-### Airfield (runway) — Phase 2 (needs terrain to matter)
+### Airfield (runway with a hangar) — live
 
 - **Power:** troops sent from here take off as jets: very fast raiders that fly straight
   over water and mountains and knock troops off a base, but can't capture it. Send soldiers
   or tanks to finish the job.
+- Jets fly over mid-field fights too, and land as reinforcements at your own bases. The
+  attack preview shows RAID when only jets would arrive.
+- The AI never counts jets towards a capture; it sends them ahead of its attacks to soften
+  the target. A pair of Airfields turns up on about one random map in eight.
 - Stats: 0.6/s, holds 40.
 - Upgrades: Afterburners (faster), Bombers (jets worth 2).
 - Active: **Air Strike**: knocks 10 troops off any base on the map.
@@ -176,13 +180,13 @@ starting points for the bot balance harness, not final values.
 
 ## Rollout
 
-| When      | Bases                                                                 |
-| --------- | --------------------------------------------------------------------- |
-| Live      | HQ, Barracks, Outpost, Factory, Radar, Armory, Bunker, Field Hospital |
-| Phase 1.5 | Supply Depot; upgrades for every base in the prestige tree            |
-| Phase 2   | Artillery, Airfield, Bridge Fort (with terrain and zones)             |
-| Phase 3   | Oil Field, Command Center; active abilities for all bases             |
-| Phase 4+  | Shipyard, Missile Silo, Spaceport                                     |
+| When      | Bases                                                                           |
+| --------- | ------------------------------------------------------------------------------- |
+| Live      | HQ, Barracks, Outpost, Factory, Radar, Armory, Bunker, Field Hospital, Airfield |
+| Phase 1.5 | Supply Depot; upgrades for every base in the prestige tree                      |
+| Phase 2   | Artillery, Bridge Fort (with terrain and zones)                                 |
+| Phase 3   | Oil Field, Command Center; active abilities for all bases                       |
+| Phase 4+  | Shipyard, Missile Silo, Spaceport                                               |
 
 ## AI notes
 

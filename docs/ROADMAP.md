@@ -63,7 +63,7 @@ Goal: one battle that is genuinely exciting for an 8-year-old, and a solid base 
   - Armory: stronger troops everywhere
   - Outpost: troops sent from it move 40% faster (a launch pad for the front line) (done)
   - Bunker: defenders count double, a tough nut to crack (done)
-  - Airfield (new, Phase 2 now that terrain exists): sends jets that fly straight over terrain
+  - Airfield: sends jets that fly straight over terrain (done)
   - Field hospital: some of your troops lost nearby come back (done)
   - Tap a base you don't own to see its power in one line (done)
 

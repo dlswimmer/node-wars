@@ -61,6 +61,13 @@ export const BASE_STATS: Record<BaseKind, BaseStats> = {
     radius: 32,
     perk: 'Defenders count double (tanks hit it at full power)',
   },
+  airfield: {
+    label: 'Airfield',
+    rate: 0.6,
+    capacity: 40,
+    radius: 32,
+    perk: "Sends jets: they fly over everything and knock troops off, but can't capture",
+  },
   hospital: {
     label: 'Hospital',
     rate: 0.4,
@@ -79,7 +86,7 @@ export const BONUS_PER_BASE = {
 
 /**
  * Share of a soldier's hit that lands on a Bunker (its defenders count double). Tanks always
- * hit at full power; jets, once Airfields arrive, will hit at this rate too.
+ * hit at full power; jets hit at this rate too.
  */
 export const BUNKER_DAMAGE = 0.5;
 /** Share of an army's troops lost in a fight near its Field Hospital that come back there. */
@@ -97,6 +104,8 @@ export const TANK_POWER = 3;
 export const OUTPOST_SPEED = 1.4;
 /** Seconds between tanks leaving a Factory, so they roll out as a convoy instead of a pile. */
 export const TANK_LAUNCH_INTERVAL = 0.35;
+/** Jets fly this many times as fast as soldiers. */
+export const JET_SPEED = 2.2;
 /** Tanks move at this fraction of soldier speed. */
 export const TANK_SPEED = 0.6;
 export const DEFAULT_SEND_FRACTION = 0.5;

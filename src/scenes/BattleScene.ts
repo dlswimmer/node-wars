@@ -64,6 +64,7 @@ const OUTCOME_STYLE: Record<AttackOutcome, { color: number; word: string }> = {
   win: { color: COLORS.good, word: 'ATTACK!' },
   close: { color: COLORS.warn, word: 'CLOSE!' },
   lose: { color: COLORS.bad, word: 'NOT ENOUGH' },
+  raid: { color: 0xffa94d, word: 'RAID: NO CAPTURE' },
   shielded: { color: COLORS.shield, word: 'SHIELDED' },
 };
 
@@ -893,6 +894,7 @@ Drag from a BLUE base!`,
     const size = {
       soldier: Math.max(18, cssToWorld(10, zoom)),
       tank: Math.max(30, cssToWorld(17, zoom)),
+      jet: Math.max(26, cssToWorld(15, zoom)),
     };
     let n = 0;
     if (!this.gameOver) {

@@ -7,7 +7,15 @@ export type Army = (typeof ARMIES)[number];
 export type Faction = Army | 'neutral';
 
 export type BaseKind =
-  'hq' | 'barracks' | 'outpost' | 'factory' | 'radar' | 'armory' | 'bunker' | 'hospital';
+  | 'hq'
+  | 'barracks'
+  | 'outpost'
+  | 'factory'
+  | 'radar'
+  | 'armory'
+  | 'bunker'
+  | 'hospital'
+  | 'airfield';
 
 export interface Base {
   id: number;
@@ -22,7 +30,8 @@ export interface Base {
   lastAttackedAt?: number;
 }
 
-export type UnitKind = 'soldier' | 'tank';
+/** Jets (from an Airfield) fly straight over everything and can't capture. */
+export type UnitKind = 'soldier' | 'tank' | 'jet';
 
 export interface Unit {
   id: number;

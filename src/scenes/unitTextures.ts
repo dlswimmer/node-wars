@@ -10,11 +10,13 @@ import type { UnitKind } from '../sim/types';
 export const UNIT_TEXTURE: Record<UnitKind, { key: string; width: number; height: number }> = {
   soldier: { key: 'unit-soldier', width: 40, height: 40 },
   tank: { key: 'unit-tank', width: 64, height: 48 },
+  jet: { key: 'unit-jet', width: 56, height: 48 },
 };
 
 export function ensureUnitTextures(scene: Phaser.Scene) {
   if (!scene.textures.exists(UNIT_TEXTURE.soldier.key)) drawSoldier(scene);
   if (!scene.textures.exists(UNIT_TEXTURE.tank.key)) drawTank(scene);
+  if (!scene.textures.exists(UNIT_TEXTURE.jet.key)) drawJet(scene);
 }
 
 function drawSoldier(scene: Phaser.Scene) {
@@ -52,6 +54,25 @@ function drawTank(scene: Phaser.Scene) {
   g.fillStyle(0xbdbdbd).fillCircle(28, 24, 11);
   g.lineStyle(2, 0x4a4a4a).strokeCircle(28, 24, 11);
   g.fillStyle(0x8a8a8a).fillCircle(25, 24, 3);
+  g.generateTexture(key, width, height);
+  g.destroy();
+}
+
+function drawJet(scene: Phaser.Scene) {
+  const { key, width, height } = UNIT_TEXTURE.jet;
+  const g = scene.make.graphics({}, false);
+  // Swept wings and tail fins, then the body and cockpit on top.
+  g.fillStyle(0xb0b0b0);
+  g.fillTriangle(30, 24, 14, 3, 20, 24);
+  g.fillTriangle(30, 24, 14, 45, 20, 24);
+  g.fillTriangle(10, 24, 2, 13, 6, 24);
+  g.fillTriangle(10, 24, 2, 35, 6, 24);
+  g.lineStyle(1.5, 0x4a4a4a);
+  g.strokeTriangle(30, 24, 14, 3, 20, 24);
+  g.strokeTriangle(30, 24, 14, 45, 20, 24);
+  g.fillStyle(0xe6e6e6).fillEllipse(28, 24, 50, 11);
+  g.lineStyle(2, 0x5a5a5a).strokeEllipse(28, 24, 50, 11);
+  g.fillStyle(0x3a4a5a).fillEllipse(40, 24, 12, 6);
   g.generateTexture(key, width, height);
   g.destroy();
 }
