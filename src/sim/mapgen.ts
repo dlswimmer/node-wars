@@ -85,8 +85,9 @@ export function generateRegionLevel(
   name: string,
   small: boolean,
 ): LevelDef {
-  const { seed: _mapNumber, ...level } = layoutLevel(seed, small);
-  const region = { ...level, id, name };
+  const level = layoutLevel(seed, small);
+  // Regions are known by name, not map number.
+  const region = { ...level, id, name, seed: undefined };
   return addScenery(region, seed, fitOutline(shape, region));
 }
 
