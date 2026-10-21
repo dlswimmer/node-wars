@@ -24,6 +24,12 @@ you can see everywhere you've won and how far you've pushed.
 - **Colours:** blue for yours, gray with a difficulty badge for available fights, dark for
   fogged. (Rival faction colours arrive in Phase 4.)
 
+## The start
+
+A small, almost tutorial-sized starting region replaces Boot Camp in the campaign: few bases,
+a gentle enemy, and room for the first-battle tutorial. Quick Battle keeps Boot Camp and random
+maps.
+
 ## Difficulty and rewards
 
 - Each available region shows **1-5 stars** and what it pays.
@@ -41,13 +47,21 @@ you can see everywhere you've won and how far you've pushed.
   harder neighbour, so a kid can play safe or push for more medals.
 - **Harder further out:** regions far from the start lean toward more stars, so the map
   itself becomes the difficulty curve over time.
+- **The world keeps growing.** There is no edge to reach: new regions keep generating beyond
+  the frontier, so there's always somewhere to push.
+- **Enemy upgrades (later):** as well as playing smarter, enemies get their own upgrades that
+  mirror the Command Tent (head start, faster building, stronger tanks, their own Adjutant-like
+  helpers). Higher-star regions field more of them, which raises difficulty in ways a kid can
+  see and understand ("this army has Heavy Tanks").
 
 ## Winning and losing
 
 - **Win:** the region becomes yours, the camera zooms out, and its neighbours are revealed
   with a short animation.
 - **Lose:** nothing is taken from you; that region stays available to retry, or you can pick
-  another.
+  another. After a loss, the stars on **all** available regions drift down a little, with some
+  randomness (most drop one notch, some stay), so the next choices are a bit friendlier. Wins
+  let them drift back up toward their normal rating.
 
 ## Saving
 
@@ -76,8 +90,9 @@ starts fresh).
 4. A 5-star difficulty above General, tuned with the bots.
 5. Save v2 and migration, then a browser check at phone and iPad sizes.
 
-## Open questions
+## Decisions
 
-1. When he loses, should that region's stars go down a notch (an easier retry), or stay?
-2. Should the world be finite (a whole island to conquer, then a new world) or keep growing?
-3. Should the first battle stay Boot Camp, or become a small generated starting region?
+1. **After a loss, ratings drop globally with some randomness**, then recover as you win.
+2. **The world keeps growing**; there's no final edge.
+3. **The campaign starts in a small, almost tutorial region.**
+4. **Enemies will get mirrored upgrades** to raise difficulty, not only smarter AI.

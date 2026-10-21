@@ -90,6 +90,7 @@ Full plan in [CONQUEST.md](CONQUEST.md). The bridge from single battles to the p
       medal reward, so the player picks how hard the next fight is
 - [ ] Each region's battle uses that region's shape as its map outline
 - [ ] See everywhere you've won; save v2 keeps the conquest map
+- [ ] Enemies get upgrades mirroring the Command Tent, more of them in higher-star regions
 
 ## Phase 2: Zones and the persistent world
 
