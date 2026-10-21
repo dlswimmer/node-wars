@@ -56,16 +56,20 @@ export interface MatchupSummary {
   medianPeakBases: number;
 }
 
+/** A fixed level, or one picked per match (e.g. a random map from the match's seed). */
+export type LevelSource = LevelDef | ((seed: number) => LevelDef);
+
 export function runMatchup(
-  level: LevelDef,
+  level: LevelSource,
   difficulty: Difficulty,
   profile: HumanProfile,
   matches: number,
   seedBase = 1,
 ): MatchupSummary {
-  const results = Array.from({ length: matches }, (_, i) =>
-    runMatch(level, difficulty, profile, seedBase + i),
-  );
+  const results = Array.from({ length: matches }, (_, i) => {
+    const seed = seedBase + i;
+    return runMatch(typeof level === 'function' ? level(seed) : level, difficulty, profile, seed);
+  });
   const rate = (w: MatchResult['winner']) => results.filter((r) => r.winner === w).length / matches;
   const losses = results.map((r) => r.firstLoss).filter((t): t is number => t !== null);
   return {

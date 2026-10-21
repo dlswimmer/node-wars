@@ -19,6 +19,7 @@ import {
   type DifficultyId,
 } from '../sim/difficulty';
 import { LEVELS } from '../sim/levels';
+import { generateLevel, randomMapSeed } from '../sim/mapgen';
 import type { Base, LevelDef, World } from '../sim/types';
 import {
   baseAt,
@@ -31,7 +32,7 @@ import {
   step,
   type AttackOutcome,
 } from '../sim/world';
-import { loadDifficulty } from '../settings';
+import { isFirstBattle, loadDifficulty, markBattlePlayed } from '../settings';
 import { COLORS, FACTION_COLORS, textStyle } from '../theme';
 import { drawBase, drawCapacityRing, drawMapGrid } from './drawing';
 import type { HudScene } from './HudScene';
@@ -61,6 +62,8 @@ export interface BattleData {
   mode?: BattleMode;
   /** Campaign only: the Adjutant plays the whole battle. */
   auto?: boolean;
+  /** Map number to play (0 = Boot Camp). Left out: Boot Camp the first time, then random. */
+  map?: number;
 }
 
 type Gesture = 'none' | 'drag' | 'pan' | 'pinch';
@@ -83,6 +86,8 @@ export class BattleScene extends Phaser.Scene {
   gameOver = false;
   mode: BattleMode = 'quick';
   auto = false;
+  /** Map number being played (0 = Boot Camp), so PLAY AGAIN replays the same map. */
+  map = 0;
   /** Medals earned by this battle (campaign), set when it ends. */
   reward = 0;
   private adjutant: AdjutantState | null = null;
@@ -138,10 +143,11 @@ export class BattleScene extends Phaser.Scene {
     this.difficulty = DIFFICULTIES[data.difficulty ?? loadDifficulty() ?? 'soldier'];
     this.mode = data.mode ?? 'quick';
     this.auto = this.mode === 'campaign' && !!data.auto;
+    this.map = data.map ?? (isFirstBattle() ? 0 : randomMapSeed());
   }
 
   create() {
-    this.level = LEVELS[0]!;
+    this.level = this.map === 0 ? LEVELS[0]! : generateLevel(this.map);
     const seed = Date.now() & 0xffff;
     const save = loadSave();
     this.world = createWorld(
@@ -253,7 +259,12 @@ export class BattleScene extends Phaser.Scene {
   }
 
   restartBattle() {
-    this.scene.restart({ difficulty: this.difficulty.id, mode: this.mode, auto: this.auto });
+    this.scene.restart({
+      difficulty: this.difficulty.id,
+      mode: this.mode,
+      auto: this.auto,
+      map: this.map,
+    });
   }
 
   /** Turn the helping Adjutant on or off (campaign). */
@@ -830,6 +841,7 @@ export class BattleScene extends Phaser.Scene {
 
   private endBattle() {
     this.gameOver = true;
+    markBattlePlayed();
     this.cancelGesture();
     this.armed.clear();
     for (const t of this.hints.values()) t.destroy();

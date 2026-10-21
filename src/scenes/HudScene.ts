@@ -155,6 +155,12 @@ export class HudScene extends Phaser.Scene {
     });
   }
 
+  /** "OPERATION THUNDER  ·  MAP #48213", so a fun map can be found again. */
+  private mapLabel(): string {
+    const { name, seed } = this.battle.level;
+    return seed === undefined ? name.toUpperCase() : `${name.toUpperCase()}  ·  MAP #${seed}`;
+  }
+
   /** Campaign end-screen text: rank and time, plus medals earned. */
   private endDetail(won: boolean, clock: string): string {
     const line = won ? `${this.battle.difficulty.label}  ·  ${clock}` : this.tip;
@@ -215,7 +221,7 @@ ${medals}`;
       .setOrigin(0)
       .setInteractive();
     const opts = { width: 380, height: 88, labelSize: 40 };
-    const subtitle = `${this.battle.level.name.toUpperCase()}  ·  ${this.battle.difficulty.label}`;
+    const subtitle = `${this.mapLabel()}  ·  ${this.battle.difficulty.label}`;
     this.pauseItems = [
       this.add.text(0, 0, 'PAUSED', textStyle(80)).setOrigin(0.5),
       this.add.text(0, 0, subtitle, textStyle(28, COLORS.textDim)).setOrigin(0.5),
@@ -284,7 +290,11 @@ ${medals}`;
       })
       .setOrigin(0.5, 0);
 
-    const parts: Phaser.GameObjects.GameObject[] = [shade, title, detail];
+    const map = this.add
+      .text(v.width / 2, Math.max(30, titleY - 95), this.mapLabel(), textStyle(28, COLORS.textDim))
+      .setOrigin(0.5);
+
+    const parts: Phaser.GameObjects.GameObject[] = [shade, map, title, detail];
     if (this.endButtonsReady) {
       // Side by side when there's room, stacked on narrow (portrait) screens.
       const narrow = v.width < 820;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DIFFICULTIES } from '../difficulty';
 import { LEVELS } from '../levels';
+import { generateLevel } from '../mapgen';
 import { PROFILES } from './bots';
 import { runMatchup } from './harness';
 
@@ -34,4 +35,26 @@ describe('difficulty balance', () => {
     expect(r.medianSeconds).toBeGreaterThan(90);
     expect(r.medianSeconds).toBeLessThan(360);
   });
+
+  // Every match on a different random map: the same bands should hold.
+  const randomCases = [
+    { difficulty: 'recruit', profile: 'newKid', min: 0.8, max: 1 },
+    { difficulty: 'soldier', profile: 'kid', min: 0.75, max: 0.95 },
+    { difficulty: 'general', profile: 'kid', min: 0, max: 0.3 },
+    { difficulty: 'general', profile: 'adult', min: 0.15, max: 0.45 },
+  ] as const;
+  for (const c of randomCases) {
+    it(`random maps, ${c.difficulty} vs ${c.profile}: win rate ${c.min * 100}-${c.max * 100}%`, () => {
+      const r = runMatchup(
+        generateLevel,
+        DIFFICULTIES[c.difficulty],
+        PROFILES[c.profile]!,
+        MATCHES,
+        1000,
+      );
+      expect(r.timeoutRate).toBe(0);
+      expect(r.winRate).toBeGreaterThanOrEqual(c.min);
+      expect(r.winRate).toBeLessThanOrEqual(c.max);
+    });
+  }
 });

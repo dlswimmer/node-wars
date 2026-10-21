@@ -45,7 +45,7 @@ Goal: one battle that is genuinely exciting for an 8-year-old, and a solid base 
 - [ ] First-battle tutorial (animated hand showing the drag)
 - [ ] Medals for each battle (win, win fast, win without losing a base)
 - [ ] Several maps that unlock one after another
-- [ ] Random skirmish maps (mirrored so both sides start fair, checked by bot matches)
+- [x] Random skirmish maps (mirrored so both sides start fair, checked by bot matches)
 - [x] Mobile: full screen, pinch zoom and pan, finger-sized touch targets, sharp on Retina
 - [ ] Multiple armies in the rules (prep for rival factions)
 - [x] Tanks: troops sent from a Factory roll out as slower tanks worth 3 soldiers each

@@ -93,6 +93,8 @@ export interface BaseDef {
 export interface LevelDef {
   id: string;
   name: string;
+  /** Map number of a generated map (see mapgen.ts); hand-made levels have none. */
+  seed?: number;
   width: number;
   height: number;
   bases: BaseDef[];

@@ -31,6 +31,10 @@ Troops sent from a Factory roll out as **tanks**: slower, but each one hits like
 Capture red's **HQ** to win (or wipe out every red base). Your bases are shielded for the first
 few seconds, shown by blue rings.
 
+**Maps:** your first battle is Boot Camp; after that every battle is a new random map, mirrored so
+both sides start with exactly the same bases. The end screen shows the map number, and
+**PLAY AGAIN** replays that same map.
+
 **Campaign:** wins earn medals (Recruit ½, Soldier 1, General 1½). Spend them in the
 **Command Tent** on permanent upgrades, including the **Adjutant**, an AI officer that helps
 while you give orders and, at its top level, can auto-battle ranks you've mastered (5 wins)
@@ -49,7 +53,7 @@ npm run dev      # start a local server with hot reload
 npm test         # run the unit tests
 npm run lint     # check code style
 npm run build    # production build into dist/
-npm run balance  # simulated players test every difficulty
+npm run balance  # simulated players test every difficulty (add `-- 100 random` for random maps)
 ```
 
 `npm run dev` listens on your local network too, so you can open the "Network" URL it prints on a
