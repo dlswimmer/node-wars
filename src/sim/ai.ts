@@ -36,10 +36,13 @@ export function createAi(
  */
 const STALEMATE_SECONDS = 12;
 /**
- * After this long, the AI pools its bases into every attack, so a battle that has turned into
- * swapping the same few bases back and forth still comes to an end.
+ * After this long, the AI pools its bases into every attack, drops its personality's habits
+ * and waits for a bigger edge, so a battle that has turned into swapping the same few bases
+ * back and forth still comes to an end.
  */
 const LONG_BATTLE_SECONDS = 360;
+/** Extra troops the AI wants on top of the defenders in a long battle. */
+const LONG_MARGIN = 6;
 
 const SPECIAL_KINDS = new Set(['factory', 'radar', 'armory', 'airfield']);
 
@@ -54,7 +57,8 @@ export function updateAi(world: World, ai: AiState, dt: number): void {
 
   if (s.aiDefends && defend(world, ai)) return;
   const p = ai.personality;
-  const stalled = ai.idle > STALEMATE_SECONDS || world.time > LONG_BATTLE_SECONDS;
+  const long = world.time > LONG_BATTLE_SECONDS;
+  const stalled = ai.idle > STALEMATE_SECONDS || long;
   // A turtle still takes neutral bases, but holds off attacking an army until its bases are
   // nearly full, then throws everything at once.
   const wave = p.wave !== undefined;
@@ -91,14 +95,15 @@ export function updateAi(world: World, ai: AiState, dt: number): void {
       const hit = damageFactor(target.kind, unit);
       power += Math.floor(src.troops * s.aiCommit) * attack * hit;
       used.push(src);
-      needed = estimateDefenders(target, dist(world, src, target)) + s.aiMargin;
+      needed =
+        estimateDefenders(target, dist(world, src, target)) + s.aiMargin + (long ? LONG_MARGIN : 0);
       if (power >= needed) break;
     }
     if (power < needed) continue;
 
     const travel = dist(world, used[used.length - 1]!, target);
     let score = needed + travel * (0.05 + p.distance);
-    score -= p.likes?.(world, ai.army, target) ?? 0;
+    if (!long) score -= p.likes?.(world, ai.army, target) ?? 0;
     if (SPECIAL_KINDS.has(target.kind)) score -= 5;
     if (s.aiKnowsBases) score -= positionValue(world, ai.army, target);
     if (score < bestScore) {

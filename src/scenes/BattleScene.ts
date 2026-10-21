@@ -34,6 +34,7 @@ import type { Base, LevelDef, Point, World } from '../sim/types';
 import {
   baseAt,
   basesAlongSegment,
+  capacityOf,
   createWorld,
   damageFactor,
   getBonuses,
@@ -914,7 +915,7 @@ Drag from a BLUE base!`,
         this.baseGfx.lineStyle(3, COLORS.shield, 0.35 + pulse * 0.3);
         this.baseGfx.strokeCircle(b.x, b.y, r + 14);
       }
-      drawCapacityRing(this.baseGfx, b, color);
+      drawCapacityRing(this.baseGfx, b, color, capacityOf(this.world, b));
       drawBase(this.baseGfx, b, color, this.world.time);
       this.troopLabels[b.id]!.setText(String(Math.floor(b.troops)));
     }

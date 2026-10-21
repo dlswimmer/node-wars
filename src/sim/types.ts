@@ -15,7 +15,8 @@ export type BaseKind =
   | 'armory'
   | 'bunker'
   | 'hospital'
-  | 'airfield';
+  | 'airfield'
+  | 'checkpoint';
 
 export interface Base {
   id: number;
@@ -70,6 +71,18 @@ export interface ArmyBoosts {
   speed: number;
   /** Extra troops each tank is worth. */
   tankPower: number;
+  /** Multiplier on how hard its troops hit (on top of Armories). */
+  attack: number;
+  /** Multiplier on how many troops its bases hold. */
+  capacity: number;
+  /** Extra troops its HQ holds. */
+  hqCapacity: number;
+  /** Extra troops a base starts with when it captures it. */
+  captureTroops: number;
+  /** Added to the share of troops its Field Hospitals save. */
+  recovery: number;
+  /** Multiplier on how fast its jets fly. */
+  jetSpeed: number;
 }
 
 /** Things that happened during a step, for the renderer to show (flashes, sounds). */

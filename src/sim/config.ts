@@ -68,6 +68,13 @@ export const BASE_STATS: Record<BaseKind, BaseStats> = {
     radius: 32,
     perk: "Sends jets: they fly over everything and knock troops off, but can't capture",
   },
+  checkpoint: {
+    label: 'Checkpoint',
+    rate: 0,
+    capacity: 60,
+    radius: 26,
+    perk: 'Builds no troops: a forward spot to gather your army and hold the line',
+  },
   hospital: {
     label: 'Hospital',
     rate: 0.4,

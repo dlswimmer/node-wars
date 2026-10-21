@@ -48,7 +48,16 @@ export interface WorldOptions {
   startTroops?: Partial<Record<Army, number>>;
 }
 
-const NO_BOOSTS: ArmyBoosts = { speed: 1, tankPower: 0 };
+const NO_BOOSTS: ArmyBoosts = {
+  speed: 1,
+  tankPower: 0,
+  attack: 1,
+  capacity: 1,
+  hqCapacity: 0,
+  captureTroops: 0,
+  recovery: 0,
+  jetSpeed: 1,
+};
 
 export function createWorld(level: LevelDef, opts: WorldOptions = {}): World {
   const bases = level.bases.map((b, id) => ({ id, ...b }));
@@ -95,7 +104,7 @@ export function getBonuses(world: World, army: Army): Bonuses {
   return {
     production: 1 + factories * BONUS_PER_BASE.factory,
     speed: 1 + radars * BONUS_PER_BASE.radar,
-    attack: 1 + armories * BONUS_PER_BASE.armory,
+    attack: (1 + armories * BONUS_PER_BASE.armory) * world.boosts[army].attack,
   };
 }
 
@@ -103,9 +112,22 @@ export function getBonuses(world: World, army: Army): Bonuses {
  * Troops a base of this kind will have after building for `seconds` at `rate` per second,
  * stopping at its capacity (troops above it, from reinforcements, stay).
  */
-export function grownTroops(kind: BaseKind, troops: number, rate: number, seconds: number): number {
-  const capacity = BASE_STATS[kind].capacity;
+export function grownTroops(
+  kind: BaseKind,
+  troops: number,
+  rate: number,
+  seconds: number,
+  capacity = BASE_STATS[kind].capacity,
+): number {
   return troops >= capacity ? troops : Math.min(capacity, troops + rate * seconds);
+}
+
+/** How many troops a base builds up to for its owner (upgrades can raise it). */
+export function capacityOf(world: World, base: Base): number {
+  const capacity = BASE_STATS[base.kind].capacity;
+  if (base.owner === 'neutral') return capacity;
+  const boost = world.boosts[base.owner];
+  return Math.round(capacity * boost.capacity + (base.kind === 'hq' ? boost.hqCapacity : 0));
 }
 
 /** How much of a hit lands on a base: Bunkers halve everything but tanks. */
@@ -169,7 +191,7 @@ export function sendTroops(
       y: sy,
       tx,
       ty,
-      speed: speed * kindSpeed(from.kind, kind) * (0.9 + world.rng() * 0.2),
+      speed: speed * kindSpeed(from.kind, kind, world.boosts[army]) * (0.9 + world.rng() * 0.2),
       delay: tank
         ? i * TANK_LAUNCH_INTERVAL
         : tanks * TANK_LAUNCH_INTERVAL + (i - tanks) * LAUNCH_INTERVAL,
@@ -181,9 +203,9 @@ export function sendTroops(
 }
 
 /** Speed multiplier for a unit of this kind leaving a base of this kind. */
-function kindSpeed(from: Base['kind'], unit: UnitKind): number {
+function kindSpeed(from: Base['kind'], unit: UnitKind, boosts: ArmyBoosts): number {
   if (unit === 'tank') return TANK_SPEED;
-  if (unit === 'jet') return JET_SPEED;
+  if (unit === 'jet') return JET_SPEED * boosts.jetSpeed;
   return from === 'outpost' ? OUTPOST_SPEED : 1;
 }
 
@@ -246,7 +268,7 @@ export function previewAttack(
     const unit = sentAs(b.kind);
     travel = Math.max(
       travel,
-      tripLength(world, id, targetId, unit) / (speed * kindSpeed(b.kind, unit)),
+      tripLength(world, id, targetId, unit) / (speed * kindSpeed(b.kind, unit, world.boosts[army])),
     );
   }
   // Earlier orders still flying at the same target count toward this attack.
@@ -266,7 +288,7 @@ export function previewAttack(
   if (owner !== 'neutral') {
     const stats = BASE_STATS[target.kind];
     const rate = stats.rate * getBonuses(world, owner).production * world.handicap[owner];
-    defenders = grownTroops(target.kind, defenders, rate, travel);
+    defenders = grownTroops(target.kind, defenders, rate, travel, capacityOf(world, target));
     for (const u of world.units)
       if (u.owner === owner && u.targetId === targetId) defenders += u.power;
   }
@@ -313,7 +335,7 @@ export function step(world: World, dt: number): void {
   for (const b of world.bases) {
     if (b.owner === 'neutral') continue;
     const rate = BASE_STATS[b.kind].rate * bonuses[b.owner].production * world.handicap[b.owner];
-    b.troops = grownTroops(b.kind, b.troops, rate, dt);
+    b.troops = grownTroops(b.kind, b.troops, rate, dt, capacityOf(world, b));
   }
 
   // Small sub-steps so swarms flying head-on always come within clash range.
@@ -446,7 +468,7 @@ function resolveArrival(world: World, base: Base, unit: Unit, attack: number): v
   if (base.troops <= 1e-6) {
     world.events.push({ type: 'capture', baseId: base.id, from: base.owner, to: unit.owner });
     base.owner = unit.owner;
-    base.troops = Math.max(0, -base.troops);
+    base.troops = Math.max(0, -base.troops) + world.boosts[unit.owner].captureTroops;
   } else {
     world.events.push({ type: 'hit', baseId: base.id, by: unit.owner });
     // The attacker is lost in a failed hit; a hospital of theirs nearby saves some.
@@ -471,7 +493,7 @@ function recover(world: World, army: Army, lost: number, x: number, y: number): 
     }
   }
   if (!best) return;
-  const amount = lost * HOSPITAL_RECOVERY;
+  const amount = lost * (HOSPITAL_RECOVERY + world.boosts[army].recovery);
   best.troops += amount;
   world.events.push({ type: 'heal', baseId: best.id, amount });
 }

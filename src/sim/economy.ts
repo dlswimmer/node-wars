@@ -32,6 +32,12 @@ export const UPGRADE_COSTS: Record<UpgradeId, number[]> = {
   strongShield: [3, 6, 10, 15, 25],
   heavyTanks: [10, 20],
   adjutant: [3, 10, 15, 25, 35],
+  sharpshooters: [4, 8, 12, 18, 25],
+  recruiters: [5, 10, 16],
+  eliteGuard: [5, 12],
+  thickWalls: [6, 12, 20],
+  afterburners: [6, 14],
+  fieldMedics: [6, 14],
 };
 
 /**

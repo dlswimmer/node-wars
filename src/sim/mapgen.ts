@@ -39,12 +39,15 @@ const KIND_TROOPS: Partial<Record<BaseKind, number>> = {
   bunker: -6,
   hospital: 2,
   airfield: 4,
+  // It builds nothing, so it is cheap to take; it is worth having only for where it stands.
+  checkpoint: -10,
 };
 /** Chance a (not small) map gets a pair of Bunkers, and of Field Hospitals. */
 const BUNKER_CHANCE = 0.45;
 const HOSPITAL_CHANCE = 0.4;
-/** Chance a (not small) map gets a pair of Airfields. */
+/** Chance a (not small) map gets a pair of Airfields, and of Checkpoints. */
 const AIRFIELD_CHANCE = 0.4;
+const CHECKPOINT_CHANCE = 0.55;
 /** No neutral base starts with fewer troops than this. */
 const MIN_TROOPS = 4;
 
@@ -304,6 +307,8 @@ function tryLayout(
   if (!small && rng() < BUNKER_CHANCE && half.length < perSide - 1) place('bunker', front, 4);
   if (!small && rng() < HOSPITAL_CHANCE && half.length < perSide - 1) place('hospital', behind, 4);
   if (!small && rng() < AIRFIELD_CHANCE && half.length < perSide - 1) place('airfield', behind, 4);
+  // A Checkpoint comes on top of the usual bases when it fits (it builds nothing itself).
+  if (!small && rng() < CHECKPOINT_CHANCE) place('checkpoint', front, 4);
   const hasBarracks = () => half.some((b) => b.kind === 'barracks');
   while (half.length < perSide || !hasBarracks()) {
     const kind = !hasBarracks() || rng() < 0.4 ? 'barracks' : 'outpost';

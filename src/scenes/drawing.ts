@@ -255,6 +255,25 @@ export function drawBase(g: Phaser.GameObjects.Graphics, base: Base, color: numb
       g.fillRect(x + r * 0.5, y - r * 0.82, r * 0.36, r * 0.12);
       return;
     }
+    case 'checkpoint': {
+      // A guard post behind sandbags, with a striped barrier across the road.
+      sandbags(12, r * 0.95, r * 0.8);
+      block(x - r * 0.25, y - r * 0.75, r * 0.9, r * 0.6, r * 0.45);
+      g.fillStyle(DOOR, 1);
+      g.fillRect(x - r * 0.45, y - r * 0.08, r * 0.22, r * 0.2);
+      // The barrier pole on its post, red and white.
+      const [left, right, py] = [x - r * 0.9, x + r * 0.95, y + r * 0.42];
+      g.fillStyle(0x3a3a30, 1);
+      g.fillRect(right - 4, py - r * 0.1, 7, r * 0.45);
+      g.lineStyle(2, OUTLINE, 0.8);
+      g.strokeRect(left, py - 4, right - left, 8);
+      const stripes = 6;
+      for (let i = 0; i < stripes; i++) {
+        g.fillStyle(i % 2 === 0 ? 0xd94040 : WHITE, 1);
+        g.fillRect(left + ((right - left) * i) / stripes, py - 3, (right - left) / stripes, 6);
+      }
+      return;
+    }
     case 'hospital': {
       // A field tent with a ridge pole and a big cross on top.
       const [w, d] = [r * 1.8, r * 1.4];
@@ -293,9 +312,14 @@ export function drawHospitalRange(
 }
 
 /** Ring around a base showing how full it is relative to its capacity. */
-export function drawCapacityRing(g: Phaser.GameObjects.Graphics, base: Base, color: number) {
+export function drawCapacityRing(
+  g: Phaser.GameObjects.Graphics,
+  base: Base,
+  color: number,
+  capacity = BASE_STATS[base.kind].capacity,
+) {
   const stats = BASE_STATS[base.kind];
-  const frac = Math.min(1, base.troops / stats.capacity);
+  const frac = Math.min(1, base.troops / capacity);
   const r = stats.radius + 8;
   g.lineStyle(4, 0x000000, 0.35);
   g.strokeCircle(base.x, base.y, r);

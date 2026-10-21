@@ -94,6 +94,10 @@ Full plan in [CONQUEST.md](CONQUEST.md). The bridge from single battles to the p
 - [x] See everywhere you've won; save v2 keeps the conquest map
 - [x] A bonus mission for every region (capture them all, win fast, lose nothing, hold the
       map), shown on the world map and worth an extra medal
+- [x] More upgrades (Sharpshooters, Recruiters, Elite Guard, Thick Walls, Afterburners,
+      Field Medics) on two Command Tent pages, each showing what you have now and next
+- [ ] Battles of about 5 minutes from 3 stars up (tougher middle garrisons, bigger maps, a
+      little slower), tuned by bots; 1-2 stars stay quick
 - [ ] Enemies get upgrades mirroring the Command Tent, more of them in higher-star regions
 
 ## Phase 2: Zones and the persistent world (current)

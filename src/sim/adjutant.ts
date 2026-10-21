@@ -1,6 +1,13 @@
-import { BASE_STATS, DEFAULT_SEND_FRACTION } from './config';
+import { DEFAULT_SEND_FRACTION } from './config';
 import type { Army, Base, World } from './types';
-import { getBonuses, isShielded, previewAttack, sendTroops, travelDistance } from './world';
+import {
+  capacityOf,
+  getBonuses,
+  isShielded,
+  previewAttack,
+  sendTroops,
+  travelDistance,
+} from './world';
 
 /**
  * The Adjutant: an AI officer that helps run the player's army. Each level adds one duty.
@@ -25,6 +32,11 @@ export const HELPER_PATIENCE = 15;
 /** Seconds between Adjutant decisions: helping slowly, auto-battling a bit faster. */
 const ASSIST_INTERVAL = 5;
 const AUTO_INTERVAL = 4;
+/**
+ * The Quartermaster moves troops forward from bases at least this full. Battles rarely last
+ * long enough for bases to fill right up, so waiting for full meant it hardly ever acted.
+ */
+const PUSH_FULLNESS = 0.7;
 
 export function createAdjutant(level: number, auto = false, army: Army = 'player'): AdjutantState {
   return { army, level, auto, cooldown: 2, squads: new Set(), lastOrderAt: 0 };
@@ -108,7 +120,7 @@ function attack(
   return best ? send(world, adj, best.from, best.to) : false;
 }
 
-/** A full base sends its extra troops to the friendly base closest to the enemy. */
+/** A mostly full base sends troops to the friendly base closest to the enemy. */
 function pushForward(world: World, adj: AdjutantState, mine: Base[]): boolean {
   const enemyHqs = world.bases.filter(
     (b) => b.kind === 'hq' && b.owner !== adj.army && b.owner !== 'neutral',
@@ -117,7 +129,7 @@ function pushForward(world: World, adj: AdjutantState, mine: Base[]): boolean {
   const enemyHq = nearestTo(world, enemyHqs, mine);
   const front = nearest(world, mine, enemyHq);
   for (const b of mine) {
-    if (b === front || b.troops < BASE_STATS[b.kind].capacity - 0.5) continue;
+    if (b === front || b.troops < capacityOf(world, b) * PUSH_FULLNESS) continue;
     if (front && send(world, adj, b, front)) return true;
   }
   return false;

@@ -116,6 +116,14 @@ starting points for the bot balance harness, not final values.
 - Upgrades: Medics (a third come back), Big Tent (bigger range).
 - Active: **Patch Up**: every base in range gets +5 troops.
 
+### Checkpoint (guard post with a striped barrier) — live
+
+- **Power:** none of its own: it builds no troops. It is worth holding only for where it
+  stands, a forward spot to gather your army and hold the line (often by a bridge or pass).
+- Stats: 0/s, holds 60 (reinforcements only). Small neutral garrison, since it builds nothing.
+- Random maps and conquest regions get a mirrored pair about half the time, on top of the
+  usual bases.
+
 ### Supply Depot (crate) — Phase 1.5 candidate
 
 - **Power:** your bases nearby hold 50% more troops.
@@ -181,13 +189,13 @@ starting points for the bot balance harness, not final values.
 
 ## Rollout
 
-| When      | Bases                                                                           |
-| --------- | ------------------------------------------------------------------------------- |
-| Live      | HQ, Barracks, Outpost, Factory, Radar, Armory, Bunker, Field Hospital, Airfield |
-| Phase 1.5 | Supply Depot; upgrades for every base in the prestige tree                      |
-| Phase 2   | Artillery, Bridge Fort (with terrain and zones)                                 |
-| Phase 3   | Oil Field, Command Center; active abilities for all bases                       |
-| Phase 4+  | Shipyard, Missile Silo, Spaceport                                               |
+| When      | Bases                                                                                       |
+| --------- | ------------------------------------------------------------------------------------------- |
+| Live      | HQ, Barracks, Outpost, Factory, Radar, Armory, Bunker, Field Hospital, Airfield, Checkpoint |
+| Phase 1.5 | Supply Depot; upgrades for every base in the prestige tree                                  |
+| Phase 2   | Artillery, Bridge Fort (with terrain and zones)                                             |
+| Phase 3   | Oil Field, Command Center; active abilities for all bases                                   |
+| Phase 4+  | Shipyard, Missile Silo, Spaceport                                                           |
 
 ## AI notes
 

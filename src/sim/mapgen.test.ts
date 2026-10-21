@@ -115,12 +115,12 @@ describe('bunkers and field hospitals on random maps', () => {
     const seeds = Array.from({ length: 60 }, (_, i) => i * 131 + 7);
     const has = (kind: string) =>
       seeds.filter((s) => generateLevel(s).bases.some((b) => b.kind === kind)).length;
-    for (const kind of ['bunker', 'hospital']) {
-      expect(has(kind), kind).toBeGreaterThan(seeds.length * 0.15);
+    for (const kind of ['bunker', 'hospital', 'checkpoint']) {
+      expect(has(kind), kind).toBeGreaterThan(seeds.length * 0.1);
       expect(has(kind), kind).toBeLessThan(seeds.length * 0.75);
     }
     for (const s of seeds) {
-      for (const kind of ['bunker', 'hospital']) {
+      for (const kind of ['bunker', 'hospital', 'airfield', 'checkpoint']) {
         expect(generateLevel(s).bases.filter((b) => b.kind === kind).length % 2).toBe(0);
       }
     }

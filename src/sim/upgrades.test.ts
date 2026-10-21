@@ -6,12 +6,13 @@ import { LEVELS } from './levels';
 import type { LevelDef } from './types';
 import {
   NO_UPGRADES,
+  UPGRADES,
   campaignWorldOptions,
   medalsFor,
   nextCost,
   type UpgradeLevels,
 } from './upgrades';
-import { createWorld, sendTroops, step } from './world';
+import { capacityOf, createWorld, getBonuses, sendTroops, step } from './world';
 
 describe('medals', () => {
   it('pay one whole medal per star, nothing for a loss, and less for auto-battles', () => {
@@ -125,5 +126,57 @@ describe('Adjutant', () => {
       step(world, 0.1);
     }
     expect(world.winner).not.toBeNull();
+  });
+});
+
+describe('new upgrades', () => {
+  const field = (): LevelDef => ({
+    id: 'u',
+    name: 'U',
+    width: 600,
+    height: 300,
+    bases: [
+      { kind: 'hq', x: 60, y: 150, owner: 'player', troops: 0 },
+      { kind: 'barracks', x: 300, y: 150, owner: 'neutral', troops: 10 },
+      { kind: 'hq', x: 540, y: 150, owner: 'enemy', troops: 20 },
+      { kind: 'hospital', x: 200, y: 150, owner: 'player', troops: 0 },
+    ],
+  });
+  const withLevels = (levels: Partial<UpgradeLevels>) =>
+    createWorld(
+      field(),
+      campaignWorldOptions(DIFFICULTIES.recruit, 1, { ...NO_UPGRADES, ...levels }),
+    );
+
+  it('show what they add up to and what the next level brings', () => {
+    const def = (id: string) => UPGRADES.find((u) => u.id === id)!;
+    expect(def('fastBuilders').total(2)).toBe('+16% troop building');
+    expect(def('sharpshooters').total(3)).toBe('troops hit +15% harder');
+    expect(def('heavyTanks').total(1)).toBe('tanks worth +1 troop');
+    expect(def('heavyTanks').total(2)).toBe('tanks worth +2 troops');
+    for (const u of UPGRADES) expect(u.costs).toEqual(UPGRADE_COSTS[u.id]);
+  });
+
+  it('let your bases hold more, and your HQ more still', () => {
+    const world = withLevels({ thickWalls: 2, eliteGuard: 1 });
+    expect(capacityOf(world, world.bases[0]!)).toBe(80 * 1.2 + 15);
+    expect(capacityOf(world, world.bases[3]!)).toBe(40 * 1.2);
+    // Neutral and enemy bases don't get your upgrades.
+    expect(capacityOf(world, world.bases[2]!)).toBe(80);
+  });
+
+  it('make your troops hit harder and fill captured bases', () => {
+    const plain = withLevels({});
+    const strong = withLevels({ sharpshooters: 2, recruiters: 2 });
+    expect(getBonuses(strong, 'player').attack).toBeCloseTo(1.1);
+    for (const world of [plain, strong]) {
+      world.bases[0]!.troops = 30;
+      sendTroops(world, 'player', 0, 1, 1);
+      for (let t = 0; t < 10 && world.units.length; t += 0.05) step(world, 0.05);
+    }
+    expect(strong.bases[1]!.owner).toBe('player');
+    // Once taken, the rest of the swarm just adds to it, so the gap is the 4 from Recruiters
+    // (plus a little from needing fewer hits to break in).
+    expect(strong.bases[1]!.troops - plain.bases[1]!.troops).toBeGreaterThanOrEqual(4);
   });
 });

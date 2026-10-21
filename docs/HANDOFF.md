@@ -69,6 +69,14 @@ every push to `main` (CI runs lint, format, typecheck and tests first).
   game thinks it is your first battle (the same flag that picks Boot Camp).
 - **Radar early warning adds, never takes away.** Holding a Radar shows how many enemies are
   heading for each of your bases (⚠9). The red danger ring is the same with or without one.
+- **The Adjutant's Quartermaster pushes forward from bases 70% full**, not full: battles
+  rarely last long enough for bases to fill, so it hardly ever acted.
+- **Long battles end.** After six minutes the AI pools all its bases into each attack, drops
+  its personality's habits and waits for a bigger edge (bots once traded the same few bases
+  for 15 minutes).
+- **Next up: pacing.** The user wants battles of about five minutes. Plan: from 3 stars up,
+  tougher middle garrisons, bigger maps and slightly slower troops, tuned by bots; 1-2 stars
+  stay quick.
 - **Swarm clashes** cancel troop for troop mid-field (Armory counts; a tank absorbs soldiers).
 - **Bunker AI by rank:** only General and Marshal know a Bunker needs double troops and value
   Bunkers/Hospitals by position. Easier AIs waste troops on Bunkers. This keeps early ranks
