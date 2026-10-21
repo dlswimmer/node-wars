@@ -16,6 +16,7 @@ export const COLORS = {
 export const FACTION_COLORS: Record<Faction, number> = {
   player: 0x3d8bfd,
   enemy: 0xe5484d,
+  rival: 0xa66cff,
   neutral: 0x8a8f7a,
 };
 

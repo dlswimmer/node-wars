@@ -6,6 +6,7 @@ import {
   basesAlongSegment,
   createWorld,
   getBonuses,
+  isShielded,
   previewAttack,
   sendTroops,
   step,
@@ -549,5 +550,77 @@ describe('field hospitals', () => {
       }
       expect(healed).toBe(0);
     }
+  });
+});
+
+describe('three armies', () => {
+  const threeWay = (): LevelDef => ({
+    id: 'three',
+    name: 'Three',
+    width: 600,
+    height: 600,
+    bases: [
+      { kind: 'hq', x: 100, y: 300, owner: 'player', troops: 20 },
+      { kind: 'hq', x: 500, y: 100, owner: 'enemy', troops: 20 },
+      { kind: 'hq', x: 500, y: 500, owner: 'rival', troops: 20 },
+      { kind: 'outpost', x: 300, y: 300, owner: 'neutral', troops: 5 },
+    ],
+  });
+
+  it('lists the armies that start with a base', () => {
+    expect(createWorld(threeWay()).armies).toEqual(['player', 'enemy', 'rival']);
+    expect(createWorld(tinyLevel()).armies).toEqual(['player', 'enemy']);
+  });
+
+  it('has no winner while two armies are left, and the last one standing wins', () => {
+    const world = createWorld(threeWay());
+    world.bases[1]!.owner = 'neutral';
+    step(world, 0.1);
+    expect(world.winner).toBeNull();
+    world.bases[2]!.owner = 'player';
+    step(world, 0.1);
+    expect(world.winner).toBe('player');
+  });
+
+  it('wins by HQs only when every other army has lost its HQ', () => {
+    const world = createWorld(
+      {
+        ...threeWay(),
+        bases: [
+          ...threeWay().bases,
+          { kind: 'barracks', x: 300, y: 100, owner: 'enemy', troops: 5 },
+          { kind: 'barracks', x: 300, y: 500, owner: 'rival', troops: 5 },
+        ],
+      },
+      { hqVictory: ['player'] },
+    );
+    world.bases[1]!.owner = 'player';
+    step(world, 0.1);
+    expect(world.winner).toBeNull();
+    world.bases[2]!.owner = 'player';
+    step(world, 0.1);
+    expect(world.winner).toBe('player');
+  });
+
+  it('lets the two other armies fight each other mid-field', () => {
+    const world = createWorld(threeWay());
+    sendTroops(world, 'enemy', 1, 2, 1);
+    sendTroops(world, 'rival', 2, 1, 1);
+    for (let t = 0; t < 6 && !world.events.some((e) => e.type === 'clash'); t += 0.05) {
+      step(world, 0.05);
+    }
+    expect(world.events.some((e) => e.type === 'clash')).toBe(true);
+  });
+
+  it('gives every army its own handicap, shield and boosts', () => {
+    const world = createWorld(threeWay(), {
+      handicap: { rival: 1.5 },
+      shield: { rival: 10 },
+      boosts: { rival: { speed: 1.2 } },
+    });
+    expect(world.handicap).toEqual({ player: 1, enemy: 1, rival: 1.5 });
+    expect(isShielded(world, 'rival')).toBe(true);
+    expect(world.boosts.rival.speed).toBe(1.2);
+    expect(world.boosts.enemy.speed).toBe(1);
   });
 });

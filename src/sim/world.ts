@@ -15,6 +15,7 @@ import {
 } from './config';
 import { distToPolyline, levelRoutes } from './paths';
 import { createRng } from './rng';
+import { ARMIES } from './types';
 import type {
   Army,
   ArmyBoosts,
@@ -53,20 +54,20 @@ export function createWorld(level: LevelDef, opts: WorldOptions = {}): World {
   for (const b of bases) {
     if (b.kind === 'hq' && b.owner !== 'neutral') b.troops += opts.startTroops?.[b.owner] ?? 0;
   }
+  const perArmy = <T>(value: (a: Army) => T) =>
+    Object.fromEntries(ARMIES.map((a) => [a, value(a)])) as Record<Army, T>;
   return {
     width: level.width,
     height: level.height,
     bases,
+    armies: ARMIES.filter((a) => bases.some((b) => b.owner === a)),
     units: [],
     time: 0,
     winner: null,
-    handicap: { player: 1, enemy: 1, ...opts.handicap },
-    shieldUntil: { player: 0, enemy: 0, ...opts.shield },
+    handicap: perArmy((a) => opts.handicap?.[a] ?? 1),
+    shieldUntil: perArmy((a) => opts.shield?.[a] ?? 0),
     hqVictory: opts.hqVictory ?? [],
-    boosts: {
-      player: { ...NO_BOOSTS, ...opts.boosts?.player },
-      enemy: { ...NO_BOOSTS, ...opts.boosts?.enemy },
-    },
+    boosts: perArmy((a) => ({ ...NO_BOOSTS, ...opts.boosts?.[a] })),
     events: [],
     nextUnitId: 1,
     nextSquadId: 1,
@@ -275,10 +276,10 @@ export function step(world: World, dt: number): void {
   if (world.winner) return;
   world.time += dt;
 
-  const bonuses: Record<Army, Bonuses> = {
-    player: getBonuses(world, 'player'),
-    enemy: getBonuses(world, 'enemy'),
-  };
+  const bonuses = Object.fromEntries(ARMIES.map((a) => [a, getBonuses(world, a)])) as Record<
+    Army,
+    Bonuses
+  >;
 
   for (const b of world.bases) {
     if (b.owner === 'neutral') continue;
@@ -444,13 +445,13 @@ function isAlive(world: World, army: Army): boolean {
 }
 
 function checkWinner(world: World): Army | null {
-  if (!isAlive(world, 'enemy')) return 'player';
-  if (!isAlive(world, 'player')) return 'enemy';
+  // The last army standing wins.
+  const alive = world.armies.filter((a) => isAlive(world, a));
+  if (alive.length === 1) return alive[0]!;
+  // An army that wins by HQs needs to hold one while no other army holds any.
+  const hqs = new Set(world.bases.filter((b) => b.kind === 'hq').map((b) => b.owner));
   for (const army of world.hqVictory) {
-    const rival: Army = army === 'player' ? 'enemy' : 'player';
-    const rivalHasHq = world.bases.some((b) => b.kind === 'hq' && b.owner === rival);
-    const armyHasHq = world.bases.some((b) => b.kind === 'hq' && b.owner === army);
-    if (!rivalHasHq && armyHasHq) return army;
+    if (hqs.has(army) && world.armies.every((a) => a === army || !hqs.has(a))) return army;
   }
   return null;
 }

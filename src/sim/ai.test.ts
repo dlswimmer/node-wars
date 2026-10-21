@@ -181,3 +181,25 @@ describe('AI and the new bases', () => {
     expect(world.units.length).toBeGreaterThan(0);
   });
 });
+
+describe('a third army', () => {
+  it('plays by the same AI and attacks whichever army is in reach', () => {
+    const world = createWorld({
+      id: 'rival-test',
+      name: 'Rival Test',
+      width: 600,
+      height: 300,
+      bases: [
+        { kind: 'hq', x: 60, y: 150, owner: 'player', troops: 20 },
+        { kind: 'outpost', x: 420, y: 150, owner: 'enemy', troops: 3 },
+        { kind: 'hq', x: 540, y: 150, owner: 'rival', troops: 40 },
+      ],
+    });
+    const ai = createAi('rival', DIFFICULTIES.general);
+    for (let t = 0; t < 30 && world.bases[1]!.owner === 'enemy'; t += 0.1) {
+      updateAi(world, ai, 0.1);
+      step(world, 0.1);
+    }
+    expect(world.bases[1]!.owner).toBe('rival');
+  });
+});

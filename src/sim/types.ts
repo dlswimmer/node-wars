@@ -1,7 +1,10 @@
-export type Faction = 'player' | 'enemy' | 'neutral';
-
-/** Factions that actually fight (neutral bases never attack or grow). */
-export type Army = Exclude<Faction, 'neutral'>;
+/**
+ * Every army there can be (neutral bases never attack or grow). A battle uses some of them,
+ * listed in World.armies; all of them follow the same rules.
+ */
+export const ARMIES = ['player', 'enemy', 'rival'] as const;
+export type Army = (typeof ARMIES)[number];
+export type Faction = Army | 'neutral';
 
 export type BaseKind =
   'hq' | 'barracks' | 'outpost' | 'factory' | 'radar' | 'armory' | 'bunker' | 'hospital';
@@ -78,6 +81,8 @@ export interface World {
   time: number;
   winner: Army | null;
   /** Per-army production multiplier, used for difficulty handicaps. */
+  /** Armies in this battle (those that held a base at the start). */
+  armies: Army[];
   handicap: Record<Army, number>;
   /** An army's bases can't be damaged until this time (opening grace period). */
   shieldUntil: Record<Army, number>;

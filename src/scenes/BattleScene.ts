@@ -27,6 +27,7 @@ import {
   baseAt,
   basesAlongSegment,
   createWorld,
+  damageFactor,
   getBonuses,
   isShielded,
   previewAttack,
@@ -966,14 +967,16 @@ Drag from a BLUE base!`,
   private incomingThreats(): Set<number> {
     const threats = new Set<number>();
     if (isShielded(this.world, 'player')) return threats;
+    // How hard the troops on their way will hit each of our bases (a Bunker halves soldiers).
     const incoming = new Map<number, number>();
     for (const u of this.world.units) {
-      if (u.owner === 'enemy') incoming.set(u.targetId, (incoming.get(u.targetId) ?? 0) + u.power);
+      const b = this.world.bases[u.targetId];
+      if (u.owner === 'player' || b?.owner !== 'player') continue;
+      const hit = u.power * getBonuses(this.world, u.owner).attack * damageFactor(b.kind, u.kind);
+      incoming.set(b.id, (incoming.get(b.id) ?? 0) + hit);
     }
-    const attack = getBonuses(this.world, 'enemy').attack;
-    for (const [id, count] of incoming) {
-      const b = this.world.bases[id];
-      if (b?.owner === 'player' && count * attack >= b.troops) threats.add(id);
+    for (const [id, hit] of incoming) {
+      if (hit >= this.world.bases[id]!.troops) threats.add(id);
     }
     return threats;
   }

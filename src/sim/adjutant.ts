@@ -67,12 +67,15 @@ function send(world: World, adj: AdjutantState, from: Base, to: Base): boolean {
 function defend(world: World, adj: AdjutantState, mine: Base[]): boolean {
   // Shielded bases can't be hurt, so there is nothing to defend yet.
   if (isShielded(world, adj.army)) return false;
+  // How hard the troops on their way to each base will hit it, whichever army sent them.
   const incoming = new Map<number, number>();
   for (const u of world.units) {
-    if (u.owner !== adj.army) incoming.set(u.targetId, (incoming.get(u.targetId) ?? 0) + u.power);
+    if (u.owner === adj.army) continue;
+    const hit = u.power * getBonuses(world, u.owner).attack;
+    incoming.set(u.targetId, (incoming.get(u.targetId) ?? 0) + hit);
   }
   for (const base of mine) {
-    const threat = (incoming.get(base.id) ?? 0) * getBonuses(world, enemyOf(adj.army)).attack;
+    const threat = incoming.get(base.id) ?? 0;
     if (threat < base.troops) continue;
     const helper = nearest(
       world,
@@ -107,8 +110,11 @@ function attack(
 
 /** A full base sends its extra troops to the friendly base closest to the enemy. */
 function pushForward(world: World, adj: AdjutantState, mine: Base[]): boolean {
-  const enemyHq = world.bases.find((b) => b.kind === 'hq' && b.owner === enemyOf(adj.army));
-  if (!enemyHq) return false;
+  const enemyHqs = world.bases.filter(
+    (b) => b.kind === 'hq' && b.owner !== adj.army && b.owner !== 'neutral',
+  );
+  if (enemyHqs.length === 0) return false;
+  const enemyHq = nearestTo(world, enemyHqs, mine);
   const front = nearest(world, mine, enemyHq);
   for (const b of mine) {
     if (b === front || b.troops < BASE_STATS[b.kind].capacity - 0.5) continue;
@@ -123,6 +129,8 @@ function nearest(world: World, bases: Base[], to: Base): Base | undefined {
   )[0];
 }
 
-function enemyOf(army: Army): Army {
-  return army === 'player' ? 'enemy' : 'player';
+/** The one of `targets` closest to any of `bases`. */
+function nearestTo(world: World, targets: Base[], bases: Base[]): Base {
+  const reach = (t: Base) => Math.min(...bases.map((b) => travelDistance(world, b.id, t.id)));
+  return [...targets].sort((a, b) => reach(a) - reach(b))[0]!;
 }

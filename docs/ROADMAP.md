@@ -49,7 +49,7 @@ Goal: one battle that is genuinely exciting for an 8-year-old, and a solid base 
 - [x] Map outlines with fog of war outside, and scenery (forests, rocks, lakes, craters,
       sandbags, tank traps) that is just for looks until terrain arrives in Phase 2
 - [x] Mobile: full screen, pinch zoom and pan, finger-sized touch targets, sharp on Retina
-- [ ] Multiple armies in the rules (prep for rival factions; see three-army battles in Phase 2)
+- [x] Multiple armies in the rules (any number of armies, same rules; a third "rival" army exists in the sim, not yet on any map)
 - [x] Tanks: troops sent from a Factory roll out as slower tanks worth 3 soldiers each
 - [x] Top-down soldier and tank sprites (drawn in code; swap for hand-made art any time)
 - [x] Harder General: red defends its bases (HQ first) and builds faster
