@@ -46,6 +46,8 @@ Goal: one battle that is genuinely exciting for an 8-year-old, and a solid base 
 - [ ] Medals for each battle (win, win fast, win without losing a base)
 - [ ] Several maps that unlock one after another
 - [x] Random skirmish maps (mirrored so both sides start fair, checked by bot matches)
+- [x] Map outlines with fog of war outside, and scenery (forests, rocks, lakes, craters,
+      sandbags, tank traps) that is just for looks until terrain arrives in Phase 2
 - [x] Mobile: full screen, pinch zoom and pan, finger-sized touch targets, sharp on Retina
 - [ ] Multiple armies in the rules (prep for rival factions)
 - [x] Tanks: troops sent from a Factory roll out as slower tanks worth 3 soldiers each
@@ -85,6 +87,11 @@ join seamlessly, so the front line flows from one into the next.
 
 - [ ] Organic zone shapes: the world is split into irregular regions (Voronoi cells shaped
       with noise), each with its own bases, terrain tint, and border
+- [ ] Zones fit together like puzzle pieces: each battle's outline is its zone's border, shared
+      edge for edge with the neighbouring zones (where other battles are going on), so the
+      fog around a battle is the next territory to expand into. Today's random-map outline
+      (`src/sim/scenery.ts`) is a stand-in drawn around one battle; it gets replaced by the
+      zone border, and fairness moves from mirroring to bot testing (see below)
 - [ ] Bases placed inside each zone with even spacing (Poisson-disk), never too crowded
 - [ ] Terrain that shapes strategy:
   - Water and mountains block troops; bridges and passes become chokepoints worth holding

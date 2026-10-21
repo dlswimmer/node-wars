@@ -1,4 +1,5 @@
 import { createRng } from './rng';
+import { addScenery } from './scenery';
 import type { BaseDef, BaseKind, LevelDef } from './types';
 
 /**
@@ -73,7 +74,7 @@ export function generateLevel(seed: number): LevelDef {
   for (let attempt = 0; attempt < 500; attempt++) {
     const bases = tryLayout(rng);
     if (bases) {
-      return {
+      const level: LevelDef = {
         id: `map-${seed}`,
         name: mapName(seed),
         seed,
@@ -81,6 +82,7 @@ export function generateLevel(seed: number): LevelDef {
         height: MAP_HEIGHT,
         bases: bases.list,
       };
+      return addScenery(level, seed);
     }
   }
   throw new Error(`Could not lay out map ${seed}`);

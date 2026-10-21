@@ -90,6 +90,26 @@ export interface BaseDef {
   troops: number;
 }
 
+export interface Point {
+  x: number;
+  y: number;
+}
+
+/** Scenery drawn on the map. Purely visual for now (terrain gameplay comes in Phase 2). */
+export type FeatureKind = 'forest' | 'rocks' | 'lake' | 'crater' | 'sandbags' | 'traps';
+
+export interface Feature {
+  kind: FeatureKind;
+  x: number;
+  y: number;
+  /** Rough radius of the patch. */
+  size: number;
+  /** Rotation; a mirrored twin is turned half a circle so it looks the same from the other side. */
+  angle: number;
+  /** Seeds the details (tree spots, rock shapes) so twins draw identically. */
+  detail: number;
+}
+
 export interface LevelDef {
   id: string;
   name: string;
@@ -98,4 +118,7 @@ export interface LevelDef {
   width: number;
   height: number;
   bases: BaseDef[];
+  /** Edge of the battlefield (a closed polygon around the bases); outside is fog of war. */
+  outline?: Point[];
+  features?: Feature[];
 }

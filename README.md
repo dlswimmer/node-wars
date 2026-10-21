@@ -32,7 +32,7 @@ Capture red's **HQ** to win (or wipe out every red base). Your bases are shielde
 few seconds, shown by blue rings.
 
 **Maps:** your first battle is Boot Camp; after that every battle is a new random map, mirrored so
-both sides start with exactly the same bases. The end screen shows the map number, and
+both sides start with exactly the same bases and scenery, surrounded by fog of war. The end screen shows the map number, and
 **PLAY AGAIN** replays that same map.
 
 **Campaign:** wins earn medals (Recruit ½, Soldier 1, General 1½). Spend them in the

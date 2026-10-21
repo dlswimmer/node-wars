@@ -20,7 +20,7 @@ import {
 } from '../sim/difficulty';
 import { LEVELS } from '../sim/levels';
 import { generateLevel, randomMapSeed } from '../sim/mapgen';
-import type { Base, LevelDef, World } from '../sim/types';
+import type { Base, LevelDef, Point, World } from '../sim/types';
 import {
   baseAt,
   basesAlongSegment,
@@ -34,7 +34,7 @@ import {
 } from '../sim/world';
 import { isFirstBattle, loadDifficulty, markBattlePlayed } from '../settings';
 import { COLORS, FACTION_COLORS, textStyle } from '../theme';
-import { drawBase, drawCapacityRing, drawMapGrid } from './drawing';
+import { drawBase, drawCapacityRing, drawMapGrid, drawTerrain } from './drawing';
 import type { HudScene } from './HudScene';
 import { UNIT_TEXTURE, ensureUnitTextures } from './unitTextures';
 
@@ -171,10 +171,14 @@ export class BattleScene extends Phaser.Scene {
     this.paused = false;
     this.gameOver = false;
 
-    this.box = contentBox(this.world);
-    const grid = this.add.graphics();
-    drawMapGrid(grid, this.box.width + 2000, this.box.height + 2000);
-    grid.setPosition(this.box.x - 1000, this.box.y - 1000);
+    this.box = contentBox(this.world, this.level.outline);
+    const ground = this.add.graphics();
+    if (this.level.outline) {
+      drawTerrain(ground, this.level.outline, this.level.features ?? [], this.box);
+    } else {
+      drawMapGrid(ground, this.box.width + 2000, this.box.height + 2000);
+      ground.setPosition(this.box.x - 1000, this.box.y - 1000);
+    }
 
     this.orderGfx = this.add.graphics();
     this.fxGfx = this.add.graphics();
@@ -867,19 +871,20 @@ function hexColor(color: number): string {
   return '#' + color.toString(16).padStart(6, '0');
 }
 
-/** Area around the bases (with room for labels and effects) that the camera should show. */
-function contentBox(world: World): Phaser.Geom.Rectangle {
+/**
+ * Area around the bases (with room for labels and effects) and the map's outline that the
+ * camera should show.
+ */
+function contentBox(world: World, outline: Point[] = []): Phaser.Geom.Rectangle {
   // Kept tight (labels hang below bases, so the bottom gets more room) to make the most of
   // short phone screens held sideways.
   const pad = { side: 80, top: 55, bottom: 75 };
   const xs = world.bases.map((b) => b.x);
   const ys = world.bases.map((b) => b.y);
-  const minX = Math.min(...xs) - pad.side;
-  const minY = Math.min(...ys) - pad.top;
-  return new Phaser.Geom.Rectangle(
-    minX,
-    minY,
-    Math.max(...xs) + pad.side - minX,
-    Math.max(...ys) + pad.bottom - minY,
-  );
+  const edge = 6;
+  const minX = Math.min(Math.min(...xs) - pad.side, ...outline.map((p) => p.x - edge));
+  const minY = Math.min(Math.min(...ys) - pad.top, ...outline.map((p) => p.y - edge));
+  const maxX = Math.max(Math.max(...xs) + pad.side, ...outline.map((p) => p.x + edge));
+  const maxY = Math.max(Math.max(...ys) + pad.bottom, ...outline.map((p) => p.y + edge));
+  return new Phaser.Geom.Rectangle(minX, minY, maxX - minX, maxY - minY);
 }
