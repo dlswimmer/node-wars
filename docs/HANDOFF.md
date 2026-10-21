@@ -28,14 +28,16 @@ every push to `main` (CI runs lint, format, typecheck and tests first).
 - **Same rules for every army.** Nothing assumes "player vs enemy" in the sim, so rival AI
   factions can come later. Difficulty comes from AI settings and production handicaps
   (`src/sim/difficulty.ts`), never from special rules for the player.
-- **Mirrored maps for fairness.** Random maps and conquest regions place bases in pairs through
-  the centre. Phase 2 plans to replace this with "fairness by bot testing".
+- **Fair early, not everywhere** (decided 2026-10-21). The tutorial and 1-2 star battles stay
+  mirrored so a new kid can count on winning. Further out, maps may be lopsided (and upgrades
+  make fights uneven anyway): bots measure each map's real difficulty to set its stars rather
+  than forcing symmetry. Losing a battle only loses that fight (the region's stars drop a
+  little); it is never game over. Random maps and regions are still all mirrored today.
 - **Region battles use the region's exact shape** from the world map (scaled, never stretched);
   your HQ starts west/south, along the region's long axis.
 - **Medals are whole numbers:** one per star; every medal number lives in `src/sim/economy.ts`.
 - **Terrain is mirrored too, and rebuilt from the seed.** Rivers run through the map centre and
-  mirror onto themselves, so the save never stores terrain. Fairness by bot testing stays a
-  separate job. Rivers come from their own random stream so bases and scenery don't move.
+  mirror onto themselves, so the save never stores terrain. Rivers come from their own random stream so bases and scenery don't move.
 - **Paths are worked out once per map**, on a 20-unit grid where a cell is open only if all
   of it is dry, then pulled tight into a few corners. Maps with nothing in the way keep exact
   straight lines, so their balance doesn't change. Kid bots still judge by straight-line

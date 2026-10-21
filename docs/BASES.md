@@ -67,8 +67,8 @@ starting points for the bot balance harness, not final values.
 
 ### Radar (rings) — live
 
-- **Power:** your troops move 20% faster, and you see attacks coming sooner (the warning
-  ring appears earlier and shows how many enemies are incoming).
+- **Power:** your troops move 20% faster (live). Planned: you see attacks coming sooner (the
+  warning ring appears earlier and shows how many enemies are incoming).
 - Stats: 0.5/s, holds 40.
 - Upgrades: Long Range (+30%), Early Warning (warning sound plays sooner).
 - With fog of war (Phase 2, Soldier and General only): reveals the area around it.

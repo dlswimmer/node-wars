@@ -27,7 +27,7 @@ These are decided now because changing them later would be expensive:
 - **One currency to start.** Money earned from held bases. More resources only if they make
   decisions more interesting for a kid.
 
-## Phase 1: Skirmish (current)
+## Phase 1: Skirmish
 
 Goal: one battle that is genuinely exciting for an 8-year-old, and a solid base to build on.
 
@@ -43,13 +43,13 @@ Goal: one battle that is genuinely exciting for an 8-year-old, and a solid base 
 - [x] Swarms that fight each other when they meet mid-field
 - [x] Sound effects (synthesized in code) with a mute button
 - [ ] First-battle tutorial (animated hand showing the drag)
-- [ ] Medals for each battle (win, win fast, win without losing a base)
-- [ ] Several maps that unlock one after another
+- [x] ~~Medals for each battle~~ (replaced by medals per star in the campaign)
+- [x] ~~Several maps that unlock one after another~~ (replaced by the conquest map)
 - [x] Random skirmish maps (mirrored so both sides start fair, checked by bot matches)
 - [x] Map outlines with fog of war outside, and scenery (forests, rocks, lakes, craters,
       sandbags, tank traps) that is just for looks until terrain arrives in Phase 2
 - [x] Mobile: full screen, pinch zoom and pan, finger-sized touch targets, sharp on Retina
-- [ ] Multiple armies in the rules (prep for rival factions)
+- [ ] Multiple armies in the rules (prep for rival factions; see three-army battles in Phase 2)
 - [x] Tanks: troops sent from a Factory roll out as slower tanks worth 3 soldiers each
 - [x] Top-down soldier and tank sprites (drawn in code; swap for hand-made art any time)
 - [x] Harder General: red defends its bases (HQ first) and builds faster
@@ -59,11 +59,11 @@ Goal: one battle that is genuinely exciting for an 8-year-old, and a solid base 
   - HQ: fastest production; capture it to win
   - Barracks: strong production
   - Factory: faster building everywhere, sends tanks
-  - Radar: faster troops everywhere, and reveals incoming attacks earlier
+  - Radar: faster troops everywhere (done), and reveals incoming attacks earlier (not yet)
   - Armory: stronger troops everywhere
   - Outpost: troops sent from it move 40% faster (a launch pad for the front line) (done)
   - Bunker: defenders count double, a tough nut to crack (done)
-  - Airfield (new): sends jets that fly straight over terrain
+  - Airfield (new, Phase 2 now that terrain exists): sends jets that fly straight over terrain
   - Field hospital: some of your troops lost nearby come back (done)
   - Tap a base you don't own to see its power in one line (done)
 
@@ -93,7 +93,7 @@ Full plan in [CONQUEST.md](CONQUEST.md). The bridge from single battles to the p
 - [x] See everywhere you've won; save v2 keeps the conquest map
 - [ ] Enemies get upgrades mirroring the Command Tent, more of them in higher-star regions
 
-## Phase 2: Zones and the persistent world
+## Phase 2: Zones and the persistent world (current)
 
 One continuous world, not separate maps. Zones are irregular regions of the same map that
 join seamlessly, so the front line flows from one into the next.
@@ -114,8 +114,15 @@ join seamlessly, so the front line flows from one into the next.
     so it stays fast with hundreds of units)
   - (done) The attack preview and the AI use real travel times, so "the long way round" matters
   - Jets from Airfields ignore terrain; tanks are slowed most by forest and mud
-- [ ] Fairness by testing, not symmetry: generate many candidate zones, let bots play each one,
-      keep only the ones where neither side's start is a big advantage
+- [ ] Rate difficulty by testing, not symmetry: early battles (tutorial, 1-2 stars) stay
+      mirrored and fair; further out, maps may be lopsided and bots measure how hard each one
+      really is, which sets its stars and medals (a tougher map is worth more, not thrown away)
+- [ ] Three-army battles: the sim handles any number of armies (same rules for all); a
+      Free-for-All in Quick Battle first, then three-way regions at 4-5 stars on the conquest
+      map with their own balance bands, a second enemy colour and a bigger reward
+- [ ] Enemy personalities (Rusher, Turtle, Raider) so battles at the same rank feel different
+- [ ] Show a region's terrain (river, mountains) on the world map before you pick it
+- [ ] Fog of war over enemy troops on Soldier and up (see BASES.md decisions)
 - [ ] Capturing a zone opens its neighbours; the zone you hold is where you push out from
 - [ ] Bases near a zone border connect to bases across it, so attacks cross borders naturally
 - [ ] Zones you aren't looking at keep running in a cheaper, simplified simulation (troop
