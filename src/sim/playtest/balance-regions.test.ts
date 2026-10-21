@@ -23,7 +23,14 @@ describe('conquest region balance', { timeout: 30_000 }, () => {
   ] as const;
   for (const c of regionCases) {
     it(`regions, ${c.difficulty} vs ${c.profile}: win rate ${c.min * 100}-${c.max * 100}%`, () => {
-      const r = runMatchup(region, DIFFICULTIES[c.difficulty], PROFILES[c.profile]!, MATCHES, 2000);
+      const r = runMatchup(
+        region,
+        DIFFICULTIES[c.difficulty],
+        PROFILES[c.profile]!,
+        MATCHES,
+        2000,
+        'mixed',
+      );
       expect(r.timeoutRate).toBe(0);
       expect(r.winRate).toBeGreaterThanOrEqual(c.min);
       expect(r.winRate).toBeLessThanOrEqual(c.max);
@@ -32,7 +39,7 @@ describe('conquest region balance', { timeout: 30_000 }, () => {
 
   it('the tutorial region is an easy first win', () => {
     const tutorial = (seed: number) => regionLevel(seed, START_ID);
-    const r = runMatchup(tutorial, DIFFICULTIES.recruit, PROFILES.newKid!, MATCHES, 3000);
+    const r = runMatchup(tutorial, DIFFICULTIES.recruit, PROFILES.newKid!, MATCHES, 3000, 'mixed');
     expect(r.winRate).toBeGreaterThanOrEqual(0.9);
   });
 });

@@ -1,4 +1,5 @@
 import { createAi, updateAi } from '../ai';
+import { PERSONALITIES, rollPersonality, type PersonalityId } from '../personality';
 import { worldOptionsFor, type Difficulty } from '../difficulty';
 import type { Army, LevelDef } from '../types';
 import { countBases, createWorld, isAlive, step } from '../world';
@@ -21,9 +22,16 @@ export function runMatch(
   profile: HumanProfile,
   seed: number,
   maxSeconds = 900,
+  personality: PersonalityChoice = 'steady',
 ): MatchResult {
   const world = createWorld(level, worldOptionsFor(difficulty, seed));
-  const ais = world.armies.filter((a) => a !== 'player').map((a) => createAi(a, difficulty));
+  const ais = world.armies
+    .filter((a) => a !== 'player')
+    .map((a, k) => {
+      const p = PERSONALITIES[pickPersonality(personality, difficulty, seed, k)];
+      world.handicap[a] *= p.production;
+      return createAi(a, difficulty, p);
+    });
   const bot = createBot(profile, seed * 7919 + 13);
   let peak = 0;
   let firstLoss: number | null = null;
@@ -47,6 +55,14 @@ export function runMatch(
   };
 }
 
+/** One personality for every AI, or 'mixed' to roll one per battle as the game does. */
+export type PersonalityChoice = PersonalityId | 'mixed';
+
+/** The personality AI army number `k` plays in the battle with this seed. */
+function pickPersonality(choice: PersonalityChoice, rank: Difficulty, seed: number, k: number) {
+  return choice === 'mixed' ? rollPersonality(rank.id, seed, k) : choice;
+}
+
 export interface MatchupSummary {
   matches: number;
   winRate: number;
@@ -66,10 +82,12 @@ export function runMatchup(
   profile: HumanProfile,
   matches: number,
   seedBase = 1,
+  personality: PersonalityChoice = 'steady',
 ): MatchupSummary {
   const results = Array.from({ length: matches }, (_, i) => {
     const seed = seedBase + i;
-    return runMatch(typeof level === 'function' ? level(seed) : level, difficulty, profile, seed);
+    const map = typeof level === 'function' ? level(seed) : level;
+    return runMatch(map, difficulty, profile, seed, 900, personality);
   });
   const rate = (w: MatchResult['winner']) => results.filter((r) => r.winner === w).length / matches;
   const losses = results.map((r) => r.firstLoss).filter((t): t is number => t !== null);

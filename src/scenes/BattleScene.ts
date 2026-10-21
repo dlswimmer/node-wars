@@ -11,6 +11,7 @@ import {
 import { campaignWorldOptions, medalsFor } from '../sim/upgrades';
 import { DPR, cssToWorld } from '../display';
 import { createAi, updateAi, type AiState } from '../sim/ai';
+import { PERSONALITIES, rollPersonality } from '../sim/personality';
 import { BASE_STATS, DEFAULT_SEND_FRACTION } from '../sim/config';
 import {
   DIFFICULTIES,
@@ -118,7 +119,7 @@ export class BattleScene extends Phaser.Scene {
   private adjutantOn = true;
 
   /** One AI for every army but yours. */
-  private ais: AiState[] = [];
+  ais: AiState[] = [];
   private baseGfx!: Phaser.GameObjects.Graphics;
   /** Reused unit sprites; one per visible unit, extras hidden. */
   private unitSprites: Phaser.GameObjects.Image[] = [];
@@ -201,9 +202,15 @@ export class BattleScene extends Phaser.Scene {
         ? campaignWorldOptions(this.difficulty, seed, save.upgrades)
         : worldOptionsFor(this.difficulty, seed),
     );
+    // Each enemy army rolls a personality (steady at the easy ranks), announced by the HUD.
+    const roll = Math.floor(Math.random() * 1000);
     this.ais = this.world.armies
       .filter((a) => a !== 'player')
-      .map((a) => createAi(a, this.difficulty));
+      .map((a, k) => {
+        const p = PERSONALITIES[rollPersonality(this.difficulty.id, roll, k)];
+        this.world.handicap[a] *= p.production;
+        return createAi(a, this.difficulty, p);
+      });
     const adjutantLevel = this.mode === 'campaign' ? save.upgrades.adjutant : 0;
     this.adjutant = adjutantLevel > 0 ? createAdjutant(adjutantLevel, this.auto) : null;
     this.adjutantOn = true;

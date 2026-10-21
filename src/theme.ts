@@ -1,4 +1,4 @@
-import type { Faction } from './sim/types';
+import type { Army, Faction } from './sim/types';
 
 export const COLORS = {
   background: '#1b2416',
@@ -18,6 +18,13 @@ export const FACTION_COLORS: Record<Faction, number> = {
   enemy: 0xe5484d,
   rival: 0xa66cff,
   neutral: 0x8a8f7a,
+};
+
+/** What kids call each army, by its colour. */
+export const ARMY_NAMES: Record<Army, string> = {
+  player: 'BLUE',
+  enemy: 'RED',
+  rival: 'PURPLE',
 };
 
 export const FONT = 'Impact, "Arial Black", sans-serif';

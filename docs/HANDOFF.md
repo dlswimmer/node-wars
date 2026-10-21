@@ -49,6 +49,12 @@ every push to `main` (CI runs lint, format, typecheck and tests first).
   The tutorial region and Boot Camp get none (lakes still block). A map whose HQs' walk would
   be over 1.7x the straight line drops its mountains, then its river. Scenery is placed after
   terrain so it never sits on water or rock.
+- **Enemy personalities** (`src/sim/personality.ts`) change how an AI plays, not how well.
+  Recruit and Corporal always face the steady AI (personalities swing win rates and early
+  battles must be dependable). Soldier rolls Rusher, Raider or Opportunist; the Turtle, which
+  gathers every base into each attack, only turns up from General (at Soldier it played
+  like a General). A Turtle that waits to build up was tried and dropped: it crushed kids and
+  was easy for adults. Balance tests play `mixed` personalities, as the game does.
 - **Swarm clashes** cancel troop for troop mid-field (Armory counts; a tank absorbs soldiers).
 - **Bunker AI by rank:** only General and Marshal know a Bunker needs double troops and value
   Bunkers/Hospitals by position. Easier AIs waste troops on Bunkers. This keeps early ranks

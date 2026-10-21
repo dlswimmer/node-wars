@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createAi, updateAi } from './ai';
 import { DIFFICULTIES, type Difficulty } from './difficulty';
 import { LEVELS } from './levels';
+import { PERSONALITIES, rollPersonality, type Personality } from './personality';
 import type { LevelDef } from './types';
 import { createWorld, sendTroops, step } from './world';
 
@@ -201,5 +202,72 @@ describe('a third army', () => {
       step(world, 0.1);
     }
     expect(world.bases[1]!.owner).toBe('rival');
+  });
+});
+
+describe('personalities', () => {
+  const field = (bases: LevelDef['bases']): LevelDef => ({
+    id: 'p',
+    name: 'P',
+    width: 800,
+    height: 400,
+    bases,
+  });
+
+  it('keeps the easy ranks steady and saves the Turtle for General and up', () => {
+    for (let roll = 0; roll < 12; roll++) {
+      expect(rollPersonality('recruit', roll)).toBe('steady');
+      expect(rollPersonality('corporal', roll)).toBe('steady');
+      expect(rollPersonality('soldier', roll)).not.toBe('turtle');
+      expect(rollPersonality('soldier', roll)).not.toBe('steady');
+    }
+    const general = new Set(Array.from({ length: 8 }, (_, r) => rollPersonality('general', r)));
+    expect(general.has('turtle')).toBe(true);
+  });
+
+  it('a Turtle gathers every base into one attack on an army', () => {
+    const level = field([
+      { kind: 'barracks', x: 100, y: 100, owner: 'enemy', troops: 30 },
+      { kind: 'barracks', x: 100, y: 200, owner: 'enemy', troops: 30 },
+      { kind: 'barracks', x: 100, y: 300, owner: 'enemy', troops: 30 },
+      { kind: 'barracks', x: 600, y: 200, owner: 'player', troops: 35 },
+    ]);
+    const sources = (personality: Personality) => {
+      const world = createWorld(level);
+      updateAi(world, createAi('enemy', DIFFICULTIES.soldier, personality), 5);
+      return new Set(world.units.map((u) => u.squad)).size;
+    };
+    expect(sources(PERSONALITIES.turtle)).toBe(3);
+    expect(sources(PERSONALITIES.steady)).toBe(0);
+  });
+
+  it("a Raider picks on an army's base over a neutral one", () => {
+    const world = createWorld(
+      field([
+        { kind: 'barracks', x: 400, y: 200, owner: 'enemy', troops: 40 },
+        { kind: 'outpost', x: 150, y: 200, owner: 'player', troops: 8 },
+        { kind: 'outpost', x: 650, y: 200, owner: 'neutral', troops: 6 },
+        { kind: 'hq', x: 60, y: 60, owner: 'player', troops: 60 },
+      ]),
+    );
+    updateAi(world, createAi('enemy', DIFFICULTIES.soldier, PERSONALITIES.raider), 5);
+    expect(world.units[0]?.targetId).toBe(1);
+  });
+
+  it('an Opportunist jumps on a base someone else just hit', () => {
+    const world = createWorld(
+      field([
+        { kind: 'barracks', x: 400, y: 200, owner: 'enemy', troops: 40 },
+        { kind: 'outpost', x: 150, y: 200, owner: 'neutral', troops: 7 },
+        { kind: 'outpost', x: 650, y: 200, owner: 'neutral', troops: 6 },
+        { kind: 'hq', x: 60, y: 60, owner: 'player', troops: 20 },
+      ]),
+    );
+    world.time = 30;
+    world.bases[1]!.lastAttackedBy = 'player';
+    world.bases[1]!.lastAttackedAt = 28;
+    const ai = createAi('enemy', DIFFICULTIES.general, PERSONALITIES.opportunist);
+    updateAi(world, ai, 5);
+    expect(world.units[0]?.targetId).toBe(1);
   });
 });

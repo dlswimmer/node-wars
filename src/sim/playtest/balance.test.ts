@@ -8,6 +8,7 @@ import { runMatchup } from './harness';
 /**
  * Guards the difficulty tuning against simulated players. If a balance change moves one of
  * these out of its band, re-run `npm run balance` and decide whether the new numbers are right.
+ * Enemies roll personalities as in the game (`mixed`; steady at Recruit and Corporal).
  */
 const MATCHES = 60;
 const level = LEVELS[0]!;
@@ -23,7 +24,14 @@ const cases = [
 describe('difficulty balance', { timeout: 20_000 }, () => {
   for (const c of cases) {
     it(`${c.difficulty} vs ${c.profile}: win rate ${c.min * 100}-${c.max * 100}%`, () => {
-      const r = runMatchup(level, DIFFICULTIES[c.difficulty], PROFILES[c.profile]!, MATCHES);
+      const r = runMatchup(
+        level,
+        DIFFICULTIES[c.difficulty],
+        PROFILES[c.profile]!,
+        MATCHES,
+        1,
+        'mixed',
+      );
       expect(r.timeoutRate).toBe(0);
       expect(r.winRate).toBeGreaterThanOrEqual(c.min);
       expect(r.winRate).toBeLessThanOrEqual(c.max);
@@ -31,7 +39,7 @@ describe('difficulty balance', { timeout: 20_000 }, () => {
   }
 
   it('Soldier matches last long enough to feel like a battle', () => {
-    const r = runMatchup(level, DIFFICULTIES.soldier, PROFILES.kid!, MATCHES);
+    const r = runMatchup(level, DIFFICULTIES.soldier, PROFILES.kid!, MATCHES, 1, 'mixed');
     expect(r.medianSeconds).toBeGreaterThan(90);
     expect(r.medianSeconds).toBeLessThan(360);
   });
@@ -51,6 +59,7 @@ describe('difficulty balance', { timeout: 20_000 }, () => {
         PROFILES[c.profile]!,
         MATCHES,
         1000,
+        'mixed',
       );
       expect(r.timeoutRate).toBe(0);
       expect(r.winRate).toBeGreaterThanOrEqual(c.min);

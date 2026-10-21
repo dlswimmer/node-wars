@@ -24,6 +24,7 @@ describe('free-for-all balance', { timeout: 30_000 }, () => {
         PROFILES[c.profile]!,
         MATCHES,
         4000,
+        'mixed',
       );
       expect(r.timeoutRate).toBeLessThanOrEqual(0.05);
       expect(r.winRate).toBeGreaterThanOrEqual(c.min);

@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { DPR, cssSize } from '../display';
 import { medalCount } from '../sim/economy';
 import { countBases, isShielded } from '../sim/world';
-import { COLORS, textStyle } from '../theme';
+import { ARMY_NAMES, COLORS, FACTION_COLORS, textStyle } from '../theme';
 import type { BattleScene } from './BattleScene';
 import { addButton, addMuteButton, makePressable, uiZoom } from './ui';
 
@@ -56,6 +56,7 @@ export class HudScene extends Phaser.Scene {
     this.cameras.main.setOrigin(0, 0);
 
     this.status = this.add.text(20, 14, '', textStyle(28)).setLineSpacing(2);
+    this.showPersonalities();
     this.shieldBar = this.add.graphics();
     this.perks = this.add.text(20, 0, '', textStyle(20, COLORS.accent)).setOrigin(0, 1);
     this.pauseButton = this.createPauseButton();
@@ -77,6 +78,47 @@ export class HudScene extends Phaser.Scene {
       this.scale.off('resize', this.layout, this);
     });
     this.layout();
+  }
+
+  /**
+   * Announce how each enemy army likes to fight ("RED IS A RUSHER"), in its colour, for a few
+   * seconds at the start. Steady enemies (the easy ranks) aren't announced.
+   */
+  private showPersonalities() {
+    const lines = this.battle.ais.filter((ai) => ai.personality.id !== 'steady');
+    if (lines.length === 0) return;
+    const v = this.view();
+    const top = v.height * 0.3;
+    const texts: Phaser.GameObjects.GameObject[] = lines.flatMap((ai, i) => {
+      const y = top + i * 92;
+      const color = '#' + FACTION_COLORS[ai.army].toString(16).padStart(6, '0');
+      const name = ARMY_NAMES[ai.army];
+      return [
+        this.add.text(v.width / 2, y, `${name} IS A ${ai.personality.label}`, textStyle(44, color)),
+        this.add.text(v.width / 2, y + 44, ai.personality.blurb, textStyle(26)),
+      ].map((t) => t.setOrigin(0.5).setDepth(50));
+    });
+    // A dark panel behind, so the lines read over a busy battlefield.
+    const panel = this.add
+      .rectangle(
+        v.width / 2,
+        top + (lines.length * 92 - 92) / 2 + 20,
+        760,
+        lines.length * 92 + 30,
+        0x000000,
+        0.55,
+      )
+      .setDepth(49);
+    texts.push(panel);
+    this.tweens.add({
+      targets: texts,
+      alpha: 0,
+      delay: 4500,
+      duration: 800,
+      onComplete: () => {
+        for (const t of texts) t.destroy();
+      },
+    });
   }
 
   /** True if the pointer is over a HUD control, so the battlefield should ignore it. */

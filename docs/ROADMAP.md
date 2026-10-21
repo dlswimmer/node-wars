@@ -120,7 +120,8 @@ join seamlessly, so the front line flows from one into the next.
 - [ ] Three-army battles: the sim handles any number of armies (same rules for all); a
       Free-for-All in Quick Battle first (done), then three-way regions at 4-5 stars on the conquest
       map with their own balance bands, a second enemy colour and a bigger reward
-- [ ] Enemy personalities (Rusher, Turtle, Raider) so battles at the same rank feel different
+- [x] Enemy personalities (Rusher, Turtle, Raider, Opportunist), announced at the start, so
+      battles at the same rank feel different
 - [ ] Show a region's terrain (river, mountains) on the world map before you pick it
 - [ ] Fog of war over enemy troops on Soldier and up (see BASES.md decisions)
 - [ ] Capturing a zone opens its neighbours; the zone you hold is where you push out from
