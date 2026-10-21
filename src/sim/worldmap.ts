@@ -1,5 +1,6 @@
+import { MAX_MAP_SEED, generateRegionLevel } from './mapgen';
 import { createRng } from './rng';
-import type { Point } from './types';
+import type { LevelDef, Point } from './types';
 
 /**
  * The conquest map: an endless world split into organic, puzzle-piece regions.
@@ -234,6 +235,16 @@ function regionName(seed: number, id: string): string {
   if (id === START_ID) return 'Training Ground';
   const h = hashSeed(seed, ...parseId(id), 3);
   return `${NAME_FIRST[h % NAME_FIRST.length]} ${NAME_SECOND[(h >>> 8) % NAME_SECOND.length]}`;
+}
+
+/**
+ * The battle fought for a region: its own map, outlined by the region's shape. The start
+ * region is a small, gentle map for learning.
+ */
+export function regionLevel(seed: number, id: string): LevelDef {
+  const r = getRegion(seed, id);
+  const mapSeed = 1 + (hashSeed(seed, r.i, r.j, 7) % MAX_MAP_SEED);
+  return generateRegionLevel(mapSeed, r.polygon, `region-${id}`, r.name, id === START_ID);
 }
 
 /**

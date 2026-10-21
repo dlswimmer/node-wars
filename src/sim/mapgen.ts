@@ -1,6 +1,6 @@
 import { createRng } from './rng';
-import { addScenery } from './scenery';
-import type { BaseDef, BaseKind, LevelDef } from './types';
+import { addScenery, fitOutline } from './scenery';
+import type { BaseDef, BaseKind, LevelDef, Point } from './types';
 
 /**
  * Random skirmish maps. Bases are placed on the player's half and then point-mirrored
@@ -70,11 +70,32 @@ export function mapName(seed: number): string {
 
 /** The same seed always gives the same map, so a map number can be played again. */
 export function generateLevel(seed: number): LevelDef {
+  return addScenery(layoutLevel(seed, false), seed);
+}
+
+/**
+ * A battle for a conquest-map region: bases from the random-map generator, with the region's
+ * own shape (stretched and scaled to fit around them) as the battlefield's outline. A small
+ * map has few bases, for the tutorial region.
+ */
+export function generateRegionLevel(
+  seed: number,
+  shape: Point[],
+  id: string,
+  name: string,
+  small: boolean,
+): LevelDef {
+  const { seed: _mapNumber, ...level } = layoutLevel(seed, small);
+  const region = { ...level, id, name };
+  return addScenery(region, seed, fitOutline(shape, region));
+}
+
+function layoutLevel(seed: number, small: boolean): LevelDef {
   const rng = createRng(seed * 2654435761);
   for (let attempt = 0; attempt < 500; attempt++) {
-    const bases = tryLayout(rng);
+    const bases = tryLayout(rng, small);
     if (bases) {
-      const level: LevelDef = {
+      return {
         id: `map-${seed}`,
         name: mapName(seed),
         seed,
@@ -82,11 +103,13 @@ export function generateLevel(seed: number): LevelDef {
         height: MAP_HEIGHT,
         bases: bases.list,
       };
-      return addScenery(level, seed);
     }
   }
   throw new Error(`Could not lay out map ${seed}`);
 }
+
+/** Width range of a small (tutorial) map. */
+const SMALL_WIDTH = [980, 1080] as const;
 
 interface Spot {
   kind: BaseKind;
@@ -94,8 +117,9 @@ interface Spot {
   y: number;
 }
 
-function tryLayout(rng: () => number): { width: number; list: BaseDef[] } | null {
-  const width = Math.round((MIN_WIDTH + rng() * (MAX_WIDTH - MIN_WIDTH)) / 10) * 10;
+function tryLayout(rng: () => number, small: boolean): { width: number; list: BaseDef[] } | null {
+  const [minWidth, maxWidth] = small ? SMALL_WIDTH : [MIN_WIDTH, MAX_WIDTH];
+  const width = Math.round((minWidth + rng() * (maxWidth - minWidth)) / 10) * 10;
   const height = MAP_HEIGHT;
   const cx = width / 2;
   const cy = height / 2;
@@ -103,7 +127,8 @@ function tryLayout(rng: () => number): { width: number; list: BaseDef[] } | null
   const pick = <T>(xs: T[]) => xs[Math.floor(rng() * xs.length)]!;
 
   const half: Spot[] = [];
-  const centre: Spot | null = rng() < 0.4 ? { kind: pick(SPECIALS), x: cx, y: cy } : null;
+  const centre: Spot | null =
+    rng() < (small ? 0 : 0.4) ? { kind: pick(SPECIALS), x: cx, y: cy } : null;
 
   // Distance from a point to the nearest base, counting the mirrored half and the centre.
   const clearance = (x: number, y: number) => {
@@ -167,7 +192,7 @@ function tryLayout(rng: () => number): { width: number; list: BaseDef[] } | null
     const j = Math.floor(rng() * (i + 1));
     [specials[i], specials[j]] = [specials[j]!, specials[i]!];
   }
-  const specialCount = centre ? 1 : rng() < 0.5 ? 1 : 2;
+  const specialCount = centre || small ? 1 : rng() < 0.5 ? 1 : 2;
   const middle = () =>
     [between(width * 0.3, cx - 40), between(EDGE_Y, height - EDGE_Y)] as [number, number];
   for (const kind of specials.slice(0, specialCount)) {
@@ -176,7 +201,7 @@ function tryLayout(rng: () => number): { width: number; list: BaseDef[] } | null
 
   // Fill the rest of the half evenly with barracks and outposts. Every side gets a Barracks:
   // maps of only slow Outposts turned into endless see-saws in bot matches.
-  const perSide = centre ? 4 + Math.floor(rng() * 3) : 4 + Math.floor(rng() * 4);
+  const perSide = small ? 3 : centre ? 4 + Math.floor(rng() * 3) : 4 + Math.floor(rng() * 4);
   const anywhere = () =>
     [between(EDGE_X, cx), between(EDGE_Y, height - EDGE_Y)] as [number, number];
   const hasBarracks = () => half.some((b) => b.kind === 'barracks');

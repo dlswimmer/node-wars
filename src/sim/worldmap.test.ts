@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { MIN_BASES } from './mapgen';
+import { OUTLINE_MARGIN, edgeDistance, insidePolygon } from './scenery';
 import type { Point } from './types';
 import {
   MAX_STARS,
@@ -10,6 +12,7 @@ import {
   newConquest,
   recordBattle,
   regionId,
+  regionLevel,
   type ConquestState,
 } from './worldmap';
 
@@ -198,5 +201,44 @@ describe('conquest progress', () => {
     expect(s.starWins[1]).toBe(1);
     expect(s.regions[START_ID]!.wins).toBe(2);
     expect(s.held).toEqual([START_ID]);
+  });
+});
+
+describe('region battles', () => {
+  const regions = (seed: number) => [START_ID, ...getRegion(seed, START_ID).neighbours];
+
+  it('gives each region its own fixed map', () => {
+    expect(regionLevel(4, '1,0')).toEqual(regionLevel(4, '1,0'));
+    expect(regionLevel(4, '1,0').bases).not.toEqual(regionLevel(4, '0,1').bases);
+    expect(regionLevel(4, '1,0').name).toBe(getRegion(4, '1,0').name);
+  });
+
+  it('keeps every base and its mirror twin inside the region-shaped outline', () => {
+    for (const seed of SEEDS) {
+      for (const id of regions(seed)) {
+        const level = regionLevel(seed, id);
+        const outline = level.outline!;
+        for (const b of level.bases) {
+          expect(insidePolygon(b, outline)).toBe(true);
+          // The margin is measured from just below the base, where its label hangs.
+          expect(edgeDistance(b, outline)).toBeGreaterThanOrEqual(OUTLINE_MARGIN - 13);
+        }
+        for (const f of level.features ?? []) expect(insidePolygon(f, outline)).toBe(true);
+      }
+    }
+  });
+
+  it('uses the region’s shape: same number of corners, proportions matching the bases', () => {
+    const level = regionLevel(9, '1,1');
+    expect(level.outline!.length).toBe(getRegion(9, '1,1').polygon.length);
+  });
+
+  it('makes the tutorial region small and the others full-sized', () => {
+    for (const seed of SEEDS) {
+      expect(regionLevel(seed, START_ID).bases.length).toBeLessThanOrEqual(8);
+      for (const id of getRegion(seed, START_ID).neighbours) {
+        expect(regionLevel(seed, id).bases.length).toBeGreaterThanOrEqual(MIN_BASES);
+      }
+    }
   });
 });

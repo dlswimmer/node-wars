@@ -37,11 +37,81 @@ const FEATURE_WEIGHTS: [FeatureKind, number][] = [
   ['traps', 1.5],
 ];
 
-/** Add an outline and scenery to a point-symmetric level. */
-export function addScenery(level: LevelDef, seed: number): LevelDef {
+/**
+ * Add an outline and scenery to a point-symmetric level. The outline is generated around the
+ * bases unless one is given (a conquest region's shape, from fitOutline).
+ */
+export function addScenery(level: LevelDef, seed: number, outline?: Point[]): LevelDef {
   const rng = createRng(seed * 40503 + 7);
-  const outline = makeOutline(level, rng);
-  return { ...level, outline, features: makeFeatures(level, outline, rng) };
+  const edge = outline ?? makeOutline(level, rng);
+  return { ...level, outline: edge, features: makeFeatures(level, edge, rng) };
+}
+
+/**
+ * Turn a shape (a conquest region) into a battle outline around a level's bases: centred on
+ * the map, stretched to the bases' proportions, and scaled just big enough that every base
+ * and its label clears the edge.
+ */
+export function fitOutline(shape: Point[], level: LevelDef): Point[] {
+  const { width, height, bases } = level;
+  const c = centroid(shape);
+  const span = (xs: number[]) => Math.max(...xs) - Math.min(...xs);
+  const shapeAspect = span(shape.map((p) => p.x)) / span(shape.map((p) => p.y));
+  const basesAspect =
+    (span(bases.map((b) => b.x)) + 2 * OUTLINE_MARGIN) /
+    (span(bases.map((b) => b.y)) + 2 * OUTLINE_MARGIN);
+  const stretch = basesAspect / shapeAspect;
+  const unit = shape.map((p) => ({ x: (p.x - c.x) * stretch, y: p.y - c.y }));
+  const w = span(unit.map((p) => p.x));
+  const h = span(unit.map((p) => p.y));
+  // Shift the shape a little off-centre too, if that lets it fit around the bases snugger.
+  let best: Point[] = [];
+  let bestScale = Infinity;
+  for (const ox of [-0.12, -0.06, 0, 0.06, 0.12]) {
+    for (const oy of [-0.12, -0.06, 0, 0.06, 0.12]) {
+      const scaled = (s: number) =>
+        unit.map((p) => ({
+          x: Math.round(width / 2 + (p.x + ox * w) * s),
+          y: Math.round(height / 2 + (p.y + oy * h) * s),
+        }));
+      const fits = (s: number) => {
+        const poly = scaled(s);
+        return bases.every((b) => {
+          const q = { x: b.x, y: b.y + LABEL_DROP };
+          return insidePolygon(q, poly) && edgeDistance(q, poly) >= OUTLINE_MARGIN;
+        });
+      };
+      let lo = 0;
+      let hi = 1;
+      while (!fits(hi)) hi *= 2;
+      for (let k = 0; k < 16; k++) {
+        const mid = (lo + hi) / 2;
+        if (fits(mid)) hi = mid;
+        else lo = mid;
+      }
+      if (hi < bestScale - 1e-9) {
+        bestScale = hi;
+        best = scaled(hi);
+      }
+    }
+  }
+  return best;
+}
+
+/** Area-weighted centre of a polygon. */
+export function centroid(poly: Point[]): Point {
+  let area = 0;
+  let x = 0;
+  let y = 0;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[j]!;
+    const b = poly[i]!;
+    const cross = a.x * b.y - b.x * a.y;
+    area += cross;
+    x += (a.x + b.x) * cross;
+    y += (a.y + b.y) * cross;
+  }
+  return { x: x / (3 * area), y: y / (3 * area) };
 }
 
 function makeOutline(level: LevelDef, rng: () => number): Point[] {
@@ -123,7 +193,10 @@ function makeFeatures(level: LevelDef, outline: Point[], rng: () => number): Fea
   const half: Feature[] = [];
   const fits = (f: Feature) => {
     if (Math.hypot(f.x - cx, f.y - cy) < f.size + 10) return false; // overlaps its own twin
-    if (!insidePolygon(f, outline) || edgeDistance(f, outline) < f.size + 12) return false;
+    // Its mirror twin must fit as well: a conquest region's outline isn't symmetric.
+    for (const p of [f, { x: width - f.x, y: height - f.y }]) {
+      if (!insidePolygon(p, outline) || edgeDistance(p, outline) < f.size + 12) return false;
+    }
     for (const b of bases) {
       const clear = f.size + BASE_STATS[b.kind].radius + BASE_CLEARANCE;
       if (Math.hypot(f.x - b.x, f.y - b.y) < clear) return false;
