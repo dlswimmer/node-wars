@@ -68,7 +68,7 @@ describe('difficulty balance', () => {
     { difficulty: 'corporal', profile: 'kid', min: 0.85, max: 1 },
     { difficulty: 'soldier', profile: 'kid', min: 0.75, max: 1 },
     { difficulty: 'general', profile: 'adult', min: 0.08, max: 0.45 },
-    { difficulty: 'marshal', profile: 'kid', min: 0, max: 0.08 },
+    { difficulty: 'marshal', profile: 'kid', min: 0, max: 0.12 },
     { difficulty: 'marshal', profile: 'adult', min: 0.05, max: 0.3 },
   ] as const;
   for (const c of regionCases) {

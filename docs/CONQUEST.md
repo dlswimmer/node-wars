@@ -6,6 +6,12 @@ except enemy upgrades. Code: `src/sim/worldmap.ts` (regions, ratings, progress),
 Soldier, General and Marshal (`STAR_DIFFICULTY` in `src/sim/difficulty.ts`). Auto-battle replays
 regions you already hold.
 
+**Battle shape.** A region's battle outline is its world-map polygon exactly, only scaled (to a
+set area) and moved, never stretched or turned. Fairness still comes from mirroring: bases
+are placed in pairs through the shape's centre, only where a base and its twin both fit
+inside. The pairs are laid out along the region's long axis, turned so your HQ starts on the
+west or south side (`generateRegionLevel` in `src/sim/mapgen.ts`).
+
 ## The idea
 
 The campaign becomes a map you conquer piece by piece. Your first battle is easy and has no

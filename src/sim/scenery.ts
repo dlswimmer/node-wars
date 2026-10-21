@@ -39,7 +39,7 @@ const FEATURE_WEIGHTS: [FeatureKind, number][] = [
 
 /**
  * Add an outline and scenery to a point-symmetric level. The outline is generated around the
- * bases unless one is given (a conquest region's shape, from fitOutline).
+ * bases unless one is given (a conquest region's shape, from regionOutline).
  */
 export function addScenery(level: LevelDef, seed: number, outline?: Point[]): LevelDef {
   const rng = createRng(seed * 40503 + 7);
@@ -48,54 +48,41 @@ export function addScenery(level: LevelDef, seed: number, outline?: Point[]): Le
 }
 
 /**
- * Turn a shape (a conquest region) into a battle outline around a level's bases: centred on
- * the map, stretched to the bases' proportions, and scaled just big enough that every base
- * and its label clears the edge.
+ * A conquest region's exact shape as a battle outline: only scaled (to the given area) and
+ * moved so its centre of mass is the map's centre, never stretched, turned or re-noised. The
+ * map is sized so that centre is its middle, letting bases mirror through it.
  */
-export function fitOutline(shape: Point[], level: LevelDef): Point[] {
-  const { width, height, bases } = level;
+export function regionOutline(
+  shape: Point[],
+  area: number,
+): { outline: Point[]; width: number; height: number } {
   const c = centroid(shape);
-  const span = (xs: number[]) => Math.max(...xs) - Math.min(...xs);
-  const shapeAspect = span(shape.map((p) => p.x)) / span(shape.map((p) => p.y));
-  const basesAspect =
-    (span(bases.map((b) => b.x)) + 2 * OUTLINE_MARGIN) /
-    (span(bases.map((b) => b.y)) + 2 * OUTLINE_MARGIN);
-  const stretch = basesAspect / shapeAspect;
-  const unit = shape.map((p) => ({ x: (p.x - c.x) * stretch, y: p.y - c.y }));
-  const w = span(unit.map((p) => p.x));
-  const h = span(unit.map((p) => p.y));
-  // Shift the shape a little off-centre too, if that lets it fit around the bases snugger.
-  let best: Point[] = [];
-  let bestScale = Infinity;
-  for (const ox of [-0.12, -0.06, 0, 0.06, 0.12]) {
-    for (const oy of [-0.12, -0.06, 0, 0.06, 0.12]) {
-      const scaled = (s: number) =>
-        unit.map((p) => ({
-          x: Math.round(width / 2 + (p.x + ox * w) * s),
-          y: Math.round(height / 2 + (p.y + oy * h) * s),
-        }));
-      const fits = (s: number) => {
-        const poly = scaled(s);
-        return bases.every((b) => {
-          const q = { x: b.x, y: b.y + LABEL_DROP };
-          return insidePolygon(q, poly) && edgeDistance(q, poly) >= OUTLINE_MARGIN;
-        });
-      };
-      let lo = 0;
-      let hi = 1;
-      while (!fits(hi)) hi *= 2;
-      for (let k = 0; k < 16; k++) {
-        const mid = (lo + hi) / 2;
-        if (fits(mid)) hi = mid;
-        else lo = mid;
-      }
-      if (hi < bestScale - 1e-9) {
-        bestScale = hi;
-        best = scaled(hi);
-      }
-    }
+  const scale = Math.sqrt(area / polygonArea(shape));
+  // A whole-number centre, so mirrored bases land on whole numbers too.
+  const cx = Math.ceil(Math.max(...shape.map((p) => Math.abs(p.x - c.x))) * scale);
+  const cy = Math.ceil(Math.max(...shape.map((p) => Math.abs(p.y - c.y))) * scale);
+  const outline = shape.map((p) => ({ x: cx + (p.x - c.x) * scale, y: cy + (p.y - c.y) * scale }));
+  return { outline, width: 2 * cx, height: 2 * cy };
+}
+
+/**
+ * Whether a base at this spot fits inside an outline with room for its label, and so does
+ * its mirror twin through the map's centre (an irregular region isn't symmetric itself).
+ */
+export function fitsWithTwin(outline: Point[], width: number, height: number) {
+  const roomy = (x: number, y: number) => {
+    const p = { x, y: y + LABEL_DROP };
+    return insidePolygon(p, outline) && edgeDistance(p, outline) >= OUTLINE_MARGIN;
+  };
+  return (x: number, y: number) => roomy(x, y) && roomy(width - x, height - y);
+}
+
+export function polygonArea(poly: Point[]): number {
+  let twice = 0;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    twice += poly[j]!.x * poly[i]!.y - poly[i]!.x * poly[j]!.y;
   }
-  return best;
+  return Math.abs(twice) / 2;
 }
 
 /** Area-weighted centre of a polygon. */

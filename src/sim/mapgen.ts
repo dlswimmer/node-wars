@@ -1,5 +1,5 @@
 import { createRng } from './rng';
-import { addScenery, fitOutline } from './scenery';
+import { addScenery, fitsWithTwin, regionOutline } from './scenery';
 import type { BaseDef, BaseKind, LevelDef, Point } from './types';
 
 /**
@@ -73,10 +73,23 @@ export function generateLevel(seed: number): LevelDef {
   return addScenery(layoutLevel(seed, false), seed);
 }
 
+/** Battlefield area of a conquest region (about a random map's), and of the tutorial one. */
+export const REGION_AREA = 700_000;
+export const SMALL_REGION_AREA = 480_000;
+
+/** Where bases may go on a region's map: its size, and which spots fit with their twins. */
+interface Field {
+  width: number;
+  height: number;
+  fits: (x: number, y: number) => boolean;
+}
+
 /**
- * A battle for a conquest-map region: bases from the random-map generator, with the region's
- * own shape (stretched and scaled to fit around them) as the battlefield's outline. A small
- * map has few bases, for the tutorial region.
+ * A battle for a conquest-map region. The outline is the region's exact shape from the world
+ * map, only scaled and moved. Bases still come in mirrored pairs through the shape's centre
+ * (so both sides get the same map), placed only where a base and its twin both fit inside.
+ * The two HQs face each other along the region's long way, yours at the west/south end.
+ * A small map has few bases, for the tutorial region.
  */
 export function generateRegionLevel(
   seed: number,
@@ -85,10 +98,62 @@ export function generateRegionLevel(
   name: string,
   small: boolean,
 ): LevelDef {
-  const level = layoutLevel(seed, small);
-  // Regions are known by name, not map number.
-  const region = { ...level, id, name, seed: undefined };
-  return addScenery(region, seed, fitOutline(shape, region));
+  const { outline, width, height } = regionOutline(shape, small ? SMALL_REGION_AREA : REGION_AREA);
+  const fits = fitsWithTwin(outline, width, height);
+  // The layout runs in a frame turned to lie along the region's long way (only the bases
+  // turn, never the outline), with your HQ at the west/south end.
+  const [cx, cy] = [width / 2, height / 2];
+  const d = playerToEnemy(outline, cx, cy);
+  const n = { x: -d.y, y: d.x };
+  const reach = (axis: Point) =>
+    2 * Math.max(...outline.map((p) => Math.abs((p.x - cx) * axis.x + (p.y - cy) * axis.y)));
+  const [fw, fh] = [reach(d), reach(n)];
+  const toMap = (x: number, y: number) => ({
+    x: cx + (x - fw / 2) * d.x + (y - fh / 2) * n.x,
+    y: cy + (x - fw / 2) * d.y + (y - fh / 2) * n.y,
+  });
+  const field: Field = {
+    width: fw,
+    height: fh,
+    fits: (x, y) => {
+      const p = toMap(x, y);
+      return fits(p.x, p.y);
+    },
+  };
+  const rng = createRng(seed * 2654435761);
+  for (let attempt = 0; attempt < 500; attempt++) {
+    const bases = tryLayout(rng, small, field);
+    if (!bases) continue;
+    // Turn the bases onto the map, rounded, then rebuild each mirror twin (listed right after
+    // its base) exactly through the centre.
+    const list = bases.list.map((b) => {
+      const p = toMap(b.x, b.y);
+      return { ...b, x: Math.round(p.x), y: Math.round(p.y) };
+    });
+    for (let i = 0; i + 1 < list.length; i += 2) {
+      list[i + 1] = { ...list[i + 1]!, x: width - list[i]!.x, y: height - list[i]!.y };
+    }
+    if (list.length % 2 === 1) list[list.length - 1] = { ...list[list.length - 1]!, x: cx, y: cy };
+    return addScenery({ id, name, width, height, bases: list }, seed, outline);
+  }
+  throw new Error(`Could not lay out region ${id}`);
+}
+
+/**
+ * Unit direction from your HQ's end of a region to the enemy's: along the shape's longest
+ * spread, pointing so you start on the west or south side (left or lower on screen).
+ */
+function playerToEnemy(outline: Point[], cx: number, cy: number): Point {
+  let [xx, yy, xy] = [0, 0, 0];
+  for (const p of outline) {
+    xx += (p.x - cx) ** 2;
+    yy += (p.y - cy) ** 2;
+    xy += (p.x - cx) * (p.y - cy);
+  }
+  const angle = 0.5 * Math.atan2(2 * xy, xx - yy);
+  const d = { x: Math.cos(angle), y: Math.sin(angle) };
+  // Towards the enemy means away from west (-x) and south (+y on screen).
+  return d.x - d.y >= 0 ? d : { x: -d.x, y: -d.y };
 }
 
 function layoutLevel(seed: number, small: boolean): LevelDef {
@@ -118,18 +183,25 @@ interface Spot {
   y: number;
 }
 
-function tryLayout(rng: () => number, small: boolean): { width: number; list: BaseDef[] } | null {
+function tryLayout(
+  rng: () => number,
+  small: boolean,
+  field?: Field,
+): { width: number; list: BaseDef[] } | null {
   const [minWidth, maxWidth] = small ? SMALL_WIDTH : [MIN_WIDTH, MAX_WIDTH];
-  const width = Math.round((minWidth + rng() * (maxWidth - minWidth)) / 10) * 10;
-  const height = MAP_HEIGHT;
+  const width = field
+    ? field.width
+    : Math.round((minWidth + rng() * (maxWidth - minWidth)) / 10) * 10;
+  const height = field?.height ?? MAP_HEIGHT;
   const cx = width / 2;
   const cy = height / 2;
   const between = (a: number, b: number) => a + rng() * (b - a);
   const pick = <T>(xs: T[]) => xs[Math.floor(rng() * xs.length)]!;
 
   const half: Spot[] = [];
-  const centre: Spot | null =
+  let centre: Spot | null =
     rng() < (small ? 0 : 0.4) ? { kind: pick(SPECIALS), x: cx, y: cy } : null;
+  if (field && !field.fits(cx, cy)) centre = null;
 
   // Distance from a point to the nearest base, counting the mirrored half and the centre.
   const clearance = (x: number, y: number) => {
@@ -143,12 +215,16 @@ function tryLayout(rng: () => number, small: boolean): { width: number; list: Ba
   // The left corners (and, mirrored, the right ones) stay empty for the HUD.
   const cornerX = EDGE_X + (width - 2 * EDGE_X) * CORNER_X;
   const cornerY = (height - 2 * EDGE_Y) * CORNER_Y;
+  // A region's own shape decides where bases fit; a plain map keeps to its margins.
+  const [left, top, bottom] = field ? [0, 0, height] : [EDGE_X, EDGE_Y, height - EDGE_Y];
   const inBounds = (x: number, y: number) =>
-    x >= EDGE_X &&
-    x < cx &&
-    y >= EDGE_Y &&
-    y <= height - EDGE_Y &&
-    !(x < cornerX && Math.min(y - EDGE_Y, height - EDGE_Y - y) < cornerY);
+    field
+      ? x < cx && field.fits(x, y)
+      : x >= EDGE_X &&
+        x < cx &&
+        y >= EDGE_Y &&
+        y <= height - EDGE_Y &&
+        !(x < cornerX && Math.min(y - EDGE_Y, height - EDGE_Y - y) < cornerY);
 
   /** Try random points from `sample`; keep the most open of a few (Poisson-disk style). */
   const place = (kind: BaseKind, sample: () => [number, number], candidates = 1): boolean => {
@@ -171,12 +247,13 @@ function tryLayout(rng: () => number, small: boolean): { width: number; list: Ba
     return true;
   };
 
-  const hq = {
-    kind: 'hq' as const,
-    x: between(EDGE_X, 170),
-    y: between(height * 0.4, height * 0.6),
-  };
-  if (!place('hq', () => [hq.x, hq.y])) return null;
+  const hq = field
+    ? edgeHq(field, between(height * 0.4, height * 0.6))
+    : {
+        x: between(EDGE_X, 170),
+        y: between(height * 0.4, height * 0.6),
+      };
+  if (!hq || !place('hq', () => [hq.x, hq.y])) return null;
 
   // A starter base close to home, so the first move is obvious.
   const nearKind: BaseKind = rng() < 0.5 ? 'barracks' : 'outpost';
@@ -194,8 +271,7 @@ function tryLayout(rng: () => number, small: boolean): { width: number; list: Ba
     [specials[i], specials[j]] = [specials[j]!, specials[i]!];
   }
   const specialCount = centre || small ? 1 : rng() < 0.5 ? 1 : 2;
-  const middle = () =>
-    [between(width * 0.3, cx - 40), between(EDGE_Y, height - EDGE_Y)] as [number, number];
+  const middle = () => [between(width * 0.3, cx - 40), between(top, bottom)] as [number, number];
   for (const kind of specials.slice(0, specialCount)) {
     if (!place(kind, middle, 3)) return null;
   }
@@ -203,8 +279,7 @@ function tryLayout(rng: () => number, small: boolean): { width: number; list: Ba
   // Fill the rest of the half evenly with barracks and outposts. Every side gets a Barracks:
   // maps of only slow Outposts turned into endless see-saws in bot matches.
   const perSide = small ? 3 : centre ? 4 + Math.floor(rng() * 3) : 4 + Math.floor(rng() * 4);
-  const anywhere = () =>
-    [between(EDGE_X, cx), between(EDGE_Y, height - EDGE_Y)] as [number, number];
+  const anywhere = () => [between(left, cx), between(top, bottom)] as [number, number];
   const hasBarracks = () => half.some((b) => b.kind === 'barracks');
   while (half.length < perSide || !hasBarracks()) {
     const kind = !hasBarracks() || rng() < 0.4 ? 'barracks' : 'outpost';
@@ -213,7 +288,8 @@ function tryLayout(rng: () => number, small: boolean): { width: number; list: Ba
 
   const all = [...half, ...half.map((b) => ({ ...b, x: width - b.x, y: height - b.y }))];
   if (centre) all.push(centre);
-  if (crowdsCorner(all)) return null;
+  // (A region's rounded shape already keeps bases out of the screen corners.)
+  if (!field && crowdsCorner(all)) return null;
 
   // Garrisons grow with distance from home; computed on the player's half and copied to the
   // mirror twin so both sides match exactly.
@@ -222,6 +298,7 @@ function tryLayout(rng: () => number, small: boolean): { width: number; list: Ba
     const t = Math.min(1, Math.max(0, (Math.hypot(b.x - hq.x, b.y - hq.y) - MIN_SPACING) / reach));
     return Math.round(NEAR_TROOPS + (FAR_TROOPS - NEAR_TROOPS) * t + (KIND_TROOPS[b.kind] ?? 0));
   };
+  // Each base is followed by its mirror twin (region maps rely on this order).
   const list: BaseDef[] = [];
   for (const b of half) {
     const isHq = b.kind === 'hq';
@@ -237,6 +314,12 @@ function tryLayout(rng: () => number, small: boolean): { width: number; list: Ba
   }
   if (centre) list.push({ ...centre, owner: 'neutral', troops: troopsAt(centre) });
   return { width, list };
+}
+
+/** On a region map, the HQ goes as far towards the left edge as it fits at this height. */
+function edgeHq(field: Field, y: number): { x: number; y: number } | null {
+  for (let x = 0; x < field.width / 2; x += 5) if (field.fits(x, y)) return { x: x + 15, y };
+  return null;
 }
 
 /**

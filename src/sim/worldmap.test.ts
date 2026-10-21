@@ -229,9 +229,36 @@ describe('region battles', () => {
     }
   });
 
-  it('uses the region’s shape: same number of corners, proportions matching the bases', () => {
-    const level = regionLevel(9, '1,1');
-    expect(level.outline!.length).toBe(getRegion(9, '1,1').polygon.length);
+  it('uses the region’s exact shape: only scaled and moved, never stretched or turned', () => {
+    for (const seed of SEEDS) {
+      for (const id of regions(seed)) {
+        const shape = getRegion(seed, id).polygon;
+        const outline = regionLevel(seed, id).outline!;
+        expect(outline.length).toBe(shape.length);
+        // One scale for both axes, one offset, for every corner.
+        const scale = (outline[1]!.x - outline[0]!.x) / (shape[1]!.x - shape[0]!.x);
+        const dx = outline[0]!.x - shape[0]!.x * scale;
+        const dy = outline[0]!.y - shape[0]!.y * scale;
+        expect(scale).toBeGreaterThan(1);
+        shape.forEach((p, k) => {
+          expect(outline[k]!.x).toBeCloseTo(p.x * scale + dx, 6);
+          expect(outline[k]!.y).toBeCloseTo(p.y * scale + dy, 6);
+        });
+      }
+    }
+  });
+
+  it('mirrors every base through the centre, so both sides get the same map', () => {
+    for (const seed of SEEDS) {
+      for (const id of regions(seed)) {
+        const { width, height, bases } = regionLevel(seed, id);
+        for (const b of bases) {
+          const twin = bases.find((o) => o.x === width - b.x && o.y === height - b.y);
+          expect(twin?.kind).toBe(b.kind);
+          expect(twin?.troops).toBe(b.troops);
+        }
+      }
+    }
   });
 
   it('makes the tutorial region small and the others full-sized', () => {
@@ -264,5 +291,25 @@ describe('medal locks', () => {
         recordBattle(s, pick, k % 5 !== 4, false, 0);
       }
     }
+  });
+});
+
+describe('region battle orientation', () => {
+  it('starts your HQ on the west or south side, along the region’s long way', () => {
+    let turned = 0;
+    for (const seed of SEEDS) {
+      for (const id of ids(2)) {
+        const { width, height, bases } = regionLevel(seed, id);
+        const mine = bases.find((b) => b.kind === 'hq' && b.owner === 'player')!;
+        const theirs = bases.find((b) => b.kind === 'hq' && b.owner === 'enemy')!;
+        // West is smaller x; south is larger y on screen.
+        expect(mine.x < theirs.x || mine.y > theirs.y).toBe(true);
+        expect(theirs.x).toBe(width - mine.x);
+        expect(theirs.y).toBe(height - mine.y);
+        if (Math.abs(theirs.y - mine.y) > Math.abs(theirs.x - mine.x) * 0.3) turned++;
+      }
+    }
+    // Some regions really are laid out along a slanted or upright axis.
+    expect(turned).toBeGreaterThan(5);
   });
 });
