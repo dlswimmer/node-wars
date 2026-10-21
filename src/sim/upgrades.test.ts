@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { HELPER_PATIENCE, createAdjutant, notePlayerOrder, updateAdjutant } from './adjutant';
-import { DIFFICULTIES, difficultyForStars } from './difficulty';
+import { DIFFICULTIES } from './difficulty';
+import { STAR_UNLOCK_MEDALS, UPGRADE_COSTS, medalCount } from './economy';
 import { LEVELS } from './levels';
 import type { LevelDef } from './types';
 import {
   NO_UPGRADES,
   campaignWorldOptions,
-  formatMedals,
   medalsFor,
   nextCost,
   type UpgradeLevels,
@@ -14,28 +14,24 @@ import {
 import { createWorld, sendTroops, step } from './world';
 
 describe('medals', () => {
-  it('pay 1 per win scaled by rank, nothing for a loss, half for auto-battles', () => {
-    expect(medalsFor('recruit', true)).toBe(0.5);
-    expect(medalsFor('soldier', true)).toBe(1);
-    expect(medalsFor('general', true)).toBe(1.5);
-    expect(medalsFor('general', false)).toBe(0);
-    expect(medalsFor('soldier', true, true)).toBe(0.5);
+  it('pay one whole medal per star, nothing for a loss, and less for auto-battles', () => {
+    expect([1, 2, 3, 4, 5].map((stars) => medalsFor(stars, true))).toEqual([1, 2, 3, 4, 5]);
+    expect(medalsFor(4, false)).toBe(0);
+    expect([1, 2, 3, 4, 5].map((stars) => medalsFor(stars, true, true))).toEqual([1, 1, 1, 2, 2]);
   });
 
-  it('pay ½, ¾, 1, 1½ and 2 for one to five stars', () => {
-    const pay = [1, 2, 3, 4, 5].map((stars) => medalsFor(difficultyForStars(stars).id, true));
-    expect(pay).toEqual([0.5, 0.75, 1, 1.5, 2]);
-    expect(difficultyForStars(1).id).toBe('recruit');
-    expect(difficultyForStars(3).id).toBe('soldier');
-    expect(difficultyForStars(4).id).toBe('general');
+  it('are always whole numbers, and so is every price and unlock', () => {
+    const all = [
+      ...Object.values(UPGRADE_COSTS).flat(),
+      ...STAR_UNLOCK_MEDALS,
+      ...[1, 2, 3, 4, 5].flatMap((s) => [medalsFor(s, true), medalsFor(s, true, true)]),
+    ];
+    for (const n of all) expect(Number.isInteger(n)).toBe(true);
   });
 
-  it('display as kid-readable fractions', () => {
-    expect(formatMedals(0)).toBe('0');
-    expect(formatMedals(0.5)).toBe('½');
-    expect(formatMedals(7.5)).toBe('7½');
-    expect(formatMedals(3.25)).toBe('3¼');
-    expect(formatMedals(12)).toBe('12');
+  it('read naturally', () => {
+    expect(medalCount(1)).toBe('1 medal');
+    expect(medalCount(12)).toBe('12 medals');
   });
 });
 
@@ -43,8 +39,11 @@ describe('upgrades', () => {
   const levels = (over: Partial<UpgradeLevels>): UpgradeLevels => ({ ...NO_UPGRADES, ...over });
 
   it('cost more each level and stop at the max', () => {
-    expect(nextCost(levels({}), 'headStart')).toBe(1);
-    expect(nextCost(levels({ headStart: 1 }), 'headStart')).toBe(2);
+    expect(nextCost(levels({}), 'headStart')).toBe(UPGRADE_COSTS.headStart[0]);
+    expect(nextCost(levels({ headStart: 1 }), 'headStart')).toBe(UPGRADE_COSTS.headStart[1]);
+    for (const costs of Object.values(UPGRADE_COSTS)) {
+      for (let i = 1; i < costs.length; i++) expect(costs[i]).toBeGreaterThan(costs[i - 1]!);
+    }
     expect(nextCost(levels({ heavyTanks: 2 }), 'heavyTanks')).toBeNull();
   });
 

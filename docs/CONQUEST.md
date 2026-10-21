@@ -47,11 +47,11 @@ maps.
 
   | Stars | Roughly like                       | Medals per win |
   | ----- | ---------------------------------- | -------------- |
-  | ★     | Recruit                            | ½              |
-  | ★★    | between Recruit and Soldier        | ¾              |
-  | ★★★   | Soldier                            | 1              |
-  | ★★★★  | General                            | 1½             |
-  | ★★★★★ | harder than General (new top tier) | 2              |
+  | ★     | Recruit                            | 1              |
+  | ★★    | between Recruit and Soldier        | 2              |
+  | ★★★   | Soldier                            | 3              |
+  | ★★★★  | General                            | 4              |
+  | ★★★★★ | harder than General (new top tier) | 5              |
 
 - **Choice at every step:** the frontier always offers a mix, at least one easier and one
   harder neighbour, so a kid can play safe or push for more medals.
@@ -106,10 +106,10 @@ starts fresh).
 2. **The world keeps growing**; there's no final edge.
 3. **The campaign starts in a small, almost tutorial region.**
 4. **Enemies will get mirrored upgrades** to raise difficulty, not only smarter AI.
-5. **Higher stars unlock with medals earned.** 1-3 stars are always open; 4 stars need 10
-   medals earned and 5 stars need 25 (`STAR_UNLOCK_MEDALS` in `src/sim/worldmap.ts`). It counts
+5. **Higher stars unlock with medals earned.** 1-3 stars are always open; 4 stars need 30
+   medals earned and 5 stars need 75 (`STAR_UNLOCK_MEDALS` in `src/sim/economy.ts`). It counts
    lifetime medals earned (`medalsEarned` in the save), so spending in the Command Tent never
    re-locks anything, and auto-battle medals count, which gives farming held regions a purpose.
    Locked regions still show, with a padlock line saying how many medals they need. The
    frontier always keeps at least one unlocked region. With bot win rates, a bold kid first
-   sees 4-star regions around battle 7 and unlocks them around battle 12; 5 stars around 29.
+   sees 4-star regions around battle 7 and unlocks them around battle 13; 5 stars around 30.

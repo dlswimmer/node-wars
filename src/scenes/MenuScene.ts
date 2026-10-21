@@ -2,7 +2,6 @@ import Phaser from 'phaser';
 import { DPR, cssSize } from '../display';
 import { loadSave } from '../save';
 import { DIFFICULTIES, DIFFICULTY_ORDER, type DifficultyId } from '../sim/difficulty';
-import { formatMedals } from '../sim/upgrades';
 import { loadDifficulty, saveDifficulty } from '../settings';
 import { COLORS, textStyle } from '../theme';
 import type { BattleData } from './BattleScene';
@@ -85,7 +84,7 @@ export class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    const medals = formatMedals(loadSave().medals);
+    const medals = loadSave().medals;
     addButton(this, cx - 220, 410, {
       width: 400,
       height: 180,

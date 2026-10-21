@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio';
 import { buyUpgrade, loadSave } from '../save';
-import { ADJUTANT_LEVELS, UPGRADES, formatMedals, nextCost } from '../sim/upgrades';
+import { medalCount } from '../sim/economy';
+import { ADJUTANT_LEVELS, UPGRADES, nextCost } from '../sim/upgrades';
 import { COLORS, textStyle } from '../theme';
 import { drawMapGrid } from './drawing';
 import { MENU_DESIGN, fitDesign } from './MenuScene';
@@ -21,9 +22,7 @@ export class TentScene extends Phaser.Scene {
     const save = loadSave();
     const cx = MENU_DESIGN.width / 2;
     this.add.text(cx, 45, 'COMMAND TENT', textStyle(64, COLORS.accent)).setOrigin(0.5);
-    this.add
-      .text(cx, 95, `You have ${formatMedals(save.medals)} medals`, textStyle(28))
-      .setOrigin(0.5);
+    this.add.text(cx, 95, `You have ${medalCount(save.medals)}`, textStyle(28)).setOrigin(0.5);
 
     UPGRADES.forEach((u, i) => {
       const y = 150 + i * 66;
@@ -48,11 +47,11 @@ export class TentScene extends Phaser.Scene {
       if (cost === null) {
         this.add.text(870, y, 'MAXED', textStyle(30, COLORS.accent)).setOrigin(0.5);
       } else {
-        const affordable = save.medals >= cost - 1e-9;
+        const affordable = save.medals >= cost;
         addButton(this, 870, y, {
           width: 220,
           height: 54,
-          label: `${formatMedals(cost)} MEDAL${cost > 1 ? 'S' : ''}`,
+          label: medalCount(cost).toUpperCase(),
           color: affordable ? 0x2f6b3a : 0x3a3a3a,
           labelSize: 26,
           onClick: () => {

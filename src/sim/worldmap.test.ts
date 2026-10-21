@@ -272,12 +272,12 @@ describe('region battles', () => {
 });
 
 describe('medal locks', () => {
-  it('opens 1-3 stars from the start, 4 stars at 10 medals and 5 at 25', () => {
+  it('opens 1-3 stars from the start, 4 stars at 30 medals earned and 5 at 75', () => {
     expect([1, 2, 3].every((s) => isUnlocked(s, 0))).toBe(true);
-    expect(isUnlocked(4, 9.5)).toBe(false);
-    expect(isUnlocked(4, 10)).toBe(true);
-    expect(isUnlocked(5, 24.5)).toBe(false);
-    expect(isUnlocked(5, 25)).toBe(true);
+    expect(isUnlocked(4, 29)).toBe(false);
+    expect(isUnlocked(4, 30)).toBe(true);
+    expect(isUnlocked(5, 74)).toBe(false);
+    expect(isUnlocked(5, 75)).toBe(true);
   });
 
   it('never leaves the frontier without an unlocked region', () => {

@@ -1,3 +1,4 @@
+import { STAR_UNLOCK_MEDALS } from './economy';
 import { MAX_MAP_SEED, generateRegionLevel } from './mapgen';
 import { createRng } from './rng';
 import type { LevelDef, Point } from './types';
@@ -314,18 +315,12 @@ export function fogRegions(state: ConquestState): string[] {
   return [...fog];
 }
 
-/**
- * Lifetime medals earned (not spent) needed before you may attack a region with this many
- * stars (index = stars). Gives a reason to replay and farm held regions for medals.
- */
-export const STAR_UNLOCK_MEDALS = [0, 0, 0, 0, 10, 25];
-
 export function unlockMedals(stars: number): number {
   return STAR_UNLOCK_MEDALS[stars] ?? 0;
 }
 
 export function isUnlocked(stars: number, medalsEarned: number): boolean {
-  return medalsEarned >= unlockMedals(stars) - 1e-9;
+  return medalsEarned >= unlockMedals(stars);
 }
 
 /** Share of available regions that lose a star after a defeat (or regain one after a win). */

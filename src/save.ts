@@ -6,6 +6,7 @@ import {
   type UpgradeId,
   type UpgradeLevels,
 } from './sim/upgrades';
+import { OLD_MEDAL_SCALE } from './sim/economy';
 import { isUnlocked, newConquest, recordBattle, type ConquestState } from './sim/worldmap';
 
 /**
@@ -13,7 +14,8 @@ import { isUnlocked, newConquest, recordBattle, type ConquestState } from './sim
  * add fields and migrate old saves instead of wiping a kid's progress.
  */
 export interface SaveData {
-  version: 2;
+  /** 3: whole medals (wins pay one per star). */
+  version: 3;
   /** Medals to spend. */
   medals: number;
   /** Every medal ever earned (spending doesn't lower it); unlocks higher-star regions. */
@@ -21,6 +23,11 @@ export interface SaveData {
   upgrades: UpgradeLevels;
   /** The conquest map: world seed, regions held, ratings and wins. */
   conquest: ConquestState;
+}
+
+/** Version 2 had the conquest map but paid ½-2 medals a win. */
+interface SaveV2 extends Omit<SaveData, 'version'> {
+  version: 2;
 }
 
 /** Version 1 kept wins per rank instead of a conquest map. */
@@ -40,7 +47,7 @@ function worldSeed(): number {
 
 function fresh(): SaveData {
   return {
-    version: 2,
+    version: 3,
     medals: 0,
     medalsEarned: 0,
     upgrades: { ...NO_UPGRADES },
@@ -48,12 +55,18 @@ function fresh(): SaveData {
   };
 }
 
+/** Medals from before whole medals, scaled to keep the same buying power. */
+function scaleOld(medals: unknown): number {
+  return Math.round((Number(medals) || 0) * OLD_MEDAL_SCALE);
+}
+
 /**
- * Old saves keep their medals and upgrades; rank wins count as wins at matching stars, and
- * medals in hand count as earned (what was spent before is unknown).
+ * Old saves keep their medals (scaled to whole medals) and upgrades. Version-1 rank wins count
+ * as wins at matching stars, and its medals in hand count as earned (what was spent before is
+ * unknown).
  */
 export function migrate(data: unknown): SaveData | null {
-  const d = data as Partial<SaveData> | Partial<SaveV1> | null;
+  const d = data as Partial<SaveData> | Partial<SaveV2> | Partial<SaveV1> | null;
   if (!d || typeof d !== 'object') return null;
   if (d.version === 1) {
     const conquest = newConquest(worldSeed());
@@ -61,9 +74,9 @@ export function migrate(data: unknown): SaveData | null {
     conquest.starWins[1] = Number(wins.recruit) || 0;
     conquest.starWins[3] = Number(wins.soldier) || 0;
     conquest.starWins[4] = Number(wins.general) || 0;
-    const medals = Number(d.medals) || 0;
+    const medals = scaleOld(d.medals);
     return {
-      version: 2,
+      version: 3,
       medals,
       medalsEarned: medals,
       upgrades: { ...NO_UPGRADES, ...d.upgrades },
@@ -71,12 +84,21 @@ export function migrate(data: unknown): SaveData | null {
     };
   }
   if (d.version === 2 && d.conquest) {
-    const medals = Number(d.medals) || 0;
+    const medals = scaleOld(d.medals);
     return {
-      version: 2,
+      version: 3,
       medals,
       // Early version-2 saves had no lifetime count yet.
-      medalsEarned: Math.max(medals, Number(d.medalsEarned) || 0),
+      medalsEarned: Math.max(medals, scaleOld(d.medalsEarned)),
+      upgrades: { ...NO_UPGRADES, ...d.upgrades },
+      conquest: d.conquest,
+    };
+  }
+  if (d.version === 3 && d.conquest) {
+    return {
+      version: 3,
+      medals: Number(d.medals) || 0,
+      medalsEarned: Number(d.medalsEarned) || 0,
       upgrades: { ...NO_UPGRADES, ...d.upgrades },
       conquest: d.conquest,
     };
@@ -126,7 +148,7 @@ export function recordRegionBattle(region: string, won: boolean, auto: boolean):
 export function buyUpgrade(id: UpgradeId): boolean {
   const save = loadSave();
   const cost = nextCost(save.upgrades, id);
-  if (cost === null || save.medals < cost - 1e-9) return false;
+  if (cost === null || save.medals < cost) return false;
   save.medals -= cost;
   save.upgrades[id] += 1;
   persist();

@@ -18,16 +18,20 @@ more medals.
 
 ## Earning medals
 
-A win earns **1 medal**, scaled by rank. A loss earns nothing.
+Medals are always whole. A campaign win earns **one medal per star** of the region (1-5); an
+Adjutant auto-battle earns half that, rounded down, but at least 1. A loss earns nothing, and
+Quick Battle earns none. Every medal number (rewards, unlock thresholds, Command Tent prices)
+lives in one table, `src/sim/economy.ts`, for tuning.
 
-| Rank    | Rate | Medals per win |
-| ------- | ---- | -------------- |
-| Recruit | 50%  | ½              |
-| Soldier | 100% | 1              |
-| General | 150% | 1½             |
+| Stars | Like     | Medals per win | Auto-battle |
+| ----- | -------- | -------------- | ----------- |
+| ★     | Recruit  | 1              | 1           |
+| ★★    | Corporal | 2              | 1           |
+| ★★★   | Soldier  | 3              | 1           |
+| ★★★★  | General  | 4              | 2           |
+| ★★★★★ | Marshal  | 5              | 2           |
 
-Medals are stored in halves so the rates stay exact; the menu shows them as, for example,
-"7½ medals".
+(Before whole medals, wins paid ½ to 2; old saves had their medals multiplied by 3.)
 
 Because upgrades make battles easier and the battles themselves don't get harder yet, the
 pull toward higher ranks (more medals) is what keeps it challenging for now.
@@ -35,7 +39,10 @@ pull toward higher ranks (more medals) is what keeps it challenging for now.
 ## The Command Tent
 
 Permanent upgrades bought with medals. Each has a few levels; costs rise per level and are
-small to match ½-1½ medals per win (roughly 1, 2, 3, 5, 8 to start; tuned with bots).
+matched to 1-5 medals per win: 3, 6, 10, 15, 25 for most, Heavy Tanks 10 and 20, the
+Adjutant 3, 10, 15, 25, 35 (`UPGRADE_COSTS` in `src/sim/economy.ts`). A simulated campaign
+with bot win rates reaches three levels of an upgrade in about 9 battles and a maxed one in
+about 24, the same pace as before whole medals.
 
 | Upgrade       | Per level                         |
 | ------------- | --------------------------------- |
@@ -90,8 +97,8 @@ never the best play.
 ## Engineering plan (for the build session)
 
 1. **Sim:** player modifiers (production, speed, starting troops, shield, tank power) in
-   `WorldOptions`, applied only in campaign battles; `medalsFor(rank, won)` returning
-   half-medals (Recruit 1, Soldier 2, General 3 halves). Unit-tested.
+   `WorldOptions`, applied only in campaign battles; `medalsFor(stars, won)` returning
+   whole medals (one per star). Unit-tested.
 2. **Save:** one versioned save in localStorage (medals, upgrade levels, wins per rank), with
    a version number so later phases can extend it without wiping progress.
 3. **Bot check:** bots play many campaign battles, buy upgrades between them, and report
@@ -99,7 +106,7 @@ never the best play.
 4. **Screens:**
    - Menu: CAMPAIGN and QUICK BATTLE, with your medal count shown.
    - Campaign: pick a rank (showing medals per win), or open the Command Tent.
-   - After a campaign win: "+1 medal" (or "+½", "+1½") with a short celebration.
+   - After a campaign win: "+3 medals" with a short celebration.
    - Command Tent: each upgrade with its level, cost, and a BUY button.
 5. **Browser check** at phone and iPad sizes.
 

@@ -4,7 +4,8 @@ import { DPR, cssSize } from '../display';
 import { canAutoBattle, loadSave, starsUnlocked } from '../save';
 import { difficultyForStars } from '../sim/difficulty';
 import type { Point } from '../sim/types';
-import { formatMedals, medalsFor } from '../sim/upgrades';
+import { medalCount } from '../sim/economy';
+import { medalsFor } from '../sim/upgrades';
 import {
   START_ID,
   availableRegions,
@@ -185,16 +186,14 @@ export class WorldMapScene extends Phaser.Scene {
         .setOrigin(0.5, first ? 0.2 : 0.5)
         .setDepth(3),
     );
-    const pay = medalsFor(difficultyForStars(stars).id, true);
+    const pay = medalsFor(stars, true);
     const locked = !starsUnlocked(stars);
     const reward = this.world(
       this.add
         .text(
           c.x,
           c.y + (first ? 38 : 22),
-          locked
-            ? `LOCKED: ${unlockMedals(stars)} MEDALS`
-            : `+${formatMedals(pay)} MEDAL${pay > 1 ? 'S' : ''}`,
+          locked ? `LOCKED: ${unlockMedals(stars)} MEDALS` : `+${medalCount(pay).toUpperCase()}`,
           textStyle(10, locked ? '#ff9a9e' : COLORS.text),
         )
         .setOrigin(0.5)
@@ -293,11 +292,7 @@ export class WorldMapScene extends Phaser.Scene {
     this.ui(
       this.add.text(w / 2, 26, 'WORLD MAP', textStyle(38, COLORS.accent)).setOrigin(0.5, 0.5),
     );
-    this.ui(
-      this.add
-        .text(w / 2, 60, `${formatMedals(save.medals)} medals`, textStyle(22))
-        .setOrigin(0.5, 0.5),
-    );
+    this.ui(this.add.text(w / 2, 60, medalCount(save.medals), textStyle(22)).setOrigin(0.5, 0.5));
     this.ui(
       addButton(this, w - 230, 44, {
         width: 240,
@@ -349,8 +344,7 @@ export class WorldMapScene extends Phaser.Scene {
       line3 = 'Win a region next to it to explore';
     } else {
       const d = difficultyForStars(progress.stars);
-      const medals = medalsFor(d.id, true);
-      const pay = `+${formatMedals(medals)} medal${medals > 1 ? 's' : ''}`;
+      const pay = `+${medalCount(medalsFor(progress.stars, true))}`;
       const first = id === START_ID && !held;
       locked = !held && !starsUnlocked(progress.stars);
       const need = unlockMedals(progress.stars) - loadSave().medalsEarned;
@@ -358,7 +352,7 @@ export class WorldMapScene extends Phaser.Scene {
       line3 = held
         ? `Yours · won ${progress.wins} time${progress.wins === 1 ? '' : 's'} · ${pay} a win`
         : locked
-          ? `LOCKED · earn ${formatMedals(need)} more medal${need > 1 ? 's' : ''} to unlock`
+          ? `LOCKED · earn ${medalCount(need)} more to unlock`
           : first
             ? `An easy one to learn · ${pay}`
             : `Win it for ${pay}`;

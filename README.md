@@ -39,13 +39,13 @@ both sides start with exactly the same bases and scenery, surrounded by fog of w
 
 **Campaign:** a conquest map of organic, puzzle-piece regions. Start in the small Training
 Ground; every win turns a region blue and reveals its neighbours, each rated 1-5 stars and
-paying ½, ¾, 1, 1½ or 2 medals. You always get an easier and a harder choice, regions get
+paying one medal per star. You always get an easier and a harder choice, regions get
 tougher the further you push, and the world never runs out. Each battle is fought on that
-region's own shape. 4-star regions unlock after 10 medals earned and 5-star after 25, so
+region's own shape. 4-star regions unlock after 30 medals earned and 5-star after 75, so
 replaying regions you hold to farm medals pays off. Lose and nothing is taken; ratings ease off a little until you win again.
 Spend medals in the **Command Tent** on permanent upgrades, including the **Adjutant**, an AI
 officer that helps while you give orders and, at its top level, can auto-battle regions you
-hold at star levels you've mastered (5 wins) for half medals. **Quick Battle** is a fair fight
+hold at star levels you've mastered (5 wins) for fewer medals. **Quick Battle** is a fair fight
 with no medals or upgrades. Pan and pinch the world map like a battle; tap a region to fight.
 
 **Ranks (Quick Battle):** Recruit (start here), Soldier, and General. The campaign's stars

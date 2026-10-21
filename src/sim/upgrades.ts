@@ -1,4 +1,5 @@
-import { worldOptionsFor, type Difficulty, type DifficultyId } from './difficulty';
+import { worldOptionsFor, type Difficulty } from './difficulty';
+import { UPGRADE_COSTS, autoBattleMedals, winMedals } from './economy';
 import type { WorldOptions } from './world';
 
 export type UpgradeId =
@@ -9,31 +10,46 @@ export interface UpgradeDef {
   name: string;
   /** What one level does, in kid words. */
   perLevel: string;
-  /** Medal cost of each level (index 0 buys level 1). */
+  /** Medal cost of each level (index 0 buys level 1); see UPGRADE_COSTS in economy.ts. */
   costs: number[];
 }
 
 export const UPGRADES: UpgradeDef[] = [
-  { id: 'headStart', name: 'HEAD START', perLevel: '+5 troops in your HQ', costs: [1, 2, 3, 5, 8] },
+  {
+    id: 'headStart',
+    name: 'HEAD START',
+    perLevel: '+5 troops in your HQ',
+    costs: UPGRADE_COSTS.headStart,
+  },
   {
     id: 'fastBuilders',
     name: 'FAST BUILDERS',
     perLevel: '+8% troop building',
-    costs: [1, 2, 3, 5, 8],
+    costs: UPGRADE_COSTS.fastBuilders,
   },
-  { id: 'quickMarch', name: 'QUICK MARCH', perLevel: '+6% troop speed', costs: [1, 2, 3, 5, 8] },
+  {
+    id: 'quickMarch',
+    name: 'QUICK MARCH',
+    perLevel: '+6% troop speed',
+    costs: UPGRADE_COSTS.quickMarch,
+  },
   {
     id: 'strongShield',
     name: 'STRONG SHIELD',
     perLevel: '+5 s opening shield',
-    costs: [1, 2, 3, 5, 8],
+    costs: UPGRADE_COSTS.strongShield,
   },
-  { id: 'heavyTanks', name: 'HEAVY TANKS', perLevel: 'Tanks worth +1 troop', costs: [3, 6] },
+  {
+    id: 'heavyTanks',
+    name: 'HEAVY TANKS',
+    perLevel: 'Tanks worth +1 troop',
+    costs: UPGRADE_COSTS.heavyTanks,
+  },
   {
     id: 'adjutant',
     name: 'ADJUTANT',
     perLevel: 'An AI officer that helps you',
-    costs: [1, 3, 5, 8, 12],
+    costs: UPGRADE_COSTS.adjutant,
   },
 ];
 
@@ -59,21 +75,10 @@ export const ADJUTANT_LEVELS = [
 
 /** Wins you need yourself at a star level before the Adjutant may auto-battle it. */
 export const MASTERY_WINS = 5;
-/** Share of the normal medals an auto-battle pays. */
-export const AUTO_BATTLE_REWARD = 0.5;
-
-const MEDAL_RATE: Record<DifficultyId, number> = {
-  recruit: 0.5,
-  corporal: 0.75,
-  soldier: 1,
-  general: 1.5,
-  marshal: 2,
-};
-
-/** Medals for a campaign battle: 1 per win, scaled by rank (and halved for auto-battles). */
-export function medalsFor(rank: DifficultyId, won: boolean, auto = false): number {
+/** Medals for a campaign battle in a region with this many stars (see economy.ts). */
+export function medalsFor(stars: number, won: boolean, auto = false): number {
   if (!won) return 0;
-  return MEDAL_RATE[rank] * (auto ? AUTO_BATTLE_REWARD : 1);
+  return auto ? autoBattleMedals(stars) : winMedals(stars);
 }
 
 export function nextCost(levels: UpgradeLevels, id: UpgradeId): number | null {
@@ -90,14 +95,6 @@ export function upgradeOptions(levels: UpgradeLevels, baseShield: number): Parti
     // Production is applied through the handicap multiplier.
     handicap: { player: 1 + 0.08 * levels.fastBuilders },
   };
-}
-
-/** Show medals with fractions kids can read: 7.5 → "7½". */
-export function formatMedals(medals: number): string {
-  const whole = Math.floor(medals + 1e-9);
-  const rest = medals - whole;
-  const frac = rest > 0.7 ? '¾' : rest > 0.4 ? '½' : rest > 0.1 ? '¼' : '';
-  return whole === 0 && frac ? frac : `${whole}${frac}`;
 }
 
 /** World setup for a campaign battle: the rank's settings plus the player's upgrades. */

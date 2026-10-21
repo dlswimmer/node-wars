@@ -936,7 +936,7 @@ export class BattleScene extends Phaser.Scene {
     if (won) sfx.victory();
     else sfx.defeat();
     if (this.mode === 'campaign') {
-      this.reward = medalsFor(this.difficulty.id, won, this.auto);
+      this.reward = medalsFor(this.stars, won, this.auto);
       if (this.reward > 0) addMedals(this.reward);
       if (this.region) this.revealed = recordRegionBattle(this.region, won, this.auto);
     }

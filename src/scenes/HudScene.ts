@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { DPR, cssSize } from '../display';
-import { formatMedals } from '../sim/upgrades';
+import { medalCount } from '../sim/economy';
 import { countBases, isShielded } from '../sim/world';
 import { COLORS, textStyle } from '../theme';
 import type { BattleScene } from './BattleScene';
@@ -166,7 +166,7 @@ export class HudScene extends Phaser.Scene {
     const line = won ? `${this.battle.rankLabel()}  ·  ${clock}` : this.tip;
     if (this.battle.mode !== 'campaign') return line;
     const r = this.battle.reward;
-    const medals = r > 0 ? `+${formatMedals(r)} MEDAL${r > 1 ? 'S' : ''}` : 'No medals this time';
+    const medals = r > 0 ? `+${medalCount(r).toUpperCase()}` : 'No medals this time';
     return `${line}
 ${medals}`;
   }
