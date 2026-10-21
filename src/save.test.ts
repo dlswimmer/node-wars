@@ -14,6 +14,7 @@ describe('save migration', () => {
     const save = migrate(v1)!;
     expect(save.version).toBe(2);
     expect(save.medals).toBe(7.5);
+    expect(save.medalsEarned).toBe(7.5);
     expect(save.upgrades).toEqual({ ...NO_UPGRADES, headStart: 2, adjutant: 5 });
     expect(save.conquest.held).toEqual([]);
     expect(availableRegions(save.conquest)).toEqual([START_ID]);
@@ -26,6 +27,7 @@ describe('save migration', () => {
   it('loads version 2 as it was, and rejects junk', () => {
     const v2 = migrate(migrate({ version: 1, medals: 2, upgrades: {}, wins: {} }))!;
     expect(migrate(JSON.parse(JSON.stringify(v2)))).toEqual(v2);
+    expect(migrate({ ...v2, medalsEarned: undefined, medals: 3 })!.medalsEarned).toBe(3);
     expect(migrate(null)).toBeNull();
     expect(migrate({ version: 9 })).toBeNull();
   });

@@ -1,13 +1,14 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio';
 import { DPR, cssSize } from '../display';
-import { canAutoBattle, loadSave } from '../save';
+import { canAutoBattle, loadSave, starsUnlocked } from '../save';
 import { difficultyForStars } from '../sim/difficulty';
 import type { Point } from '../sim/types';
 import { formatMedals, medalsFor } from '../sim/upgrades';
 import {
   START_ID,
   availableRegions,
+  unlockMedals,
   fogRegions,
   getRegion,
   type ConquestState,
@@ -27,6 +28,8 @@ export interface WorldMapData {
 const BACKGROUND = 0x0f150c;
 const FOG = { fill: 0x1d2717, line: 0x34452a };
 const AVAILABLE = { fill: 0x7a806c, line: 0xe1e5d0 };
+/** Available but locked until you've earned more medals. */
+const LOCKED = { fill: 0x4a4d42, line: 0x9a9e8a };
 const HELD = { fill: 0x2f6fd0, line: 0xa9ccff };
 const SELECTED_LINE = 0xf2c94c;
 /** Pointer travel (CSS px) before a press counts as a drag rather than a tap. */
@@ -138,7 +141,8 @@ export class WorldMapScene extends Phaser.Scene {
     for (const id of fresh) if (animate) this.fillRegion(id, FOG).setName(`fog:${id}`);
 
     for (const id of availableRegions(this.conquest)) {
-      const g = this.fillRegion(id, AVAILABLE).setName(`region:${id}`);
+      const locked = !starsUnlocked(this.conquest.regions[id]!.stars);
+      const g = this.fillRegion(id, locked ? LOCKED : AVAILABLE).setName(`region:${id}`);
       const labels = this.regionLabels(id, false);
       if (animate && fresh.has(id)) {
         g.setAlpha(0);
@@ -182,11 +186,17 @@ export class WorldMapScene extends Phaser.Scene {
         .setDepth(3),
     );
     const pay = medalsFor(difficultyForStars(stars).id, true);
+    const locked = !starsUnlocked(stars);
     const reward = this.world(
       this.add
-        .text(c.x, c.y + (first ? 38 : 22), `+${formatMedals(pay)} MEDAL${pay > 1 ? 'S' : ''}`, {
-          ...textStyle(10),
-        })
+        .text(
+          c.x,
+          c.y + (first ? 38 : 22),
+          locked
+            ? `LOCKED: ${unlockMedals(stars)} MEDALS`
+            : `+${formatMedals(pay)} MEDAL${pay > 1 ? 'S' : ''}`,
+          textStyle(10, locked ? '#ff9a9e' : COLORS.text),
+        )
         .setOrigin(0.5)
         .setDepth(3),
     );
@@ -333,6 +343,7 @@ export class WorldMapScene extends Phaser.Scene {
     this.ui(this.add.text(textX, y0 + 14, region.name.toUpperCase(), textStyle(32)));
     let line2 = '';
     let line3 = '';
+    let locked = false;
     if (!progress) {
       line2 = 'Unknown land';
       line3 = 'Win a region next to it to explore';
@@ -341,16 +352,22 @@ export class WorldMapScene extends Phaser.Scene {
       const medals = medalsFor(d.id, true);
       const pay = `+${formatMedals(medals)} medal${medals > 1 ? 's' : ''}`;
       const first = id === START_ID && !held;
+      locked = !held && !starsUnlocked(progress.stars);
+      const need = unlockMedals(progress.stars) - loadSave().medalsEarned;
       line2 = first ? 'FIRST BATTLE' : `${'★'.repeat(progress.stars)}  ${d.label}`;
       line3 = held
         ? `Yours · won ${progress.wins} time${progress.wins === 1 ? '' : 's'} · ${pay} a win`
-        : first
-          ? `An easy one to learn · ${pay}`
-          : `Win it for ${pay}`;
+        : locked
+          ? `LOCKED · earn ${formatMedals(need)} more medal${need > 1 ? 's' : ''} to unlock`
+          : first
+            ? `An easy one to learn · ${pay}`
+            : `Win it for ${pay}`;
     }
     this.ui(this.add.text(textX, y0 + 56, line2, textStyle(26, COLORS.accent)));
-    this.ui(this.add.text(textX, y0 + 94, line3, textStyle(21, COLORS.textDim)));
-    if (!progress) return;
+    this.ui(
+      this.add.text(textX, y0 + 94, line3, textStyle(21, locked ? '#ff9a9e' : COLORS.textDim)),
+    );
+    if (!progress || locked) return;
 
     const fight = (auto: boolean) => {
       const data: BattleData = { mode: 'campaign', region: id, auto };

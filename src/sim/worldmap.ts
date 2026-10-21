@@ -314,19 +314,35 @@ export function fogRegions(state: ConquestState): string[] {
   return [...fog];
 }
 
+/**
+ * Lifetime medals earned (not spent) needed before you may attack a region with this many
+ * stars (index = stars). Gives a reason to replay and farm held regions for medals.
+ */
+export const STAR_UNLOCK_MEDALS = [0, 0, 0, 0, 10, 25];
+
+export function unlockMedals(stars: number): number {
+  return STAR_UNLOCK_MEDALS[stars] ?? 0;
+}
+
+export function isUnlocked(stars: number, medalsEarned: number): boolean {
+  return medalsEarned >= unlockMedals(stars) - 1e-9;
+}
+
 /** Share of available regions that lose a star after a defeat (or regain one after a win). */
 const DRIFT_CHANCE = 0.75;
 
 /**
  * Apply a battle's result. A win takes the region and reveals its unknown neighbours; ratings
  * on every available region drift down a little after a loss and back up after a win.
- * Returns the newly revealed regions.
+ * Returns the newly revealed regions. `medalsEarned` (lifetime, after this battle) keeps
+ * at least one region unlocked; leave it out to ignore medal locks.
  */
 export function recordBattle(
   state: ConquestState,
   id: string,
   won: boolean,
   auto = false,
+  medalsEarned = Infinity,
 ): string[] {
   const region = state.regions[id];
   if (!region) return [];
@@ -358,6 +374,7 @@ export function recordBattle(
     if (!won && r.stars > 1) r.stars -= 1;
   }
   ensureChoice(state);
+  ensureUnlocked(state, medalsEarned);
   return revealed;
 }
 
@@ -379,6 +396,23 @@ export function ensureChoice(state: ConquestState): void {
     r.stars -= 1;
     r.base = r.stars;
   }
+}
+
+/**
+ * No dead ends: if every available region is locked behind medals, the easiest one drops to
+ * the highest rating that is open (as its normal rating, so wins don't lock it again).
+ */
+export function ensureUnlocked(state: ConquestState, medalsEarned: number): void {
+  const avail = availableRegions(state).sort();
+  if (avail.length === 0) return;
+  if (avail.some((id) => isUnlocked(state.regions[id]!.stars, medalsEarned))) return;
+  let open = MAX_STARS;
+  while (open > 1 && !isUnlocked(open, medalsEarned)) open--;
+  const easiest = avail.reduce((a, b) =>
+    state.regions[b]!.stars < state.regions[a]!.stars ? b : a,
+  );
+  state.regions[easiest]!.stars = open;
+  state.regions[easiest]!.base = open;
 }
 
 /** Wins the player earned themselves at a star level. */

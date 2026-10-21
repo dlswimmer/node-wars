@@ -8,6 +8,7 @@ import {
   availableRegions,
   fogRegions,
   getRegion,
+  isUnlocked,
   naturalStars,
   newConquest,
   recordBattle,
@@ -238,6 +239,29 @@ describe('region battles', () => {
       expect(regionLevel(seed, START_ID).bases.length).toBeLessThanOrEqual(8);
       for (const id of getRegion(seed, START_ID).neighbours) {
         expect(regionLevel(seed, id).bases.length).toBeGreaterThanOrEqual(MIN_BASES);
+      }
+    }
+  });
+});
+
+describe('medal locks', () => {
+  it('opens 1-3 stars from the start, 4 stars at 10 medals and 5 at 25', () => {
+    expect([1, 2, 3].every((s) => isUnlocked(s, 0))).toBe(true);
+    expect(isUnlocked(4, 9.5)).toBe(false);
+    expect(isUnlocked(4, 10)).toBe(true);
+    expect(isUnlocked(5, 24.5)).toBe(false);
+    expect(isUnlocked(5, 25)).toBe(true);
+  });
+
+  it('never leaves the frontier without an unlocked region', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      // A player who pushes the hardest open region but never earns a medal (worst case).
+      const s = newConquest(seed);
+      for (let k = 0; k < 40; k++) {
+        const open = availableRegions(s).filter((id) => isUnlocked(s.regions[id]!.stars, 0));
+        expect(open.length).toBeGreaterThan(0);
+        const pick = open.sort((a, b) => s.regions[b]!.stars - s.regions[a]!.stars)[0]!;
+        recordBattle(s, pick, k % 5 !== 4, false, 0);
       }
     }
   });

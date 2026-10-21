@@ -6,7 +6,7 @@ import {
   type UpgradeId,
   type UpgradeLevels,
 } from './sim/upgrades';
-import { newConquest, recordBattle, type ConquestState } from './sim/worldmap';
+import { isUnlocked, newConquest, recordBattle, type ConquestState } from './sim/worldmap';
 
 /**
  * Campaign progress, saved on this device. Versioned so later phases (zones, prestige) can
@@ -14,7 +14,10 @@ import { newConquest, recordBattle, type ConquestState } from './sim/worldmap';
  */
 export interface SaveData {
   version: 2;
+  /** Medals to spend. */
   medals: number;
+  /** Every medal ever earned (spending doesn't lower it); unlocks higher-star regions. */
+  medalsEarned: number;
   upgrades: UpgradeLevels;
   /** The conquest map: world seed, regions held, ratings and wins. */
   conquest: ConquestState;
@@ -39,12 +42,16 @@ function fresh(): SaveData {
   return {
     version: 2,
     medals: 0,
+    medalsEarned: 0,
     upgrades: { ...NO_UPGRADES },
     conquest: newConquest(worldSeed()),
   };
 }
 
-/** Old saves keep their medals and upgrades; rank wins count as wins at matching stars. */
+/**
+ * Old saves keep their medals and upgrades; rank wins count as wins at matching stars, and
+ * medals in hand count as earned (what was spent before is unknown).
+ */
 export function migrate(data: unknown): SaveData | null {
   const d = data as Partial<SaveData> | Partial<SaveV1> | null;
   if (!d || typeof d !== 'object') return null;
@@ -54,17 +61,22 @@ export function migrate(data: unknown): SaveData | null {
     conquest.starWins[1] = Number(wins.recruit) || 0;
     conquest.starWins[3] = Number(wins.soldier) || 0;
     conquest.starWins[4] = Number(wins.general) || 0;
+    const medals = Number(d.medals) || 0;
     return {
       version: 2,
-      medals: Number(d.medals) || 0,
+      medals,
+      medalsEarned: medals,
       upgrades: { ...NO_UPGRADES, ...d.upgrades },
       conquest,
     };
   }
   if (d.version === 2 && d.conquest) {
+    const medals = Number(d.medals) || 0;
     return {
       version: 2,
-      medals: Number(d.medals) || 0,
+      medals,
+      // Early version-2 saves had no lifetime count yet.
+      medalsEarned: Math.max(medals, Number(d.medalsEarned) || 0),
       upgrades: { ...NO_UPGRADES, ...d.upgrades },
       conquest: d.conquest,
     };
@@ -94,14 +106,18 @@ function persist(): void {
   }
 }
 
+/** Earn medals (auto-battle medals count too, so farming unlocks regions). */
 export function addMedals(amount: number): void {
-  loadSave().medals += amount;
+  const save = loadSave();
+  save.medals += amount;
+  save.medalsEarned += amount;
   persist();
 }
 
 /** Record a conquest battle; returns the regions a win revealed. */
 export function recordRegionBattle(region: string, won: boolean, auto: boolean): string[] {
-  const revealed = recordBattle(loadSave().conquest, region, won, auto);
+  const save = loadSave();
+  const revealed = recordBattle(save.conquest, region, won, auto, save.medalsEarned);
   persist();
   return revealed;
 }
@@ -132,4 +148,9 @@ export function canAutoBattle(region: string): boolean {
   const adjutantMax = UPGRADES.find((u) => u.id === 'adjutant')!.costs.length;
   const stars = conquest.regions[region]?.stars ?? 0;
   return upgrades.adjutant >= adjutantMax && conquest.held.includes(region) && isMastered(stars);
+}
+
+/** Whether you've earned enough medals to attack a region with this many stars. */
+export function starsUnlocked(stars: number): boolean {
+  return isUnlocked(stars, loadSave().medalsEarned);
 }
