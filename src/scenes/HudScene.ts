@@ -14,6 +14,7 @@ const PERK_WORDS: Record<string, string> = {
 };
 
 const DEFEAT_TIPS = [
+  'Tip: double-tap your base to send ALL its troops, not just half!',
   "Tip: jets from an Airfield fly over rivers but can't capture. Send soldiers after them!",
   'Tip: grab the gray bases near you first!',
   'Tip: a green ring means your attack will win.',

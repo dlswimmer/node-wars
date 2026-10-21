@@ -61,6 +61,8 @@ const MAX_DT = 0.1;
 const ADJUTANT_COLOR = 0xa77bff;
 /** How far below a base's centre its troop count sits, as a share of its radius. */
 const TROOP_LABEL_DROP = 0.4;
+/** Two taps on the same base within this many milliseconds arm it to send every troop. */
+const DOUBLE_TAP_MS = 400;
 /** Finger-friendly hit area around a base, in CSS pixels. */
 const TOUCH_PADDING_CSS = 30;
 /** Pointer travel (CSS px) before a press counts as a drag rather than a tap. */
@@ -160,6 +162,10 @@ export class BattleScene extends Phaser.Scene {
   private selected = new Set<number>();
   /** Bases picked by a tap, waiting for a second tap on the target. */
   private armed = new Set<number>();
+  /** The armed base was double-tapped: its order sends every troop instead of half. */
+  private sendAll = false;
+  /** The last tap on one of your bases, to spot a double tap. */
+  private lastTap = { id: -1, at: 0 };
   private gesture: Gesture = 'none';
   private dragStartId = -1;
   /** The current press started on another of your bases while one was armed. */
@@ -589,7 +595,7 @@ export class BattleScene extends Phaser.Scene {
   private finishTap() {
     const base = this.world.bases[this.downBaseId];
     if (base && this.armed.size > 0) {
-      this.issueOrder([...this.armed], base.id);
+      this.issueOrder([...this.armed], base.id, this.armedFraction());
     } else if (base && base.owner !== 'player') {
       // Say what the base is good for, so a kid knows why it's worth taking.
       const { label, perk } = BASE_STATS[base.kind];
@@ -612,9 +618,14 @@ Drag from a BLUE base!`,
     if (!this.moved) {
       // A tap on one of your bases.
       if (this.tapMightReinforce) {
-        this.issueOrder([...this.armed], this.dragStartId);
+        this.issueOrder([...this.armed], this.dragStartId, this.armedFraction());
         this.armed.clear();
       } else {
+        // A second quick tap on the same base arms it to send everything.
+        const now = this.time.now;
+        const again = this.lastTap.id === this.dragStartId && now - this.lastTap.at < DOUBLE_TAP_MS;
+        this.sendAll = again;
+        this.lastTap = again ? { id: -1, at: 0 } : { id: this.dragStartId, at: now };
         this.armed = new Set([this.dragStartId]);
       }
     } else {
@@ -668,11 +679,16 @@ Drag from a BLUE base!`,
     if (Math.abs(got - wanted) > 1e-6) this.resetPinch(a, b);
   }
 
-  private issueOrder(sourceIds: number[], targetId: number) {
+  /** Share of troops an armed order sends: all of them after a double tap, else half. */
+  private armedFraction(): number {
+    return this.sendAll ? 1 : DEFAULT_SEND_FRACTION;
+  }
+
+  private issueOrder(sourceIds: number[], targetId: number, fraction = DEFAULT_SEND_FRACTION) {
     if (this.adjutant) notePlayerOrder(this.world, this.adjutant);
     let sent = 0;
     for (const id of sourceIds) {
-      const n = sendTroops(this.world, 'player', id, targetId, DEFAULT_SEND_FRACTION);
+      const n = sendTroops(this.world, 'player', id, targetId, fraction);
       if (n > 0) this.playerSquads.set(this.world.nextSquadId - 1, targetId);
       sent += n;
     }
@@ -987,14 +1003,17 @@ Drag from a BLUE base!`,
     const sources = [...this.armed];
     for (const b of this.world.bases) {
       if (this.armed.has(b.id)) continue;
-      const { outcome } = previewAttack(this.world, 'player', sources, b.id, DEFAULT_SEND_FRACTION);
+      const { outcome } = previewAttack(this.world, 'player', sources, b.id, this.armedFraction());
       this.orderGfx.lineStyle(4, OUTCOME_STYLE[outcome].color, 0.7);
       this.orderGfx.strokeCircle(b.x, b.y, BASE_STATS[b.kind].radius + 14);
     }
     const first = this.world.bases[sources[0]!];
     if (!first) return;
     const size = Math.max(26, cssToWorld(18, this.cameras.main.zoom));
-    this.armedLabel.setFontSize(size).setVisible(true);
+    this.armedLabel
+      .setText(this.sendAll ? 'ALL TROOPS! Tap a target' : 'Now tap a target!')
+      .setFontSize(size)
+      .setVisible(true);
     this.placeAbove(this.armedLabel, first, BASE_STATS[first.kind].radius + 24);
   }
 

@@ -61,6 +61,9 @@ every push to `main` (CI runs lint, format, typecheck and tests first).
   one extra medal; winning still pays as usual. An "Outnumbered" mission (enemy starts with
   extra bases) was dropped: one extra base took the adult bot from 40% to 5% at General.
   Auto-battles have no mission.
+- **Double-tap sends everything** (the older son's idea). Drag and single tap still send half;
+  double-tapping one of your bases arms it to send all its troops, and the preview rings count
+  them all. Bots don't use it, so it is a little extra power for the player only.
 - **Swarm clashes** cancel troop for troop mid-field (Armory counts; a tank absorbs soldiers).
 - **Bunker AI by rank:** only General and Marshal know a Bunker needs double troops and value
   Bunkers/Hospitals by position. Easier AIs waste troops on Bunkers. This keeps early ranks

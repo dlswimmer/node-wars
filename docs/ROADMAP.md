@@ -35,6 +35,7 @@ Goal: one battle that is genuinely exciting for an 8-year-old, and a solid base 
 - [x] Swarm units that fly between bases
 - [x] Special bases granting army-wide bonuses (Factory, Radar, Armory)
 - [x] Mouse and touch controls (drag, multi-select drag, tap-tap)
+- [x] Double-tap a base to send all its troops instead of half (a playtester's idea)
 - [x] Difficulty levels (Recruit / Soldier / General), tuned with simulated players
 - [x] Pause menu, auto-pause when the app is backgrounded
 - [x] Fixes from three playtest rounds (simulated kids on phone and iPad, plus QA)
