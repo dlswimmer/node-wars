@@ -5,6 +5,7 @@ import { canAutoBattle, loadSave, starsUnlocked } from '../save';
 import { difficultyForStars } from '../sim/difficulty';
 import type { Point } from '../sim/types';
 import { medalCount } from '../sim/economy';
+import { regionMission } from '../sim/missions';
 import { medalsFor } from '../sim/upgrades';
 import {
   START_ID,
@@ -12,6 +13,8 @@ import {
   unlockMedals,
   fogRegions,
   getRegion,
+  naturalStars,
+  regionLevel,
   type ConquestState,
 } from '../sim/worldmap';
 import { centroid, insidePolygon } from '../sim/scenery';
@@ -323,8 +326,14 @@ export class WorldMapScene extends Phaser.Scene {
     const region = getRegion(this.conquest.seed, id);
     const progress = this.conquest.regions[id];
     const held = this.conquest.held.includes(id);
+    // Each region has a bonus mission; it shows under the reward.
+    const { seed } = this.conquest;
+    const mission =
+      progress && id !== START_ID
+        ? regionMission(seed, id, regionLevel(seed, id), naturalStars(seed, id), false)
+        : null;
     const panelW = Math.min(720, w - 24);
-    const panelH = 140;
+    const panelH = mission ? 176 : 140;
     const x0 = (w - panelW) / 2;
     const y0 = h - panelH - 12;
     const bg = this.ui(this.add.graphics());
@@ -361,6 +370,10 @@ export class WorldMapScene extends Phaser.Scene {
     this.ui(
       this.add.text(textX, y0 + 94, line3, textStyle(21, locked ? '#ff9a9e' : COLORS.textDim)),
     );
+    if (mission) {
+      const bonus = `MISSION: ${mission.text} (+${medalCount(mission.medals)})`;
+      this.ui(this.add.text(textX, y0 + 130, bonus, textStyle(21, COLORS.accent)));
+    }
     if (!progress || locked) return;
 
     const fight = (auto: boolean) => {

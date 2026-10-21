@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { DPR, cssSize } from '../display';
 import { medalCount } from '../sim/economy';
+import { missionStatus } from '../sim/missions';
 import { countBases, isShielded } from '../sim/world';
 import { ARMY_NAMES, COLORS, FACTION_COLORS, textStyle } from '../theme';
 import type { BattleScene } from './BattleScene';
@@ -45,6 +46,8 @@ export class HudScene extends Phaser.Scene {
   private endButtonsReady = false;
   private won = false;
   private tip = '';
+  /** The start-of-battle announcement (personalities, mission), while it shows. */
+  private intro: Phaser.GameObjects.GameObject[] = [];
 
   constructor() {
     super('hud');
@@ -69,7 +72,12 @@ export class HudScene extends Phaser.Scene {
       this.pauseMenu.setVisible(paused);
       this.drawPauseIcon(paused);
     };
-    const onGameOver = (won: boolean) => this.showEndScreen(won);
+    const onGameOver = (won: boolean) => {
+      this.tweens.killTweensOf(this.intro);
+      for (const t of this.intro) t.destroy();
+      this.intro = [];
+      this.showEndScreen(won);
+    };
     this.battle.events.on('pause-changed', onPause);
     this.battle.events.on('game-over', onGameOver);
     this.scale.on('resize', this.layout, this);
@@ -87,7 +95,8 @@ export class HudScene extends Phaser.Scene {
    */
   private showPersonalities() {
     const lines = this.battle.ais.filter((ai) => ai.personality.id !== 'steady');
-    if (lines.length === 0) return;
+    const mission = this.battle.mission?.mission;
+    if (lines.length === 0 && !mission) return;
     const v = this.view();
     const top = v.height * 0.3;
     const texts: Phaser.GameObjects.GameObject[] = lines.flatMap((ai, i) => {
@@ -99,18 +108,32 @@ export class HudScene extends Phaser.Scene {
         this.add.text(v.width / 2, y + 44, ai.personality.blurb, textStyle(26)),
       ].map((t) => t.setOrigin(0.5).setDepth(50));
     });
+    // The region's mission goes underneath, in gold.
+    const rows = lines.length + (mission ? 1 : 0);
+    if (mission) {
+      const y = top + lines.length * 92;
+      texts.push(
+        this.add
+          .text(v.width / 2, y, 'MISSION', textStyle(40, COLORS.accent))
+          .setOrigin(0.5)
+          .setDepth(50),
+        this.add
+          .text(
+            v.width / 2,
+            y + 44,
+            `${mission.text}  (+${medalCount(mission.medals)})`,
+            textStyle(26),
+          )
+          .setOrigin(0.5)
+          .setDepth(50),
+      );
+    }
     // A dark panel behind, so the lines read over a busy battlefield.
     const panel = this.add
-      .rectangle(
-        v.width / 2,
-        top + (lines.length * 92 - 92) / 2 + 20,
-        760,
-        lines.length * 92 + 30,
-        0x000000,
-        0.55,
-      )
+      .rectangle(v.width / 2, top + (rows * 92 - 92) / 2 + 20, 760, rows * 92 + 30, 0x000000, 0.55)
       .setDepth(49);
     texts.push(panel);
+    this.intro = texts;
     this.tweens.add({
       targets: texts,
       alpha: 0,
@@ -139,6 +162,8 @@ export class HudScene extends Phaser.Scene {
     const shieldLeft = isShielded(w, 'player') ? w.shieldUntil.player - w.time : 0;
     const lines = [`BASES ${countBases(w, 'player')} / ${w.bases.length}`];
     if (shieldLeft > 0) lines.push(`SHIELD ${Math.ceil(shieldLeft)}`);
+    const mission = this.battle.mission;
+    if (mission) lines.push(`MISSION: ${missionStatus(mission, w).toUpperCase()}`);
     const adj = this.battle.adjutantStatus();
     if (adj === 'auto') lines.push('AUTO-BATTLE');
     else if (adj === 'waiting') lines.push('ADJUTANT: waiting for your orders');
@@ -212,8 +237,16 @@ export class HudScene extends Phaser.Scene {
     if (this.battle.mode !== 'campaign') return line;
     const r = this.battle.reward;
     const medals = r > 0 ? `+${medalCount(r).toUpperCase()}` : 'No medals this time';
-    return `${line}
+    const mission = this.battle.mission;
+    if (!mission)
+      return `${line}
 ${medals}`;
+    const goal = this.battle.missionDone
+      ? `MISSION COMPLETE (+${medalCount(mission.mission.medals)})`
+      : `Mission missed: ${mission.mission.text}`;
+    return `${line}
+${medals}
+${goal}`;
   }
 
   /** "A" button that switches the helping Adjutant on and off. */

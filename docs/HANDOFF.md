@@ -55,6 +55,12 @@ every push to `main` (CI runs lint, format, typecheck and tests first).
   gathers every base into each attack, only turns up from General (at Soldier it played
   like a General). A Turtle that waits to build up was tried and dropped: it crushed kids and
   was easy for adults. Balance tests play `mixed` personalities, as the game does.
+- **Missions are a bonus, never a handicap** (`src/sim/missions.ts`). Each region (not the
+  tutorial) has one, fixed by the world seed: capture every base of a kind, win in under 4-5
+  minutes, win without losing a base, or hold 60% of the bases at once. Completing it pays
+  one extra medal; winning still pays as usual. An "Outnumbered" mission (enemy starts with
+  extra bases) was dropped: one extra base took the adult bot from 40% to 5% at General.
+  Auto-battles have no mission.
 - **Swarm clashes** cancel troop for troop mid-field (Armory counts; a tank absorbs soldiers).
 - **Bunker AI by rank:** only General and Marshal know a Bunker needs double troops and value
   Bunkers/Hospitals by position. Easier AIs waste troops on Bunkers. This keeps early ranks

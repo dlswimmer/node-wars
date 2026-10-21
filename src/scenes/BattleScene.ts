@@ -22,7 +22,14 @@ import {
 } from '../sim/difficulty';
 import { LEVELS } from '../sim/levels';
 import { generateFreeForAll, generateLevel, randomMapSeed } from '../sim/mapgen';
-import { regionLevel } from '../sim/worldmap';
+import { START_ID, naturalStars, regionLevel } from '../sim/worldmap';
+import {
+  missionComplete,
+  regionMission,
+  startMission,
+  trackMission,
+  type MissionProgress,
+} from '../sim/missions';
 import type { Base, LevelDef, Point, World } from '../sim/types';
 import {
   baseAt,
@@ -110,6 +117,10 @@ export class BattleScene extends Phaser.Scene {
   ffa = false;
   /** Medals earned by this battle (campaign), set when it ends. */
   reward = 0;
+  /** This region battle's bonus goal and how it is going (campaign only). */
+  mission: MissionProgress | null = null;
+  /** Set when the battle ends: the mission was completed. */
+  missionDone = false;
   /** Conquest-map region being fought over (campaign). */
   region: string | null = null;
   /** Its star rating when the battle started. */
@@ -195,6 +206,16 @@ export class BattleScene extends Phaser.Scene {
         : this.map === 0
           ? LEVELS[0]!
           : generateLevel(this.map);
+    // A region's mission (not for auto-battles, which the Adjutant fights).
+    this.mission = null;
+    this.missionDone = false;
+    if (this.region && !this.auto) {
+      const { seed: worldSeed } = save.conquest;
+      const stars = naturalStars(worldSeed, this.region);
+      const tutorial = this.region === START_ID;
+      const mission = regionMission(worldSeed, this.region, this.level, stars, tutorial);
+      if (mission) this.mission = startMission(mission);
+    }
     const seed = Date.now() & 0xffff;
     this.revealed = [];
     this.world = createWorld(
@@ -300,6 +321,7 @@ export class BattleScene extends Phaser.Scene {
         updateAdjutant(this.world, this.adjutant, dt);
       }
       step(this.world, dt);
+      if (this.mission) trackMission(this.mission, this.world);
       this.handleEvents();
       this.popHeals();
       this.checkFinishedSquads();
@@ -1023,7 +1045,9 @@ Drag from a BLUE base!`,
     if (won) sfx.victory();
     else sfx.defeat();
     if (this.mode === 'campaign') {
+      this.missionDone = !!this.mission && missionComplete(this.mission, this.world, won);
       this.reward = medalsFor(this.stars, won, this.auto);
+      if (this.missionDone) this.reward += this.mission!.mission.medals;
       if (this.reward > 0) addMedals(this.reward);
       if (this.region) this.revealed = recordRegionBattle(this.region, won, this.auto);
     }

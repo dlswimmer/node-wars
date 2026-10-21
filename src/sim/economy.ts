@@ -15,6 +15,9 @@ export function autoBattleMedals(stars: number): number {
   return Math.max(1, Math.floor(stars / 2));
 }
 
+/** Bonus medals for completing a region's mission on top of winning it. */
+export const MISSION_MEDALS = 1;
+
 /**
  * Lifetime medals earned (not spent) needed before you may attack a region with this many
  * stars (index = stars). Gives a reason to replay and farm held regions for medals.
