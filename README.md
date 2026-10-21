@@ -52,6 +52,10 @@ with no medals or upgrades. Pan and pinch the world map like a battle; tap a reg
 add Corporal (★★) and Marshal (★★★★★, tougher than General). **Pinch** or use the mouse wheel to zoom;
 drag empty ground to scroll. The pause button is top right (or press P / Esc).
 
+**Settings** (the gear on the home screen): sound on/off, **NEW WORLD** for a fresh conquest
+map (medals and upgrades stay), and **RESET EVERYTHING**. Both ask again first, and erasing
+everything needs the button held down for two seconds.
+
 ## Development
 
 You need [Node.js](https://nodejs.org/) 20.19 or newer.

@@ -154,3 +154,21 @@ export function canAutoBattle(region: string): boolean {
 export function starsUnlocked(stars: number): boolean {
   return isUnlocked(stars, loadSave().medalsEarned);
 }
+
+/** Start a fresh conquest map on a new world; medals and upgrades stay. */
+export function newWorld(): void {
+  const save = loadSave();
+  const old = save.conquest.seed;
+  let seed = worldSeed();
+  while (seed === old) seed = worldSeed();
+  // Mastery is the player's own skill, so it carries over to the new world.
+  const starWins = save.conquest.starWins;
+  save.conquest = { ...newConquest(seed), starWins };
+  persist();
+}
+
+/** Erase all campaign progress: medals, upgrades and the world. */
+export function resetAll(): void {
+  cache = fresh();
+  persist();
+}

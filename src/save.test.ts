@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { migrate } from './save';
+import {
+  addMedals,
+  buyUpgrade,
+  loadSave,
+  migrate,
+  newWorld,
+  recordRegionBattle,
+  resetAll,
+} from './save';
 import { NO_UPGRADES } from './sim/upgrades';
 import { START_ID, availableRegions } from './sim/worldmap';
 
@@ -30,5 +38,34 @@ describe('save migration', () => {
     expect(migrate({ ...v2, medalsEarned: undefined, medals: 3 })!.medalsEarned).toBe(3);
     expect(migrate(null)).toBeNull();
     expect(migrate({ version: 9 })).toBeNull();
+  });
+});
+
+describe('resets', () => {
+  it('a new world keeps medals and upgrades but changes the map', () => {
+    resetAll();
+    addMedals(6);
+    expect(buyUpgrade('headStart')).toBe(true);
+    recordRegionBattle(START_ID, true, false);
+    const before = loadSave();
+    const seed = before.conquest.seed;
+    newWorld();
+    const after = loadSave();
+    expect(after.conquest.seed).not.toBe(seed);
+    expect(after.conquest.held).toEqual([]);
+    expect(availableRegions(after.conquest)).toEqual([START_ID]);
+    expect(after.medals).toBe(5);
+    expect(after.medalsEarned).toBe(6);
+    expect(after.upgrades.headStart).toBe(1);
+  });
+
+  it('resetting everything gives a fresh save', () => {
+    addMedals(4);
+    resetAll();
+    const save = loadSave();
+    expect(save.medals).toBe(0);
+    expect(save.medalsEarned).toBe(0);
+    expect(save.upgrades).toEqual(NO_UPGRADES);
+    expect(save.conquest.held).toEqual([]);
   });
 });

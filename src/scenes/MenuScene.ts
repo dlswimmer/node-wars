@@ -7,7 +7,7 @@ import { loadDifficulty, saveDifficulty } from '../settings';
 import { COLORS, textStyle } from '../theme';
 import type { BattleData } from './BattleScene';
 import { drawMapGrid } from './drawing';
-import { addButton, addMuteButton } from './ui';
+import { addButton, addMuteButton, makePressable } from './ui';
 
 const DIFFICULTY_COLORS: Record<DifficultyId, number> = {
   recruit: 0x2f6b3a,
@@ -42,10 +42,30 @@ export class MenuScene extends Phaser.Scene {
     else this.rankPicker();
 
     addMuteButton(this, MENU_DESIGN.width - 30, 30, 76);
+    if (this.page === 'home') this.addSettingsButton(MENU_DESIGN.width - 120, 30, 76);
     fitDesign(this);
     const relayout = () => fitDesign(this);
     this.scale.on('resize', relayout);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off('resize', relayout));
+  }
+
+  /** A gear button that opens Settings. */
+  private addSettingsButton(x: number, y: number, size: number) {
+    const g = this.add.graphics();
+    g.fillStyle(0x000000, 0.5).fillRoundedRect(-size / 2, -size / 2, size, size, 16);
+    g.lineStyle(3, 0xffffff, 0.35).strokeRoundedRect(-size / 2, -size / 2, size, size, 16);
+    // Gear: a toothed ring around a hole.
+    const teeth = 8;
+    const points: Phaser.Math.Vector2[] = [];
+    for (let i = 0; i < teeth * 4; i++) {
+      const a = (i / (teeth * 4)) * Math.PI * 2;
+      const r = i % 4 < 2 ? 25 : 18;
+      points.push(new Phaser.Math.Vector2(Math.cos(a) * r, Math.sin(a) * r));
+    }
+    g.fillStyle(0xffffff, 0.95).fillPoints(points, true);
+    g.fillStyle(0x000000, 0.8).fillCircle(0, 0, 8);
+    const button = this.add.container(x, y, [g]).setSize(size, size);
+    makePressable(button, () => this.scene.start('settings'));
   }
 
   private go(page: MenuPage) {
