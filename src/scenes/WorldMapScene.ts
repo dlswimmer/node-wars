@@ -3,7 +3,7 @@ import { sfx } from '../audio';
 import { DPR, cssSize } from '../display';
 import { canAutoBattle, loadSave, starsUnlocked } from '../save';
 import { difficultyForStars } from '../sim/difficulty';
-import type { Point } from '../sim/types';
+import type { LevelDef, Point } from '../sim/types';
 import { medalCount } from '../sim/economy';
 import { regionMission } from '../sim/missions';
 import { medalsFor } from '../sim/upgrades';
@@ -179,14 +179,16 @@ export class WorldMapScene extends Phaser.Scene {
     if (held) return [name];
     const stars = this.conquest.regions[id]!.stars;
     const first = id === START_ID && this.conquest.held.length === 0;
+    // "FIRST BATTLE" on one line keeps the start region's label as compact as the others, so
+    // it stays inside the region on an iPad.
     const badge = this.world(
       this.add
-        .text(c.x, c.y + 6, first ? 'FIRST\nBATTLE' : '★'.repeat(stars), {
-          ...textStyle(first ? 13 : 16),
+        .text(c.x, c.y + 6, first ? 'FIRST BATTLE' : '★'.repeat(stars), {
+          ...textStyle(first ? 11 : 16),
           align: 'center',
         })
         .setColor(COLORS.accent)
-        .setOrigin(0.5, first ? 0.2 : 0.5)
+        .setOrigin(0.5)
         .setDepth(3),
     );
     const pay = medalsFor(stars, true);
@@ -195,7 +197,7 @@ export class WorldMapScene extends Phaser.Scene {
       this.add
         .text(
           c.x,
-          c.y + (first ? 38 : 22),
+          c.y + 22,
           locked ? `LOCKED: ${unlockMedals(stars)} MEDALS` : `+${medalCount(pay).toUpperCase()}`,
           textStyle(10, locked ? '#ff9a9e' : COLORS.text),
         )
@@ -321,16 +323,17 @@ export class WorldMapScene extends Phaser.Scene {
     this.drawSelection();
   }
 
-  /** Bottom panel for the selected region: what it is, what it pays, and FIGHT. */
+  /** Bottom panel for the selected region: what it is, its ground, what it pays, and FIGHT. */
   private regionPanel(id: string, w: number, h: number) {
     const region = getRegion(this.conquest.seed, id);
     const progress = this.conquest.regions[id];
     const held = this.conquest.held.includes(id);
     // Each region has a bonus mission; it shows under the reward.
     const { seed } = this.conquest;
+    const level = progress ? regionLevel(seed, id) : null;
     const mission =
-      progress && id !== START_ID
-        ? regionMission(seed, id, regionLevel(seed, id), naturalStars(seed, id), false)
+      level && id !== START_ID
+        ? regionMission(seed, id, level, naturalStars(seed, id), false)
         : null;
     const panelW = Math.min(720, w - 24);
     const panelH = mission ? 176 : 140;
@@ -358,6 +361,9 @@ export class WorldMapScene extends Phaser.Scene {
       locked = !held && !starsUnlocked(progress.stars);
       const need = unlockMedals(progress.stars) - loadSave().medalsEarned;
       line2 = first ? 'FIRST BATTLE' : `${'★'.repeat(progress.stars)}  ${d.label}`;
+      // What the ground is like, so a kid knows what to expect before attacking.
+      const ground = level ? terrainWords(level) : '';
+      if (ground) line2 += `  ·  ${ground}`;
       line3 = held
         ? `Yours · won ${progress.wins} time${progress.wins === 1 ? '' : 's'} · ${pay} a win`
         : locked
@@ -598,4 +604,16 @@ export class WorldMapScene extends Phaser.Scene {
     // At a zoom limit, start measuring again so pinching back responds immediately.
     if (Math.abs(got - wanted) > 1e-6) this.resetPinch(a, b);
   }
+}
+
+/** The terrain a region's battle has, in a few words ("River, mountains, mud"). */
+function terrainWords(level: LevelDef): string {
+  const words: string[] = [];
+  if (level.rivers?.length) words.push('river');
+  if (level.ridges?.length) words.push('mountains');
+  const kinds = new Set((level.features ?? []).map((f) => f.kind));
+  if (kinds.has('forest')) words.push('forest');
+  if (kinds.has('mud')) words.push('mud');
+  const text = words.join(', ');
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }

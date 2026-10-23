@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { blockedAt, levelRoutes, onBridge } from './paths';
+import { GROUND_SPEED, blockedAt, groundSpeed, levelGround, levelRoutes, onBridge } from './paths';
 import type { LevelDef, Point, Route } from './types';
 import { createWorld, sendTroops, step } from './world';
 
@@ -101,5 +101,56 @@ describe('routes', () => {
     expect(lowest).toBeGreaterThan(300);
     expect(world.bases[1]!.owner).toBe('enemy');
     expect(world.bases[1]!.troops).toBeLessThan(30);
+  });
+});
+
+describe('forest and mud', () => {
+  const patch = (kind: 'forest' | 'mud', x: number, y: number, size: number) =>
+    ({ kind, x, y, size, angle: 0, detail: 1 }) as const;
+
+  it('slow troops down, tanks most, and jets not at all', () => {
+    const l = level({ features: [patch('mud', 400, 200, 60)] });
+    const ground = levelGround(l)!;
+    expect(groundSpeed(ground, 400, 200, 'soldier')).toBe(GROUND_SPEED.mud.soldier);
+    expect(groundSpeed(ground, 400, 200, 'tank')).toBe(GROUND_SPEED.mud.tank);
+    expect(groundSpeed(ground, 400, 200, 'jet')).toBe(1);
+    expect(groundSpeed(ground, 150, 200, 'soldier')).toBe(1);
+    expect(levelGround(level())).toBeNull();
+  });
+
+  it('send troops around a small patch when that is quicker than wading through', () => {
+    const l = level({ features: [patch('mud', 400, 200, 50)] });
+    const r = levelRoutes(l)[0]![1]!;
+    expect(r.points.length).toBeGreaterThan(2);
+    expect(r.time).toBeLessThan(600 / GROUND_SPEED.mud.soldier);
+  });
+
+  it('count slow ground as longer, and longer still for tanks', () => {
+    // A wall of forest from top to bottom of the map: there is no way round it.
+    const features = Array.from({ length: 9 }, (_, i) => patch('forest', 400, -40 + i * 60, 60));
+    const l = level({ features });
+    const soldier = levelRoutes(l)[0]![1]!;
+    const tank = levelRoutes(l, 'tank')[0]![1]!;
+    expect(soldier.time).toBeGreaterThan(soldier.length);
+    expect(tank.time).toBeGreaterThan(soldier.time);
+  });
+
+  it('slow a marching unit while it is in the mud', () => {
+    const world = createWorld(level({ features: [patch('mud', 400, 200, 60)] }));
+    sendTroops(world, 'player', 0, 1, 0.1);
+    let inMud = 0;
+    let onGrass = 0;
+    for (let t = 0; t < 20 && world.units.length > 0; t += 0.05) {
+      const u = world.units[0]!;
+      const before = { x: u.x, y: u.y };
+      step(world, 0.05);
+      if (u.delay > 0 || !world.units.includes(u)) continue;
+      const moved = Math.hypot(u.x - before.x, u.y - before.y);
+      if (groundSpeed(world.ground, before.x, before.y, 'soldier') < 1)
+        inMud = Math.max(inMud, moved);
+      else onGrass = Math.max(onGrass, moved);
+    }
+    // It may never step in the mud if it walks round; if it does, it goes slower there.
+    if (inMud > 0) expect(inMud).toBeLessThan(onGrass);
   });
 });

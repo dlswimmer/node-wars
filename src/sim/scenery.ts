@@ -5,9 +5,9 @@ import type { Feature, FeatureKind, LevelDef, Point } from './types';
 
 /**
  * The look of a map: an organic outline around the bases (fog of war outside it) and
- * scattered scenery (only lakes block troops), point-mirrored like the bases so neither
- * side's half looks different. Uses its own random stream so it never changes where bases
- * go.
+ * scattered scenery (lakes block troops, forest and mud slow them), point-mirrored like the
+ * bases so neither side's half looks different. Uses its own random stream so it never
+ * changes where bases go.
  */
 
 /** Outline corners; even, so each corner has a mirror twin half a turn away. */
@@ -27,6 +27,7 @@ const RIDGE_CLEARANCE = 30;
 
 const FEATURE_SIZES: Record<FeatureKind, [number, number]> = {
   forest: [45, 75],
+  mud: [40, 62],
   rocks: [22, 36],
   lake: [40, 65],
   crater: [16, 28],
@@ -35,6 +36,7 @@ const FEATURE_SIZES: Record<FeatureKind, [number, number]> = {
 };
 const FEATURE_WEIGHTS: [FeatureKind, number][] = [
   ['forest', 4],
+  ['mud', 2],
   ['rocks', 3],
   ['crater', 3],
   ['lake', 1.5],

@@ -434,23 +434,35 @@ function drawBridge(g: Phaser.GameObjects.Graphics, b: Bridge) {
   }
 }
 
-/** A rocky mountain ridge: a dark base with a row of peaks lit from the top left. */
+/**
+ * A rocky mountain ridge: lumpy boulders along its length (so it reads as rock, not a pipe)
+ * with a row of big peaks lit from the top left.
+ */
 function drawRidge(g: Phaser.GameObjects.Graphics, ridge: Ridge) {
   const line = ridge.points;
-  const band = (width: number, color: number) => {
-    g.lineStyle(width, color, 1);
-    g.strokePoints(line, false);
-    g.fillStyle(color, 1);
-    for (const p of line) g.fillCircle(p.x, p.y, width / 2);
-  };
-  band(ridge.width + 8, 0x1c1f17);
-  band(ridge.width, 0x3a3c32);
-  // Peaks every so often along the crest, alternating sizes so it reads as rock, not a pipe.
   const rng = createRng(Math.round(line[0]!.x * 31 + line[0]!.y * 17));
+  // Boulders every few units along the crest, each a slightly different size.
+  const spots: { x: number; y: number; r: number }[] = [];
+  for (let i = 1; i < line.length; i++) {
+    const [a, b] = [line[i - 1]!, line[i]!];
+    const steps = Math.max(1, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / 9));
+    for (let s = 0; s <= steps; s++) {
+      const t = s / steps;
+      const r = (ridge.width / 2) * (0.85 + rng() * 0.3);
+      spots.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, r });
+    }
+  }
+  g.fillStyle(0x1c1f17, 1);
+  for (const p of spots) g.fillCircle(p.x + 2, p.y + 3, p.r + 4);
+  g.fillStyle(0x3a3c32, 1);
+  for (const p of spots) g.fillCircle(p.x, p.y, p.r);
+  g.fillStyle(0x474a3d, 1);
+  for (const p of spots) g.fillCircle(p.x - p.r * 0.25, p.y - p.r * 0.3, p.r * 0.55);
+  // Peaks every so often along the crest, alternating sizes.
   const peaks: Point[] = [];
   for (let i = 1; i < line.length; i++) {
     const [a, b] = [line[i - 1]!, line[i]!];
-    const steps = Math.max(1, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / 14));
+    const steps = Math.max(1, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / 18));
     for (let s = 0; s < steps; s++) {
       const t = s / steps;
       peaks.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
@@ -458,8 +470,8 @@ function drawRidge(g: Phaser.GameObjects.Graphics, ridge: Ridge) {
   }
   peaks.push(line[line.length - 1]!);
   for (const [i, p] of peaks.entries()) {
-    const h = ridge.width * (i % 2 === 0 ? 0.42 : 0.3) * (0.8 + rng() * 0.4);
-    const w = h * 0.9;
+    const h = ridge.width * (i % 2 === 0 ? 0.62 : 0.42) * (0.8 + rng() * 0.4);
+    const w = h * 0.85;
     const [x, y] = [p.x + (rng() - 0.5) * 6, p.y + h * 0.35];
     g.fillStyle(0x2b2d25, 1);
     g.fillTriangle(x, y - h, x + w, y, x, y);
@@ -532,6 +544,26 @@ function drawFeature(g: Phaser.GameObjects.Graphics, f: Feature) {
         g.fillCircle(p.x + 3, p.y + 3, r);
         g.fillStyle(rng() < 0.5 ? 0x24361c : 0x2a3d20, 1);
         g.fillCircle(p.x, p.y, r);
+      }
+      return;
+    }
+    case 'mud': {
+      // Brown, churned-up ground with puddles and a few ruts.
+      const patch = blob(s * 0.95, 0, 0, 14, 0.35);
+      g.fillStyle(0x3a2f1f, 1);
+      g.fillPoints(patch, true);
+      g.fillStyle(0x4a3b26, 1);
+      g.fillPoints(blob(s * 0.7, s * 0.1, -s * 0.05, 12, 0.4), true);
+      for (let i = 0; i < 4; i++) {
+        const p = at((rng() - 0.5) * s * 1.1, (rng() - 0.5) * s * 0.7);
+        g.fillStyle(0x25303a, 0.8);
+        g.fillEllipse(p.x, p.y, 10 + rng() * 14, 6 + rng() * 7);
+      }
+      g.lineStyle(2, 0x2a2116, 0.7);
+      for (const off of [-0.25, 0.2]) {
+        const a = at(-s * 0.7, s * off);
+        const b = at(s * 0.7, s * (off + 0.1));
+        g.lineBetween(a.x, a.y, b.x, b.y);
       }
       return;
     }

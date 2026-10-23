@@ -1,29 +1,115 @@
-import type { Bridge, LevelDef, Point, Route } from './types';
+import type { Bridge, LevelDef, Point, Route, UnitKind } from './types';
 
 /**
- * Real ways between bases. The map is split into a grid of cells, each open or blocked
- * (water, unless a bridge crosses it). Once per map, a shortest-path search runs from every
- * base over the grid, and each path is pulled tight into a few straight legs. Troops then
- * just walk those corners, so hundreds of units cost nothing extra.
+ * Real ways between bases. The map is split into a grid of cells, each blocked (water or
+ * rock, unless a bridge crosses it), slow (forest or mud) or open. Once per map, a
+ * shortest-path search runs from every base over the grid, counting slow cells as longer,
+ * and each path is pulled tight into a few straight legs. Tanks, which bog down most, get
+ * their own routes. Troops then just walk those corners, so hundreds of units cost nothing
+ * extra.
  */
+
+/** How fast soldiers and tanks move through slow ground (jets fly over it). */
+export const GROUND_SPEED = {
+  forest: { soldier: 0.75, tank: 0.5 },
+  mud: { soldier: 0.6, tank: 0.4 },
+} as const;
+type Slow = keyof typeof GROUND_SPEED;
+const SLOW_KINDS: Slow[] = ['forest', 'mud'];
+/** Everyone but jets walks; soldiers and tanks each get their own routes. */
+type Walker = 'soldier' | 'tank';
+
+/** Slow ground on a grid, for looking up how fast a unit moves where it stands. */
+export interface Ground {
+  x0: number;
+  y0: number;
+  cols: number;
+  rows: number;
+  /** 0 = normal, otherwise 1 + the index in SLOW_KINDS. */
+  type: Uint8Array;
+}
 
 /** Grid cell size in map units. */
 export const CELL = 20;
 /** Troops keep this far from the water's edge, so they walk on the bank, not in the river. */
 export const SHORE = 6;
 
-const cache = new WeakMap<LevelDef, Route[][]>();
+const cache = new WeakMap<LevelDef, Record<Walker, Route[][]>>();
+const groundCache = new WeakMap<LevelDef, Ground | null>();
 /** Levels where some base can't reach another at all (map making rejects those). */
 const cutOff = new WeakSet<LevelDef>();
 
-/** Routes from every base to every other one (`routes[from][to]`), worked out once per level. */
-export function levelRoutes(level: LevelDef): Route[][] {
+/**
+ * Routes from every base to every other one (`routes[from][to]`) for soldiers, or tanks,
+ * worked out once per level.
+ */
+export function levelRoutes(level: LevelDef, walker: Walker = 'soldier'): Route[][] {
   let routes = cache.get(level);
   if (!routes) {
     routes = buildRoutes(level);
     cache.set(level, routes);
   }
-  return routes;
+  return routes[walker];
+}
+
+/** The level's slow ground, or null if it has none (then everyone moves at full speed). */
+export function levelGround(level: LevelDef): Ground | null {
+  if (!groundCache.has(level)) groundCache.set(level, buildGround(level));
+  return groundCache.get(level)!;
+}
+
+/** How fast a unit of this kind moves at this spot (1 = full speed). */
+export function groundSpeed(ground: Ground | null, x: number, y: number, unit: UnitKind): number {
+  if (!ground || unit === 'jet') return 1;
+  const c = Math.floor((x - ground.x0) / CELL);
+  const r = Math.floor((y - ground.y0) / CELL);
+  if (c < 0 || r < 0 || c >= ground.cols || r >= ground.rows) return 1;
+  const t = ground.type[r * ground.cols + c]!;
+  return t === 0 ? 1 : GROUND_SPEED[SLOW_KINDS[t - 1]!][unit];
+}
+
+/** The slow ground (forest or mud) at a point, if any. */
+export function slowAt(level: LevelDef, x: number, y: number): Slow | null {
+  for (const f of level.features ?? []) {
+    if (f.kind !== 'forest' && f.kind !== 'mud') continue;
+    // Matches the drawn patch, an oval about 0.85 x 0.66 of its size.
+    const dx = x - f.x;
+    const dy = y - f.y;
+    const lx = dx * Math.cos(f.angle) + dy * Math.sin(f.angle);
+    const ly = -dx * Math.sin(f.angle) + dy * Math.cos(f.angle);
+    if ((lx / (f.size * 0.85)) ** 2 + (ly / (f.size * 0.66)) ** 2 <= 1) return f.kind;
+  }
+  return null;
+}
+
+/** Whether the level has any forest or mud. */
+function hasSlowGround(level: LevelDef): boolean {
+  return (level.features ?? []).some((f) => f.kind === 'forest' || f.kind === 'mud');
+}
+
+/** Where the grid sits: over the map, its outline and every base, with a cell to spare. */
+function gridFrame(level: LevelDef) {
+  const { bases } = level;
+  const xs = [0, level.width, ...(level.outline ?? []).map((p) => p.x), ...bases.map((b) => b.x)];
+  const ys = [0, level.height, ...(level.outline ?? []).map((p) => p.y), ...bases.map((b) => b.y)];
+  const x0 = Math.min(...xs) - CELL;
+  const y0 = Math.min(...ys) - CELL;
+  const cols = Math.ceil((Math.max(...xs) + CELL - x0) / CELL);
+  const rows = Math.ceil((Math.max(...ys) + CELL - y0) / CELL);
+  return { x0, y0, cols, rows };
+}
+
+function buildGround(level: LevelDef): Ground | null {
+  if (!hasSlowGround(level)) return null;
+  const { x0, y0, cols, rows } = gridFrame(level);
+  const type = new Uint8Array(cols * rows);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const slow = slowAt(level, x0 + (c + 0.5) * CELL, y0 + (r + 0.5) * CELL);
+      type[r * cols + c] = slow ? SLOW_KINDS.indexOf(slow) + 1 : 0;
+    }
+  }
+  return { x0, y0, cols, rows, type };
 }
 
 /** Whether every base can walk to every other one. */
@@ -133,33 +219,44 @@ export function distToSegment(
 }
 
 function straight(a: Point, b: Point): Route {
+  const length = Math.hypot(b.x - a.x, b.y - a.y);
   return {
     points: [
       { x: a.x, y: a.y },
       { x: b.x, y: b.y },
     ],
-    length: Math.hypot(b.x - a.x, b.y - a.y),
+    length,
+    time: length,
   };
 }
 
-function buildRoutes(level: LevelDef): Route[][] {
-  const routes = findRoutes(level);
-  if (!routes.ok) cutOff.add(level);
-  return routes.table;
+function reversed(route: Route): Route {
+  return { ...route, points: [...route.points].reverse() };
 }
 
-function findRoutes(level: LevelDef): { table: Route[][]; ok: boolean } {
+function buildRoutes(level: LevelDef): Record<Walker, Route[][]> {
+  const soldier = findRoutes(level, 'soldier');
+  if (!soldier.ok) cutOff.add(level);
+  // Without slow ground, tanks take the same roads as everyone.
+  const tank = hasSlowGround(level) ? findRoutes(level, 'tank').table : soldier.table;
+  return { soldier: soldier.table, tank };
+}
+
+function findRoutes(level: LevelDef, walker: Walker): { table: Route[][]; ok: boolean } {
   const bases = level.bases;
-  if (!hasBlockers(level))
+  if (!hasBlockers(level) && !hasSlowGround(level))
     return { table: bases.map((a) => bases.map((b) => straight(a, b))), ok: true };
 
-  // The grid covers the map, its outline, and every base, with a cell to spare.
-  const xs = [0, level.width, ...(level.outline ?? []).map((p) => p.x), ...bases.map((b) => b.x)];
-  const ys = [0, level.height, ...(level.outline ?? []).map((p) => p.y), ...bases.map((b) => b.y)];
-  const x0 = Math.min(...xs) - CELL;
-  const y0 = Math.min(...ys) - CELL;
-  const cols = Math.ceil((Math.max(...xs) + CELL - x0) / CELL);
-  const rows = Math.ceil((Math.max(...ys) + CELL - y0) / CELL);
+  const { x0, y0, cols, rows } = gridFrame(level);
+  const ground = levelGround(level);
+  /** Cost of crossing each cell: 1 on open ground, more where it is slow. */
+  const slowness = new Float64Array(cols * rows).fill(1);
+  if (ground) {
+    for (let k = 0; k < ground.type.length; k++) {
+      const t = ground.type[k]!;
+      if (t > 0) slowness[k] = 1 / GROUND_SPEED[SLOW_KINDS[t - 1]!][walker];
+    }
+  }
   const open = new Uint8Array(cols * rows);
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -178,18 +275,40 @@ function findRoutes(level: LevelDef): { table: Route[][]; ok: boolean } {
   // A base always stands on open ground (map making keeps water away from bases).
   for (const b of bases) open[cellOf(b)] = 1;
 
-  const isOpen = (x: number, y: number) => {
+  const cellAt = (x: number, y: number) => {
     const c = Math.floor((x - x0) / CELL);
     const r = Math.floor((y - y0) / CELL);
-    return c >= 0 && r >= 0 && c < cols && r < rows && open[r * cols + c] === 1;
+    return c >= 0 && r >= 0 && c < cols && r < rows ? r * cols + c : -1;
   };
-  const clear = (a: Point, b: Point) => {
+  /**
+   * Whether a straight leg stays on open ground, crossing slow cells only where the searched
+   * path already did (so pulling it tight never cuts through a forest it went around).
+   */
+  const clearOf = (allowed: Set<number> | null) => (a: Point, b: Point) => {
     const steps = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / (CELL / 4));
     for (let s = 1; s < steps; s++) {
       const t = s / steps;
-      if (!isOpen(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)) return false;
+      const k = cellAt(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+      if (k < 0 || open[k] !== 1) return false;
+      if (slowness[k]! > 1 && !allowed?.has(k)) return false;
     }
     return true;
+  };
+  const clear = clearOf(null);
+  /** How far a route is at full speed, counting slow stretches as longer. */
+  const timeOf = (points: Point[]) => {
+    let time = 0;
+    for (let i = 1; i < points.length; i++) {
+      const [a, b] = [points[i - 1]!, points[i]!];
+      const length = Math.hypot(b.x - a.x, b.y - a.y);
+      const steps = Math.max(1, Math.ceil(length / (CELL / 2)));
+      for (let s = 0; s < steps; s++) {
+        const t = (s + 0.5) / steps;
+        const k = cellAt(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+        time += (length / steps) * (k < 0 ? 1 : slowness[k]!);
+      }
+    }
+    return time;
   };
 
   const routes: Route[][] = bases.map(() => []);
@@ -198,7 +317,7 @@ function findRoutes(level: LevelDef): { table: Route[][]; ok: boolean } {
     const a = bases[i]!;
     routes[i]![i] = straight(a, a);
     const start = cellOf(a);
-    const parent = search(open, cols, rows, start, bases.slice(i + 1).map(cellOf));
+    const parent = search(open, slowness, cols, rows, start, bases.slice(i + 1).map(cellOf));
     for (let j = i + 1; j < bases.length; j++) {
       const b = bases[j]!;
       const end = cellOf(b);
@@ -209,11 +328,16 @@ function findRoutes(level: LevelDef): { table: Route[][]; ok: boolean } {
         route = straight(a, b);
       } else {
         const cells: Point[] = [];
-        for (let k = end; k !== start; k = parent[k]!) cells.push(centre(k));
-        route = tighten([b, ...cells, centre(start), a].reverse(), clear);
+        const onPath = new Set<number>([start]);
+        for (let k = end; k !== start; k = parent[k]!) {
+          cells.push(centre(k));
+          onPath.add(k);
+        }
+        route = tighten([b, ...cells, centre(start), a].reverse(), clearOf(onPath));
       }
+      route.time = timeOf(route.points);
       routes[i]![j] = route;
-      routes[j]![i] = { points: [...route.points].reverse(), length: route.length };
+      routes[j]![i] = reversed(route);
     }
   }
   return { table: routes, ok };
@@ -225,6 +349,7 @@ function findRoutes(level: LevelDef): { table: Route[][]; ok: boolean } {
  */
 function search(
   open: Uint8Array,
+  slowness: Float64Array,
   cols: number,
   rows: number,
   start: number,
@@ -253,7 +378,7 @@ function search(
         const nk = nr * cols + nc;
         if (!open[nk]) continue;
         if (dr !== 0 && dc !== 0 && (!open[r * cols + nc] || !open[nr * cols + c])) continue;
-        const nd = d + (dr !== 0 && dc !== 0 ? Math.SQRT2 : 1);
+        const nd = d + (dr !== 0 && dc !== 0 ? Math.SQRT2 : 1) * slowness[nk]!;
         if (nd < dist[nk]!) {
           dist[nk] = nd;
           parent[nk] = k;
@@ -280,7 +405,7 @@ function tighten(points: Point[], clear: (a: Point, b: Point) => boolean): Route
   for (let i = 1; i < out.length; i++) {
     length += Math.hypot(out[i]!.x - out[i - 1]!.x, out[i]!.y - out[i - 1]!.y);
   }
-  return { points: out, length };
+  return { points: out, length, time: length };
 }
 
 /** A small binary min-heap of (cell, distance). */

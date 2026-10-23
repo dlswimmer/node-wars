@@ -1,3 +1,5 @@
+import type { Ground } from './paths';
+
 /**
  * Every army there can be (neutral bases never attack or grow). A battle uses some of them,
  * listed in World.armies; all of them follow the same rules.
@@ -119,12 +121,18 @@ export interface World {
   rng: () => number;
   /** The way from every base to every other one, around terrain (see paths.ts). */
   routes: Route[][];
+  /** The same for tanks, which bog down most in forest and mud. */
+  tankRoutes: Route[][];
+  /** Forest and mud, for how fast units move where they stand (null if the map has none). */
+  ground: Ground | null;
 }
 
 /** A way between two bases: the corners to walk through (both bases included) and its length. */
 export interface Route {
   points: Point[];
   length: number;
+  /** How far it is in full-speed distance, counting forest and mud as longer. */
+  time: number;
 }
 
 export interface BaseDef {
@@ -140,8 +148,8 @@ export interface Point {
   y: number;
 }
 
-/** Scenery drawn on the map. Lakes block troops; the rest is just for looks. */
-export type FeatureKind = 'forest' | 'rocks' | 'lake' | 'crater' | 'sandbags' | 'traps';
+/** Scenery on the map. Lakes block troops and forest and mud slow them; the rest is for looks. */
+export type FeatureKind = 'forest' | 'mud' | 'rocks' | 'lake' | 'crater' | 'sandbags' | 'traps';
 
 export interface Feature {
   kind: FeatureKind;

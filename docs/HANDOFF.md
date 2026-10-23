@@ -77,6 +77,11 @@ every push to `main` (CI runs lint, format, typecheck and tests first).
 - **Next up: pacing.** The user wants battles of about five minutes. Plan: from 3 stars up,
   tougher middle garrisons, bigger maps and slightly slower troops, tuned by bots; 1-2 stars
   stay quick.
+- **Forest and mud are real** (`src/sim/paths.ts`): forest slows soldiers to 75% and tanks to
+  50%, mud to 60% and 40%; jets fly over. Routes count slow cells as longer, tanks get their
+  own routes, and a route's `time` (full-speed distance) is what the preview and AI use.
+  Balance barely moved (bots: Soldier vs typical kid 77% before, 79% after) and battles got
+  about 10% longer. They are scenery patches (`features`), so the save is unchanged.
 - **Swarm clashes** cancel troop for troop mid-field (Armory counts; a tank absorbs soldiers).
 - **Bunker AI by rank:** only General and Marshal know a Bunker needs double troops and value
   Bunkers/Hospitals by position. Easier AIs waste troops on Bunkers. This keeps early ranks
@@ -112,8 +117,6 @@ ROADMAP.md.
 
 Also open:
 
-- Known issue: on iPad, the text over the starting zone on the world map gets cut off
-  (`src/scenes/WorldMapScene.ts`). Low priority; keep labels inside the screen at 1024x768.
 - With the new maps, Soldier on conquest regions is a coin flip for the "new 8yo" bot
   (about 45-50%). Bands still pass; ease it if the kids find Soldier too hard.
 

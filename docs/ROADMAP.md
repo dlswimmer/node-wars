@@ -116,7 +116,8 @@ join seamlessly, so the front line flows from one into the next.
 - [ ] Terrain that shapes strategy:
   - Water and mountains block troops; bridges and passes become chokepoints worth holding
     (done: rivers with bridges, mountain ranges with passes, lakes; regions by star rating)
-  - Forest, mud, and hills slow troops; roads speed them up
+  - (done) Forest and mud slow troops, tanks most; tanks get their own routes. Hills and
+    roads that speed troops up are still to come
   - (done) Troops follow real paths around terrain (paths between bases worked out once per map,
     so it stays fast with hundreds of units)
   - (done) The attack preview and the AI use real travel times, so "the long way round" matters
@@ -129,7 +130,8 @@ join seamlessly, so the front line flows from one into the next.
       map with their own balance bands, a second enemy colour and a bigger reward
 - [x] Enemy personalities (Rusher, Turtle, Raider, Opportunist), announced at the start, so
       battles at the same rank feel different
-- [ ] Show a region's terrain (river, mountains) on the world map before you pick it
+- [x] Show a region's terrain (river, mountains, forest, mud) on the world map before you
+      pick it
 - [ ] Fog of war over enemy troops on Soldier and up (see BASES.md decisions)
 - [ ] Capturing a zone opens its neighbours; the zone you hold is where you push out from
 - [ ] Bases near a zone border connect to bases across it, so attacks cross borders naturally

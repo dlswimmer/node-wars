@@ -14,7 +14,7 @@ import {
   TANK_SPEED,
   UNIT_SPEED,
 } from './config';
-import { distToPolyline, levelRoutes } from './paths';
+import { distToPolyline, groundSpeed, levelGround, levelRoutes } from './paths';
 import { createRng } from './rng';
 import { ARMIES } from './types';
 import type {
@@ -83,12 +83,23 @@ export function createWorld(level: LevelDef, opts: WorldOptions = {}): World {
     nextSquadId: 1,
     rng: createRng(opts.seed ?? 1),
     routes: levelRoutes(level),
+    tankRoutes: levelRoutes(level, 'tank'),
+    ground: levelGround(level),
   };
 }
 
-/** How far troops walk from one base to another, going around water. */
-export function travelDistance(world: World, fromId: number, toId: number): number {
-  return world.routes[fromId]?.[toId]?.length ?? 0;
+/**
+ * How far troops walk from one base to another, going around water and rock, in full-speed
+ * distance (forest and mud count as longer, tanks most).
+ */
+export function travelDistance(
+  world: World,
+  fromId: number,
+  toId: number,
+  unit: UnitKind = 'soldier',
+): number {
+  const routes = unit === 'tank' ? world.tankRoutes : world.routes;
+  return routes[fromId]?.[toId]?.time ?? 0;
 }
 
 export function getBonuses(world: World, army: Army): Bonuses {
@@ -168,10 +179,14 @@ export function sendTroops(
   const soldiers = count - tanks * tankPower;
   // Jets (from an Airfield) fly straight; everyone else walks the road around terrain.
   const jets = from.kind === 'airfield';
-  const corners = jets ? [] : world.routes[fromId]![toId]!.points.slice(1, -1);
+  const cornersFor = (unit: UnitKind) =>
+    unit === 'jet'
+      ? []
+      : (unit === 'tank' ? world.tankRoutes : world.routes)[fromId]![toId]!.points.slice(1, -1);
   for (let i = 0; i < tanks + soldiers; i++) {
     const tank = i < tanks;
     const kind: UnitKind = tank ? 'tank' : jets ? 'jet' : 'soldier';
+    const corners = cornersFor(kind);
     const [sx, sy] = jitter(world, from.x, from.y, fromR);
     const [ax, ay] = jitter(world, to.x, to.y, toR);
     // Around water each unit walks the road's corners, nudged a little to spread the swarm.
@@ -211,7 +226,7 @@ function kindSpeed(from: Base['kind'], unit: UnitKind, boosts: ArmyBoosts): numb
 
 /** How far a unit of this kind travels from one base to another (jets fly straight). */
 function tripLength(world: World, fromId: number, toId: number, unit: UnitKind): number {
-  if (unit !== 'jet') return travelDistance(world, fromId, toId);
+  if (unit !== 'jet') return travelDistance(world, fromId, toId, unit);
   const [a, b] = [world.bases[fromId]!, world.bases[toId]!];
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
@@ -356,7 +371,8 @@ function moveUnits(world: World, dt: number, bonuses: Record<Army, Bonuses>): vo
       survivors.push(u);
       continue;
     }
-    let move = u.speed * dt;
+    // Forest and mud slow everyone on foot, tanks most.
+    let move = u.speed * dt * groundSpeed(world.ground, u.x, u.y, u.kind);
     let dist = Math.hypot(u.tx - u.x, u.ty - u.y);
     // Round the road's corners without losing any of this step's movement.
     while (dist <= move && u.path?.length) {
