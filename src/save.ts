@@ -6,6 +6,13 @@ import {
   type UpgradeId,
   type UpgradeLevels,
 } from './sim/upgrades';
+import {
+  NO_COLLEGE,
+  honorFor,
+  nextHonorCost,
+  type CollegeId,
+  type CollegeLevels,
+} from './sim/college';
 import { OLD_MEDAL_SCALE } from './sim/economy';
 import { isUnlocked, newConquest, recordBattle, type ConquestState } from './sim/worldmap';
 
@@ -14,8 +21,8 @@ import { isUnlocked, newConquest, recordBattle, type ConquestState } from './sim
  * add fields and migrate old saves instead of wiping a kid's progress.
  */
 export interface SaveData {
-  /** 3: whole medals (wins pay one per star). */
-  version: 3;
+  /** 4: Honor, the War College and Tactical Retreats. */
+  version: 4;
   /** Medals to spend. */
   medals: number;
   /** Every medal ever earned (spending doesn't lower it); unlocks higher-star regions. */
@@ -23,10 +30,21 @@ export interface SaveData {
   upgrades: UpgradeLevels;
   /** The conquest map: world seed, regions held, ratings and wins. */
   conquest: ConquestState;
+  /** Honor to spend in the War College (only Tactical Retreats pay it). */
+  honor: number;
+  /** War College levels: permanent, never reset. */
+  college: CollegeLevels;
+  /** Tactical Retreats made; sets your insignia. */
+  retreats: number;
+}
+
+/** Version 3 had whole medals but no prestige yet. */
+interface SaveV3 extends Omit<SaveData, 'version' | 'honor' | 'college' | 'retreats'> {
+  version: 3;
 }
 
 /** Version 2 had the conquest map but paid ½-2 medals a win. */
-interface SaveV2 extends Omit<SaveData, 'version'> {
+interface SaveV2 extends Omit<SaveV3, 'version'> {
   version: 2;
 }
 
@@ -47,12 +65,18 @@ function worldSeed(): number {
 
 function fresh(): SaveData {
   return {
-    version: 3,
+    version: 4,
     medals: 0,
     medalsEarned: 0,
     upgrades: { ...NO_UPGRADES },
     conquest: newConquest(worldSeed()),
+    ...NO_PRESTIGE(),
   };
+}
+
+/** No Honor, no War College, no retreats yet. */
+function NO_PRESTIGE() {
+  return { honor: 0, college: { ...NO_COLLEGE }, retreats: 0 };
 }
 
 /** Medals from before whole medals, scaled to keep the same buying power. */
@@ -66,7 +90,7 @@ function scaleOld(medals: unknown): number {
  * unknown).
  */
 export function migrate(data: unknown): SaveData | null {
-  const d = data as Partial<SaveData> | Partial<SaveV2> | Partial<SaveV1> | null;
+  const d = data as Partial<SaveData> | Partial<SaveV3> | Partial<SaveV2> | Partial<SaveV1> | null;
   if (!d || typeof d !== 'object') return null;
   if (d.version === 1) {
     const conquest = newConquest(worldSeed());
@@ -76,31 +100,37 @@ export function migrate(data: unknown): SaveData | null {
     conquest.starWins[4] = Number(wins.general) || 0;
     const medals = scaleOld(d.medals);
     return {
-      version: 3,
+      version: 4,
       medals,
       medalsEarned: medals,
       upgrades: { ...NO_UPGRADES, ...d.upgrades },
       conquest,
+      ...NO_PRESTIGE(),
     };
   }
   if (d.version === 2 && d.conquest) {
     const medals = scaleOld(d.medals);
     return {
-      version: 3,
+      version: 4,
       medals,
       // Early version-2 saves had no lifetime count yet.
       medalsEarned: Math.max(medals, scaleOld(d.medalsEarned)),
       upgrades: { ...NO_UPGRADES, ...d.upgrades },
       conquest: d.conquest,
+      ...NO_PRESTIGE(),
     };
   }
-  if (d.version === 3 && d.conquest) {
+  if ((d.version === 3 || d.version === 4) && d.conquest) {
+    const v4 = d as Partial<SaveData>;
     return {
-      version: 3,
+      version: 4,
       medals: Number(d.medals) || 0,
       medalsEarned: Number(d.medalsEarned) || 0,
       upgrades: { ...NO_UPGRADES, ...d.upgrades },
       conquest: d.conquest,
+      honor: Number(v4.honor) || 0,
+      college: { ...NO_COLLEGE, ...v4.college },
+      retreats: Number(v4.retreats) || 0,
     };
   }
   return null;
@@ -187,6 +217,41 @@ export function newWorld(): void {
   const starWins = save.conquest.starWins;
   save.conquest = { ...newConquest(seed), starWins };
   persist();
+}
+
+/** Buy the next level of a War College upgrade with Honor. */
+export function buyCollege(id: CollegeId): boolean {
+  const save = loadSave();
+  const cost = nextHonorCost(save.college, id);
+  if (cost === null || save.honor < cost) return false;
+  save.honor -= cost;
+  save.college[id] += 1;
+  persist();
+  return true;
+}
+
+/**
+ * Tactical Retreat: bank Honor for how far this war got, then start a new war on a new world
+ * with no medals and no Command Tent upgrades. Honor, the War College, insignia and your
+ * mastery (wins per star level) stay. War Chest and Officer Corps give the new war a start.
+ * Returns the Honor earned, or 0 (and does nothing) if the war hasn't gone far enough.
+ */
+export function tacticalRetreat(): number {
+  const save = loadSave();
+  const honor = honorFor(save.conquest);
+  if (honor <= 0) return 0;
+  const starWins = save.conquest.starWins;
+  let seed = worldSeed();
+  while (seed === save.conquest.seed) seed = worldSeed();
+  const startMedals = 5 * save.college.warChest;
+  save.honor += honor;
+  save.retreats += 1;
+  save.medals = startMedals;
+  save.medalsEarned = startMedals;
+  save.upgrades = { ...NO_UPGRADES, adjutant: save.college.officerCorps };
+  save.conquest = { ...newConquest(seed), starWins };
+  persist();
+  return honor;
 }
 
 /** Erase all campaign progress: medals, upgrades and the world. */

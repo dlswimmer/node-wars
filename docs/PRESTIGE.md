@@ -110,6 +110,28 @@ never the best play.
    - Command Tent: each upgrade with its level, cost, and a BUY button.
 5. **Browser check** at phone and iPad sizes.
 
+## Threat, Tactical Retreat and the War College (built)
+
+- **Threat.** Region ratings climb with distance from the start; past five stars the extra
+  becomes a region's Threat (shown as ★★★★★+2). Each level gives every enemy army +10% build
+  speed, +6% hit strength, +6% capacity and +6 starting troops (`threatOptions` in
+  `src/sim/upgrades.ts`), and the region pays stars + Threat medals. It never stops
+  climbing, so every war hits a wall.
+- **Tactical Retreat.** From the War College page of the Command Tent, once a 3-star region
+  is won. It pays Honor: each held region adds (stars + Threat)² / 9, so deep regions are
+  worth far more than many easy ones. Then a new war starts on a new world with no medals and
+  no Command Tent upgrades; Honor, the War College, insignia and star mastery stay.
+  ("Promotion" is kept for moving up to the next phase.)
+- **War College** (`src/sim/college.ts`, prices in `HONOR_COSTS`): Veteran Pay (+25% medals),
+  War Chest (start with medals), Drill School, Logistics and Gunnery School (lasting
+  build speed, troop speed and hit strength), Fortifications (bigger bases, longer shield),
+  Officer Corps (start with Adjutant levels).
+- **Insignia:** Lieutenant, Captain, Major, Colonel, Brigadier, Field Marshal, then stars.
+- **Checked with bots** (`npm run campaign -- newKid 4`): retreating after 8 battles pays
+  about 0.3-0.6 Honor a battle, after 20 about 0.6-1, and pushing to the wall 0.7 rising to
+  2 as the War College adds up. A new-8yo bot beats 5 stars in its first war and 5 stars at
+  Threat 5 by its fourth.
+
 ## Later, with the expanding world (not designed yet)
 
 - A real difficulty curve as the map grows, instead of rank alone.

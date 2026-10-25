@@ -82,6 +82,9 @@ every push to `main` (CI runs lint, format, typecheck and tests first).
   own routes, and a route's `time` (full-speed distance) is what the preview and AI use.
   Balance barely moved (bots: Soldier vs typical kid 77% before, 79% after) and battles got
   about 10% longer. They are scenery patches (`features`), so the save is unchanged.
+- **Prestige is built** (2026-10-25): Threat, Tactical Retreat, Honor and the War College; see
+  PRESTIGE.md. Save version 4. Region ratings now climb faster with distance (0.9 a ring,
+  was 0.6) so wars reach 5 stars and Threat in a few rings.
 - **Prestige direction** (the user, 2026-10-25): the campaign should get so hard a kid can't go
   on, then pay a deep currency for permanent upgrades. Plan: enemy upgrades that grow with a
   Threat level as you conquer outward; a **Tactical Retreat** (the prestige) that resets the

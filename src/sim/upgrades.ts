@@ -1,3 +1,4 @@
+import { NO_COLLEGE, collegeEdges, type CollegeLevels } from './college';
 import { worldOptionsFor, type Difficulty } from './difficulty';
 import { UPGRADE_COSTS, autoBattleMedals, winMedals } from './economy';
 import type { WorldOptions } from './world';
@@ -122,9 +123,20 @@ export const ADJUTANT_LEVELS = [
 /** Wins you need yourself at a star level before the Adjutant may auto-battle it. */
 export const MASTERY_WINS = 5;
 /** Medals for a campaign battle in a region with this many stars (see economy.ts). */
-export function medalsFor(stars: number, won: boolean, auto = false): number {
+/**
+ * Medals for a campaign battle: a region pays for its stars plus its Threat, times the War
+ * College's Veteran Pay bonus.
+ */
+export function medalsFor(
+  stars: number,
+  won: boolean,
+  auto = false,
+  threat = 0,
+  bonus = 1,
+): number {
   if (!won) return 0;
-  return auto ? autoBattleMedals(stars) : winMedals(stars);
+  const hard = stars + Math.max(0, threat);
+  return Math.round((auto ? autoBattleMedals(hard) : winMedals(hard)) * bonus);
 }
 
 export function nextCost(levels: UpgradeLevels, id: UpgradeId): number | null {
@@ -154,18 +166,58 @@ export function upgradeOptions(levels: UpgradeLevels, baseShield: number): Parti
   };
 }
 
-/** World setup for a campaign battle: the rank's settings plus the player's upgrades. */
+/** What each level of a region's Threat gives every enemy army. */
+export const THREAT_STEP = { production: 0.1, attack: 0.06, capacity: 0.06, troops: 6 } as const;
+
+/** How a region's Threat strengthens the enemy armies (same kinds of edge as your upgrades). */
+export function threatOptions(threat: number): Partial<WorldOptions> {
+  const t = Math.max(0, threat);
+  const boost = { attack: 1 + THREAT_STEP.attack * t, capacity: 1 + THREAT_STEP.capacity * t };
+  return {
+    startTroops: { enemy: THREAT_STEP.troops * t, rival: THREAT_STEP.troops * t },
+    boosts: { enemy: boost, rival: boost },
+  };
+}
+
+/**
+ * World setup for a campaign battle: the rank's settings, the player's upgrades, and the
+ * region's Threat for the enemy.
+ */
 export function campaignWorldOptions(
   d: Difficulty,
   seed: number,
   levels: UpgradeLevels,
+  threat = 0,
+  college: CollegeLevels = NO_COLLEGE,
 ): WorldOptions {
   const base = worldOptionsFor(d, seed);
   const up = upgradeOptions(levels, d.shieldSeconds);
+  // The War College's edges stack on top of the Command Tent's.
+  const edge = collegeEdges(college);
+  const mine = up.boosts!.player!;
+  up.boosts = {
+    player: {
+      ...mine,
+      speed: mine.speed! * edge.speed,
+      attack: mine.attack! * edge.attack,
+      capacity: mine.capacity! * edge.capacity,
+    },
+  };
+  up.handicap = { player: up.handicap!.player! * edge.production };
+  up.shield = { player: up.shield!.player! + edge.shield };
+  const foe = threatOptions(threat);
+  const build = 1 + THREAT_STEP.production * Math.max(0, threat);
   return {
     ...base,
     ...up,
-    handicap: { ...base.handicap, ...up.handicap },
+    handicap: {
+      ...base.handicap,
+      ...up.handicap,
+      enemy: (base.handicap?.enemy ?? 1) * build,
+      rival: (base.handicap?.rival ?? 1) * build,
+    },
     shield: { ...base.shield, ...up.shield },
+    startTroops: { ...up.startTroops, ...foe.startTroops },
+    boosts: { ...up.boosts, ...foe.boosts },
   };
 }

@@ -1,6 +1,14 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio';
-import { buyUpgrade, loadSave } from '../save';
+import { buyCollege, buyUpgrade, loadSave, tacticalRetreat } from '../save';
+import {
+  COLLEGE,
+  RETREAT_MIN_STARS,
+  canRetreat,
+  honorFor,
+  insignia,
+  nextHonorCost,
+} from '../sim/college';
 import { medalCount, medalSummary } from '../sim/economy';
 import { ADJUTANT_LEVELS, UPGRADES, nextCost, type UpgradeTab } from '../sim/upgrades';
 import { COLORS, textStyle } from '../theme';
@@ -8,38 +16,66 @@ import { drawMapGrid } from './drawing';
 import { MENU_DESIGN, fitDesign } from './MenuScene';
 import { addButton, addMuteButton } from './ui';
 
-/** The Command Tent: spend medals on permanent upgrades for campaign battles. */
+/** The Command Tent's pages: the two of medal upgrades, and the War College (Honor). */
+type TentTab = UpgradeTab | 'college';
+
+/** Where the Tactical Retreat button sits; the "no" of its confirm takes the same spot. */
+const RETREAT = { x: 640, y: 562 };
+
+/**
+ * The Command Tent: spend medals on upgrades for this war, and Honor in the War College on
+ * upgrades that last for good. The War College page also holds the Tactical Retreat.
+ */
 export class TentScene extends Phaser.Scene {
-  /** Which page of upgrades is showing. */
-  private tab: UpgradeTab = 'army';
+  /** Which page is showing. */
+  private tab: TentTab = 'army';
+  /** Asking "are you sure?" before a Tactical Retreat. */
+  private confirming = false;
 
   constructor() {
     super('tent');
   }
 
-  init(data: { tab?: UpgradeTab }) {
+  init(data: { tab?: TentTab; confirm?: boolean }) {
     this.tab = data.tab ?? 'army';
+    this.confirming = !!data.confirm;
   }
 
   create() {
     const grid = this.add.graphics();
     drawMapGrid(grid, MENU_DESIGN.width * 3, MENU_DESIGN.height * 3);
     grid.setPosition(-MENU_DESIGN.width, -MENU_DESIGN.height);
+    addMuteButton(this, MENU_DESIGN.width - 30, 30, 76);
 
+    if (this.confirming) this.confirmRetreat();
+    else this.page();
+
+    fitDesign(this);
+    const relayout = () => fitDesign(this);
+    this.scale.on('resize', relayout);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off('resize', relayout));
+  }
+
+  private page() {
     const save = loadSave();
     const cx = MENU_DESIGN.width / 2;
-    this.add.text(cx, 40, 'COMMAND TENT', textStyle(60, COLORS.accent)).setOrigin(0.5);
+    const college = this.tab === 'college';
     this.add
-      .text(cx, 88, `You have ${medalSummary(save.medals, save.medalsEarned)}`, textStyle(28))
+      .text(cx, 40, college ? 'WAR COLLEGE' : 'COMMAND TENT', textStyle(60, COLORS.accent))
       .setOrigin(0.5);
+    const wallet = college
+      ? `${insignia(save.retreats)} · ${save.honor} Honor`
+      : `You have ${medalSummary(save.medals, save.medalsEarned)}`;
+    this.add.text(cx, 88, wallet, textStyle(28)).setOrigin(0.5);
 
-    // Two pages, so every upgrade gets a readable row on a phone.
-    const tabs: { id: UpgradeTab; label: string }[] = [
+    // Pages, so every upgrade gets a readable row on a phone.
+    const tabs: { id: TentTab; label: string }[] = [
       { id: 'army', label: 'ARMY' },
       { id: 'bases', label: 'BASES & GEAR' },
+      { id: 'college', label: 'WAR COLLEGE' },
     ];
     tabs.forEach((t, i) => {
-      addButton(this, cx + (i - 0.5) * 250, 132, {
+      addButton(this, cx + (i - 1) * 250, 132, {
         width: 230,
         height: 48,
         label: t.label,
@@ -49,49 +85,8 @@ export class TentScene extends Phaser.Scene {
       });
     });
 
-    UPGRADES.filter((u) => u.tab === this.tab).forEach((u, i) => {
-      const y = 190 + i * 56;
-      const level = save.upgrades[u.id];
-      const max = u.costs.length;
-      const cost = nextCost(save.upgrades, u.id);
-      const pips = '■'.repeat(level) + '□'.repeat(max - level);
-      // What you have now and what the next level brings; the Adjutant names its next duty.
-      let detail: string;
-      if (u.id === 'adjutant') {
-        detail = level >= max ? 'All duties learned' : (ADJUTANT_LEVELS[level] ?? '');
-      } else if (level === 0) {
-        detail = `Next: ${u.total(1)}`;
-      } else if (level >= max) {
-        detail = `Now: ${u.total(level)} (max)`;
-      } else {
-        detail = `Now: ${u.total(level)}  ·  Next: ${u.total(level + 1)}`;
-      }
-
-      this.add.text(40, y - 24, u.name, textStyle(26)).setOrigin(0, 0);
-      this.add.text(290, y - 22, pips, textStyle(24, COLORS.accent)).setOrigin(0, 0);
-      this.add.text(40, y + 4, detail, textStyle(22, COLORS.text)).setOrigin(0, 0);
-
-      if (cost === null) {
-        this.add.text(870, y, 'MAXED', textStyle(30, COLORS.accent)).setOrigin(0.5);
-      } else {
-        const affordable = save.medals >= cost;
-        addButton(this, 870, y, {
-          width: 220,
-          height: 50,
-          label: medalCount(cost).toUpperCase(),
-          color: affordable ? 0x2f6b3a : 0x3a3a3a,
-          labelSize: 26,
-          onClick: () => {
-            if (buyUpgrade(u.id)) {
-              sfx.capture();
-              this.scene.restart({ tab: this.tab });
-            } else {
-              sfx.failed();
-            }
-          },
-        });
-      }
-    });
+    if (college) this.collegeRows();
+    else this.tentRows(this.tab as UpgradeTab);
 
     addButton(this, 110, 562, {
       width: 180,
@@ -100,11 +95,148 @@ export class TentScene extends Phaser.Scene {
       labelSize: 32,
       onClick: () => this.scene.start('worldmap'),
     });
-    addMuteButton(this, MENU_DESIGN.width - 30, 30, 76);
-
-    fitDesign(this);
-    const relayout = () => fitDesign(this);
-    this.scale.on('resize', relayout);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off('resize', relayout));
   }
+
+  /** One upgrade: name, level pips, what you have and what's next, and its buy button. */
+  private row(
+    i: number,
+    spacing: number,
+    name: string,
+    level: number,
+    max: number,
+    detail: string,
+    price: { label: string; affordable: boolean } | null,
+    buy: () => boolean,
+  ) {
+    const y = 190 + i * spacing;
+    const pips = '■'.repeat(level) + '□'.repeat(max - level);
+    // Tighter rows (the War College has more of them) get slightly smaller text.
+    const tight = spacing < 56;
+    this.add.text(40, y - (tight ? 22 : 24), name, textStyle(tight ? 23 : 26)).setOrigin(0, 0);
+    this.add.text(310, y - 20, pips, textStyle(tight ? 22 : 24, COLORS.accent)).setOrigin(0, 0);
+    this.add
+      .text(40, y + (tight ? 2 : 4), detail, textStyle(tight ? 19 : 22, COLORS.text))
+      .setOrigin(0, 0);
+    if (!price) {
+      this.add.text(870, y, 'MAXED', textStyle(30, COLORS.accent)).setOrigin(0.5);
+      return;
+    }
+    addButton(this, 870, y, {
+      width: 220,
+      height: Math.min(50, spacing - 6),
+      label: price.label,
+      color: price.affordable ? 0x2f6b3a : 0x3a3a3a,
+      labelSize: 26,
+      onClick: () => {
+        if (buy()) {
+          sfx.capture();
+          this.scene.restart({ tab: this.tab });
+        } else {
+          sfx.failed();
+        }
+      },
+    });
+  }
+
+  private tentRows(tab: UpgradeTab) {
+    const save = loadSave();
+    UPGRADES.filter((u) => u.tab === tab).forEach((u, i) => {
+      const level = save.upgrades[u.id];
+      const max = u.costs.length;
+      const cost = nextCost(save.upgrades, u.id);
+      // What you have now and what the next level brings; the Adjutant names its next duty.
+      const detail =
+        u.id === 'adjutant'
+          ? level >= max
+            ? 'All duties learned'
+            : (ADJUTANT_LEVELS[level] ?? '')
+          : nowAndNext(u.total, level, max);
+      const price =
+        cost === null
+          ? null
+          : { label: medalCount(cost).toUpperCase(), affordable: save.medals >= cost };
+      this.row(i, 56, u.name, level, max, detail, price, () => buyUpgrade(u.id));
+    });
+  }
+
+  private collegeRows() {
+    const save = loadSave();
+    COLLEGE.forEach((c, i) => {
+      const level = save.college[c.id];
+      const max = c.costs.length;
+      const cost = nextHonorCost(save.college, c.id);
+      const price =
+        cost === null ? null : { label: `${cost} HONOR`, affordable: save.honor >= cost };
+      const detail = nowAndNext(c.total, level, max);
+      this.row(i, 48, c.name, level, max, detail, price, () => buyCollege(c.id));
+    });
+
+    // The Tactical Retreat: bank Honor for this war and start a new one.
+    const ready = canRetreat(save.conquest);
+    const honor = honorFor(save.conquest);
+    addButton(this, RETREAT.x, RETREAT.y, {
+      width: 560,
+      height: 56,
+      label: ready
+        ? `TACTICAL RETREAT: +${honor} HONOR`
+        : `RETREAT: WIN A ${RETREAT_MIN_STARS}★ REGION`,
+      color: ready ? 0x7a4a1f : 0x3a3a3a,
+      labelSize: 26,
+      onClick: () => {
+        if (ready) this.scene.restart({ tab: 'college', confirm: true });
+        else sfx.failed();
+      },
+    });
+  }
+
+  /** Ask again before retreating. NO sits where the retreat button was; YES is off to one side. */
+  private confirmRetreat() {
+    const save = loadSave();
+    const cx = MENU_DESIGN.width / 2;
+    const honor = honorFor(save.conquest);
+    this.add.text(cx, 60, 'TACTICAL RETREAT?', textStyle(64, COLORS.accent)).setOrigin(0.5);
+    this.add
+      .text(
+        cx,
+        210,
+        [
+          `You earn ${honor} Honor and become ${insignia(save.retreats + 1)}.`,
+          'Then a new war starts on a new world.',
+          '',
+          'You keep: Honor, the War College and your rank.',
+          'You lose: this map, your medals and Command Tent upgrades.',
+        ].join('\n'),
+        { ...textStyle(28), align: 'center' },
+      )
+      .setOrigin(0.5);
+
+    addButton(this, RETREAT.x, RETREAT.y - 20, {
+      width: 420,
+      height: 96,
+      label: 'NO, KEEP FIGHTING',
+      color: 0x2f6b3a,
+      labelSize: 36,
+      onClick: () => this.scene.restart({ tab: 'college' }),
+    });
+    addButton(this, 230, 420, {
+      width: 380,
+      height: 90,
+      label: 'YES, RETREAT',
+      color: 0x7a4a1f,
+      labelSize: 36,
+      onClick: () => {
+        if (tacticalRetreat() > 0) {
+          sfx.victory();
+          this.scene.start('worldmap');
+        }
+      },
+    });
+  }
+}
+
+/** "Next: …" at level 0, "Now: … (max)" when maxed, else both. */
+function nowAndNext(total: (levels: number) => string, level: number, max: number): string {
+  if (level === 0) return `Next: ${total(1)}`;
+  if (level >= max) return `Now: ${total(level)} (max)`;
+  return `Now: ${total(level)}  ·  Next: ${total(level + 1)}`;
 }

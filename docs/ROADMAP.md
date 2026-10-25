@@ -80,7 +80,7 @@ checkpoints, and prestige come with the expanding world.
 - [x] The Adjutant: an AI helper upgrade (auto-defend, then auto-expand and attack, then
       auto-battle on levels you have mastered, for fewer medals)
 - [x] Save progress on the device (versioned save, ready for zones later)
-- [ ] Bots check how fast medals come in and upgrades get bought
+- [x] Bots check how fast medals come in and upgrades get bought (`npm run campaign`)
 
 ## Phase 1.75: Conquest map
 
@@ -98,7 +98,11 @@ Full plan in [CONQUEST.md](CONQUEST.md). The bridge from single battles to the p
       Field Medics) on two Command Tent pages, each showing what you have now and next
 - [ ] Battles of about 5 minutes from 3 stars up (tougher middle garrisons, bigger maps, a
       little slower), tuned by bots; 1-2 stars stay quick
-- [ ] Enemies get upgrades mirroring the Command Tent, more of them in higher-star regions
+- [x] Enemies get upgrades as regions get harder: a Threat level past five stars that keeps
+      climbing outward until the war can't be pushed further
+- [x] Tactical Retreat (prestige): bank Honor for how far the war got, start a new war, spend
+      Honor in the War College on upgrades that last for good; your insignia rises each time
+- [ ] Prestige-only active abilities in the War College (air strike, supply drop, rally)
 
 ## Phase 2: Zones and the persistent world (current)
 

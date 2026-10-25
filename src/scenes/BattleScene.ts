@@ -9,6 +9,7 @@ import {
   type AdjutantState,
 } from '../sim/adjutant';
 import { campaignWorldOptions, medalsFor } from '../sim/upgrades';
+import { medalBonus } from '../sim/college';
 import { DPR, cssToWorld } from '../display';
 import { createAi, updateAi, type AiState } from '../sim/ai';
 import { PERSONALITIES, rollPersonality } from '../sim/personality';
@@ -22,7 +23,7 @@ import {
 } from '../sim/difficulty';
 import { LEVELS } from '../sim/levels';
 import { generateFreeForAll, generateLevel, randomMapSeed } from '../sim/mapgen';
-import { START_ID, naturalStars, regionLevel } from '../sim/worldmap';
+import { START_ID, naturalStars, regionLevel, regionThreat } from '../sim/worldmap';
 import {
   missionComplete,
   regionMission,
@@ -127,6 +128,8 @@ export class BattleScene extends Phaser.Scene {
   mission: MissionProgress | null = null;
   /** Set when the battle ends: the mission was completed. */
   missionDone = false;
+  /** The region's Threat: extra upgrades for the enemy (campaign only). */
+  threat = 0;
   /** Conquest-map region being fought over (campaign). */
   region: string | null = null;
   /** Its star rating when the battle started. */
@@ -212,6 +215,7 @@ export class BattleScene extends Phaser.Scene {
     this.firstBattle = isFirstBattle() && !this.auto;
     this.map = data.map ?? (isFirstBattle() && !this.ffa ? 0 : randomMapSeed());
     this.region = this.mode === 'campaign' ? (data.region ?? null) : null;
+    this.threat = this.region ? regionThreat(loadSave().conquest.seed, this.region) : 0;
     if (this.region) {
       this.stars = loadSave().conquest.regions[this.region]?.stars ?? 1;
       this.difficulty = difficultyForStars(this.stars);
@@ -242,7 +246,7 @@ export class BattleScene extends Phaser.Scene {
     this.world = createWorld(
       this.level,
       this.mode === 'campaign'
-        ? campaignWorldOptions(this.difficulty, seed, save.upgrades)
+        ? campaignWorldOptions(this.difficulty, seed, save.upgrades, this.threat, save.college)
         : worldOptionsFor(this.difficulty, seed),
     );
     // Each enemy army rolls a personality (steady at the easy ranks), announced by the HUD.
@@ -411,8 +415,9 @@ export class BattleScene extends Phaser.Scene {
 
   /** The difficulty as players see it: stars in the campaign, the rank in Quick Battle. */
   rankLabel(): string {
+    const threat = this.threat > 0 ? ` · THREAT ${this.threat}` : '';
     return this.region
-      ? `${'★'.repeat(this.stars)} ${this.difficulty.label}`
+      ? `${'★'.repeat(this.stars)} ${this.difficulty.label}${threat}`
       : this.difficulty.label;
   }
 
@@ -1160,7 +1165,8 @@ Drag from a BLUE base!`,
     else sfx.defeat();
     if (this.mode === 'campaign') {
       this.missionDone = !!this.mission && missionComplete(this.mission, this.world, won);
-      this.reward = medalsFor(this.stars, won, this.auto);
+      const bonus = medalBonus(loadSave().college);
+      this.reward = medalsFor(this.stars, won, this.auto, this.threat, bonus);
       if (this.missionDone) this.reward += this.mission!.mission.medals;
       if (this.reward > 0) addMedals(this.reward);
       if (this.region) this.revealed = recordRegionBattle(this.region, won, this.auto);

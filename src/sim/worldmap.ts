@@ -256,12 +256,26 @@ export function regionLevel(seed: number, id: string): LevelDef {
  * The nearest ring stays at one or two stars so the campaign eases in.
  */
 export function naturalStars(seed: number, id: string): number {
+  return clampStars(rawRating(seed, id));
+}
+
+/** A region's rating before it is capped at five stars: it keeps climbing further out. */
+function rawRating(seed: number, id: string): number {
   if (id === START_ID) return 1;
   const s = getRegion(seed, id).site;
   const home = getRegion(seed, START_ID).site;
   const distance = Math.hypot(s.x - home.x, s.y - home.y) / REGION_SPACING;
   const variety = createRng(hashSeed(seed, ...parseId(id), 4))() * 2 - 0.9;
-  return clampStars(Math.round(1 + 0.6 * (distance - 1) + variety));
+  return Math.round(1 + 0.9 * (distance - 1) + variety);
+}
+
+/**
+ * A region's Threat: how far past five stars it is. Regions near the start have none; further
+ * out it keeps rising, and each level gives the enemy more upgrades (see threatOptions), so
+ * the campaign eventually gets too hard to push on and a Tactical Retreat makes sense.
+ */
+export function regionThreat(seed: number, id: string): number {
+  return Math.max(0, rawRating(seed, id) - MAX_STARS);
 }
 
 function clampStars(stars: number): number {

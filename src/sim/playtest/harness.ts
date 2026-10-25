@@ -2,7 +2,7 @@ import { createAi, updateAi } from '../ai';
 import { PERSONALITIES, rollPersonality, type PersonalityId } from '../personality';
 import { worldOptionsFor, type Difficulty } from '../difficulty';
 import type { Army, LevelDef } from '../types';
-import { countBases, createWorld, isAlive, step } from '../world';
+import { countBases, createWorld, isAlive, step, type WorldOptions } from '../world';
 import { createBot, updateBot, type HumanProfile } from './bots';
 
 export interface MatchResult {
@@ -23,8 +23,10 @@ export function runMatch(
   seed: number,
   maxSeconds = 900,
   personality: PersonalityChoice = 'steady',
+  /** World setup to use instead of the plain rank's (a campaign battle's upgrades, Threat). */
+  options?: WorldOptions,
 ): MatchResult {
-  const world = createWorld(level, worldOptionsFor(difficulty, seed));
+  const world = createWorld(level, options ?? worldOptionsFor(difficulty, seed));
   const ais = world.armies
     .filter((a) => a !== 'player')
     .map((a, k) => {

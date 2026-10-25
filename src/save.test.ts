@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
   addMedals,
+  buyCollege,
   buyUpgrade,
   loadSave,
   migrate,
   newWorld,
   recordRegionBattle,
   resetAll,
+  tacticalRetreat,
 } from './save';
 import { NO_UPGRADES } from './sim/upgrades';
-import { START_ID, availableRegions, newConquest } from './sim/worldmap';
+import { START_ID, availableRegions, naturalStars, newConquest } from './sim/worldmap';
 
 describe('save migration', () => {
   it('keeps upgrades from version 1, scales its medals to whole ones, and starts a fresh map', () => {
@@ -20,7 +22,7 @@ describe('save migration', () => {
       wins: { recruit: 4, soldier: 6, general: 1 },
     };
     const save = migrate(v1)!;
-    expect(save.version).toBe(3);
+    expect(save.version).toBe(4);
     expect(save.medals).toBe(23); // 7.5 x 3, rounded
     expect(save.medalsEarned).toBe(23);
     expect(save.upgrades).toEqual({ ...NO_UPGRADES, headStart: 2, adjutant: 5 });
@@ -36,7 +38,7 @@ describe('save migration', () => {
     const conquest = newConquest(55);
     conquest.held.push(START_ID);
     const save = migrate({ version: 2, medals: 2.5, medalsEarned: 10.75, upgrades: {}, conquest })!;
-    expect(save.version).toBe(3);
+    expect(save.version).toBe(4);
     expect(save.medals).toBe(8);
     expect(save.medalsEarned).toBe(32);
     expect(save.conquest).toEqual(conquest);
@@ -78,5 +80,58 @@ describe('resets', () => {
     expect(save.medalsEarned).toBe(0);
     expect(save.upgrades).toEqual(NO_UPGRADES);
     expect(save.conquest.held).toEqual([]);
+  });
+});
+
+describe('Tactical Retreat', () => {
+  it('upgrades version 3 saves with no Honor yet', () => {
+    const save = migrate({
+      version: 3,
+      medals: 4,
+      medalsEarned: 9,
+      upgrades: {},
+      conquest: newConquest(3),
+    })!;
+    expect(save.version).toBe(4);
+    expect(save.honor).toBe(0);
+    expect(save.retreats).toBe(0);
+    expect(Object.values(save.college).every((n) => n === 0)).toBe(true);
+  });
+
+  it('needs a 3-star region won, then banks Honor and starts a new war', () => {
+    resetAll();
+    const save = loadSave();
+    expect(tacticalRetreat()).toBe(0);
+    // Hold a ring of regions out to 3 stars.
+    const c = save.conquest;
+    const ids = ['0,0', '1,0', '2,0', '3,0', '4,0', '5,0', '1,1', '2,1', '3,1'];
+    c.held = ids.filter((id) => naturalStars(c.seed, id) >= 1);
+    c.held.push(...['6,0', '7,0', '8,0', '9,0']);
+    if (!c.held.some((id) => naturalStars(c.seed, id) >= 3)) return;
+    save.medals = 30;
+    save.upgrades.fastBuilders = 3;
+    save.college.warChest = 2;
+    save.college.officerCorps = 1;
+    const oldSeed = c.seed;
+    const honor = tacticalRetreat();
+    expect(honor).toBeGreaterThan(0);
+    const after = loadSave();
+    expect(after.honor).toBe(honor);
+    expect(after.retreats).toBe(1);
+    expect(after.conquest.seed).not.toBe(oldSeed);
+    expect(after.conquest.held).toEqual([]);
+    expect(after.medals).toBe(10);
+    expect(after.upgrades).toEqual({ ...NO_UPGRADES, adjutant: 1 });
+    expect(after.college.warChest).toBe(2);
+  });
+
+  it('spends Honor in the War College', () => {
+    resetAll();
+    const save = loadSave();
+    expect(buyCollege('veteranPay')).toBe(false);
+    save.honor = 5;
+    expect(buyCollege('veteranPay')).toBe(true);
+    expect(loadSave().college.veteranPay).toBe(1);
+    expect(loadSave().honor).toBe(2);
   });
 });

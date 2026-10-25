@@ -5,6 +5,7 @@ import { canAutoBattle, loadSave, starsUnlocked } from '../save';
 import { difficultyForStars } from '../sim/difficulty';
 import type { LevelDef, Point } from '../sim/types';
 import { medalCount, medalSummary } from '../sim/economy';
+import { insignia, medalBonus } from '../sim/college';
 import { regionMission } from '../sim/missions';
 import { medalsFor } from '../sim/upgrades';
 import {
@@ -15,6 +16,7 @@ import {
   getRegion,
   naturalStars,
   regionLevel,
+  regionThreat,
   type ConquestState,
 } from '../sim/worldmap';
 import { centroid, insidePolygon } from '../sim/scenery';
@@ -57,6 +59,10 @@ export class WorldMapScene extends Phaser.Scene {
   /** Outline highlight for the selected region. */
   private selectGfx!: Phaser.GameObjects.Graphics;
   private selected: string | null = null;
+  /** Veteran Pay from the War College, so rewards on the map match what a win pays. */
+  private get bonus(): number {
+    return medalBonus(loadSave().college);
+  }
   private focus: string | null = null;
   private revealed: string[] = [];
   private animating = false;
@@ -183,15 +189,20 @@ export class WorldMapScene extends Phaser.Scene {
     // it stays inside the region on an iPad.
     const badge = this.world(
       this.add
-        .text(c.x, c.y + 6, first ? 'FIRST BATTLE' : '★'.repeat(stars), {
-          ...textStyle(first ? 11 : 16),
-          align: 'center',
-        })
+        .text(
+          c.x,
+          c.y + 6,
+          first ? 'FIRST BATTLE' : starsLabel(stars, regionThreat(this.conquest.seed, id)),
+          {
+            ...textStyle(first ? 11 : 16),
+            align: 'center',
+          },
+        )
         .setColor(COLORS.accent)
         .setOrigin(0.5)
         .setDepth(3),
     );
-    const pay = medalsFor(stars, true);
+    const pay = medalsFor(stars, true, false, regionThreat(this.conquest.seed, id), this.bonus);
     const locked = !starsUnlocked(stars);
     const reward = this.world(
       this.add
@@ -299,7 +310,12 @@ export class WorldMapScene extends Phaser.Scene {
     );
     this.ui(
       this.add
-        .text(w / 2, 60, medalSummary(save.medals, save.medalsEarned), textStyle(22))
+        .text(
+          w / 2,
+          60,
+          `${insignia(save.retreats)} · ${medalSummary(save.medals, save.medalsEarned)}`,
+          textStyle(22),
+        )
         .setOrigin(0.5, 0.5),
     );
     this.ui(
@@ -360,11 +376,13 @@ export class WorldMapScene extends Phaser.Scene {
       line3 = 'Win a region next to it to explore';
     } else {
       const d = difficultyForStars(progress.stars);
-      const pay = `+${medalCount(medalsFor(progress.stars, true))}`;
+      const pay = `+${medalCount(medalsFor(progress.stars, true, false, regionThreat(seed, id), this.bonus))}`;
       const first = id === START_ID && !held;
       locked = !held && !starsUnlocked(progress.stars);
       const need = unlockMedals(progress.stars) - loadSave().medalsEarned;
       line2 = first ? 'FIRST BATTLE' : `${'★'.repeat(progress.stars)}  ${d.label}`;
+      const threat = regionThreat(seed, id);
+      if (threat > 0) line2 += `  ·  THREAT ${threat}`;
       // What the ground is like, so a kid knows what to expect before attacking.
       const ground = level ? terrainWords(level) : '';
       if (ground) line2 += `  ·  ${ground}`;
@@ -620,4 +638,9 @@ function terrainWords(level: LevelDef): string {
   if (kinds.has('mud')) words.push('mud');
   const text = words.join(', ');
   return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** A region's stars, with its Threat on top past five ("★★★★★+2"). */
+function starsLabel(stars: number, threat: number): string {
+  return '★'.repeat(stars) + (threat > 0 ? `+${threat}` : '');
 }

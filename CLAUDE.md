@@ -8,6 +8,8 @@ with mouse and touch on PC, phone, and iPad.
 - `npm run dev`: dev server on port 5173 (also exposed on LAN for testing on devices)
 - `npm test`, `npm run lint`, `npm run typecheck`, `npm run format`
 - `npm run balance` (bot win rates per difficulty), `npm run sweep -- <profile> <winRate>`
+- `npm run campaign -- <profile> <wars>` (bots play whole wars with upgrades, Threat and
+  Tactical Retreats; checks that pushing deep earns more Honor than retreating early)
 - Run lint, format:check, typecheck, and tests before committing; CI runs the same checks.
 
 ## Architecture
