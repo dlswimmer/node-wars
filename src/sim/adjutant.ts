@@ -1,6 +1,6 @@
 import { DEFAULT_SEND_FRACTION } from './config';
 import { secondsUntilReady, useAbility, type AbilityId, type AbilityState } from './abilities';
-import type { Army, Base, World } from './types';
+import type { Army, Base, BaseKind, World } from './types';
 import {
   capacityOf,
   getBonuses,
@@ -25,6 +25,43 @@ export interface AdjutantState {
   squads: Set<number>;
   /** World time of the player's last order; a helper waits once the player goes quiet. */
   lastOrderAt: number;
+  /** What it has just done, newest last, for the call-out on the battle screen. */
+  reports: AdjutantReport[];
+}
+
+export interface AdjutantReport {
+  /** World time it happened. */
+  at: number;
+  /** "Reinforcing the barracks!" */
+  text: string;
+}
+
+/** How many recent reports it keeps. */
+export const REPORTS_KEPT = 3;
+
+/** A base in kid words, for the Adjutant's reports. */
+const BASE_WORDS: Record<BaseKind, string> = {
+  hq: 'HQ',
+  barracks: 'barracks',
+  outpost: 'outpost',
+  factory: 'tank factory',
+  radar: 'radar',
+  armory: 'armory',
+  bunker: 'bunker',
+  hospital: 'hospital',
+  airfield: 'airfield',
+  checkpoint: 'checkpoint',
+};
+
+function report(world: World, adj: AdjutantState, text: string): void {
+  adj.reports.push({ at: world.time, text });
+  if (adj.reports.length > REPORTS_KEPT) adj.reports.shift();
+}
+
+/** "the barracks", or "the enemy HQ" for an HQ that isn't yours. */
+function called(adj: AdjutantState, base: Base): string {
+  const enemy = base.kind === 'hq' && base.owner !== adj.army ? 'enemy ' : '';
+  return `the ${enemy}${BASE_WORDS[base.kind]}`;
 }
 
 /** A helper (not auto-battling) only works while the player has given an order recently. */
@@ -40,7 +77,7 @@ const AUTO_INTERVAL = 4;
 const PUSH_FULLNESS = 0.7;
 
 export function createAdjutant(level: number, auto = false, army: Army = 'player'): AdjutantState {
-  return { army, level, auto, cooldown: 2, squads: new Set(), lastOrderAt: 0 };
+  return { army, level, auto, cooldown: 2, squads: new Set(), lastOrderAt: 0, reports: [] };
 }
 
 /** Call whenever the player gives an order, so a helping Adjutant keeps working. */
@@ -104,7 +141,10 @@ function gunner(world: World, adj: AdjutantState, mine: Base[], abilities: Abili
   }
   if (ready('supplyDrop') && !isShielded(world, adj.army)) {
     const falling = mine.find((b) => (theirs.get(b.id) ?? 0) >= b.troops * 0.8);
-    if (falling && useAbility(world, abilities, 'supplyDrop', falling.id)) return;
+    if (falling && useAbility(world, abilities, 'supplyDrop', falling.id)) {
+      report(world, adj, `Supply drop on ${called(adj, falling)}!`);
+      return;
+    }
   }
   if (ready('airStrike')) {
     const target = [...ours]
@@ -113,14 +153,22 @@ function gunner(world: World, adj: AdjutantState, mine: Base[], abilities: Abili
         ({ base, power }) => base.owner !== adj.army && base.troops > 0 && power >= STRIKE_BEHIND,
       )
       .sort((a, b) => b.power - a.power)[0];
-    if (target && useAbility(world, abilities, 'airStrike', target.base.id)) return;
+    if (target && useAbility(world, abilities, 'airStrike', target.base.id)) {
+      report(world, adj, `Air strike on ${called(adj, target.base)}!`);
+      return;
+    }
   }
-  if (ready('charge') && inFlight >= CHARGE_WAVE) useAbility(world, abilities, 'charge');
+  if (ready('charge') && inFlight >= CHARGE_WAVE && useAbility(world, abilities, 'charge')) {
+    report(world, adj, 'CHARGE!');
+  }
 }
 
-function send(world: World, adj: AdjutantState, from: Base, to: Base): boolean {
+function send(world: World, adj: AdjutantState, from: Base, to: Base, text: string): boolean {
   const n = sendTroops(world, adj.army, from.id, to.id, DEFAULT_SEND_FRACTION);
-  if (n > 0) adj.squads.add(world.nextSquadId - 1);
+  if (n > 0) {
+    adj.squads.add(world.nextSquadId - 1);
+    report(world, adj, text);
+  }
   return n > 0;
 }
 
@@ -143,7 +191,7 @@ function defend(world: World, adj: AdjutantState, mine: Base[]): boolean {
       mine.filter((h) => h !== base && h.troops >= 10),
       base,
     );
-    if (helper && send(world, adj, helper, base)) return true;
+    if (helper && send(world, adj, helper, base, `Reinforcing ${called(adj, base)}!`)) return true;
   }
   return false;
 }
@@ -166,7 +214,9 @@ function attack(
       if (!best || score < best.score) best = { from, to, score };
     }
   }
-  return best ? send(world, adj, best.from, best.to) : false;
+  if (!best) return false;
+  const verb = best.to.owner === 'neutral' ? 'Taking' : 'Attacking';
+  return send(world, adj, best.from, best.to, `${verb} ${called(adj, best.to)}!`);
 }
 
 /** A mostly full base sends troops to the friendly base closest to the enemy. */
@@ -179,7 +229,7 @@ function pushForward(world: World, adj: AdjutantState, mine: Base[]): boolean {
   const front = nearest(world, mine, enemyHq);
   for (const b of mine) {
     if (b === front || b.troops < capacityOf(world, b) * PUSH_FULLNESS) continue;
-    if (front && send(world, adj, b, front)) return true;
+    if (front && send(world, adj, b, front, `Troops advance to ${called(adj, front)}`)) return true;
   }
   return false;
 }

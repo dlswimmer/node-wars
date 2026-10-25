@@ -150,6 +150,12 @@ never the best play.
   Commander. The Gunner (milestone only) uses your bought abilities: a Supply Drop on a
   base about to fall, an Air Strike where your troops are heading, a Charge once a big
   wave is out, one a turn at the Adjutant's careful pace.
+- **The Adjutant says what it does.** Each move shows on the left of the battle screen in
+  kid words ("Reinforcing the barracks!", "Troops advance to the outpost", "Air strike on the
+  enemy HQ!") and fades after a few seconds. A helper still waits once you go quiet for 15 s.
+- **Commander can take over** a campaign battle you started yourself (the user asked for
+  this): COMMANDER, TAKE OVER on the left, tapped twice. From then on it's an auto-battle:
+  half medals, no mission, no mastery win, and you can't take it back.
 - **Promotion** (to the next phase): needs 100 Honor earned in total, counting what the current
   war would pay right now (a gold bar on the RANK & RETREAT page, banked solid and this war
   lighter). Until Phase 2 exists it records a Phase 2 badge and the war goes on.

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { DPR, cssSize } from '../display';
 import { medalCount } from '../sim/economy';
 import { ABILITIES, secondsUntilReady, type AbilityId } from '../sim/abilities';
+import { REPORTS_KEPT } from '../sim/adjutant';
 import { missionStatus } from '../sim/missions';
 import { countBases, isCharging, isShielded } from '../sim/world';
 import { ARMY_NAMES, COLORS, FACTION_COLORS, textStyle } from '../theme';
@@ -13,6 +14,10 @@ const PERK_WORDS: Record<string, string> = {
   radar: 'FAST TROOPS + EARLY WARNING',
   armory: 'STRONG TROOPS',
 };
+
+/** Seconds an Adjutant report stays fully visible, then how long it takes to fade. */
+const REPORT_SECONDS = 5;
+const REPORT_FADE = 2;
 
 /** Size of an ability button in HUD units. */
 const ABILITY_SIZE = { w: 118, h: 96 };
@@ -61,6 +66,11 @@ export class HudScene extends Phaser.Scene {
   }[] = [];
   /** "AIR STRIKE: tap a base", above the ability buttons while one is armed. */
   private abilityHint!: Phaser.GameObjects.Text;
+  /** The Adjutant's recent moves, on the left under the status ("Reinforcing the barracks!"). */
+  private reports: Phaser.GameObjects.Text[] = [];
+  /** LET COMMANDER TAKE OVER, under the reports; needs a second tap to confirm. */
+  private takeOverButton!: Phaser.GameObjects.Container;
+  private takeOverArmedUntil = 0;
   /** The start-of-battle announcement (personalities, mission), while it shows. */
   private intro: Phaser.GameObjects.GameObject[] = [];
 
@@ -81,6 +91,20 @@ export class HudScene extends Phaser.Scene {
     this.pauseButton = this.createPauseButton();
     this.muteButton = addMuteButton(this, 0, 0).setDepth(110);
     this.adjutantButton = this.createAdjutantButton();
+    this.reports = Array.from({ length: REPORTS_KEPT }, () =>
+      this.add.text(20, 0, '', textStyle(24, '#c9b3ff')).setVisible(false),
+    );
+    this.takeOverArmedUntil = 0;
+    this.takeOverButton = addButton(this, 0, 0, {
+      width: 300,
+      height: 56,
+      label: 'COMMANDER, TAKE OVER',
+      color: 0x4a2f7a,
+      labelSize: 22,
+      onClick: () => this.pressTakeOver(),
+    })
+      .setDepth(110)
+      .setVisible(false);
     this.pauseMenu = this.createPauseMenu();
     this.abilityButtons = this.createAbilityButtons();
     this.abilityHint = this.add
@@ -189,19 +213,23 @@ export class HudScene extends Phaser.Scene {
     if (isCharging(w, 'player')) lines.push(`CHARGE! ${Math.ceil(w.chargeUntil.player - w.time)}`);
     const adj = this.battle.adjutantStatus();
     if (adj === 'auto') lines.push('AUTO-BATTLE');
-    else if (adj === 'waiting') lines.push('ADJUTANT: waiting for your orders');
+    else if (adj === 'waiting') lines.push("ADJUTANT: give an order and I'll help");
     this.adjutantButton.setVisible(adj !== null && adj !== 'auto');
     if (adj && adj !== 'auto') {
       this.adjutantLabel.setColor(adj === 'off' ? '#777777' : '#c9b3ff');
     }
     this.status.setText(lines.join('\n'));
 
+    let below = this.status.y + this.status.height + 8;
     if (shieldLeft > 0) {
       const fraction = shieldLeft / w.shieldUntil.player;
       const y = this.status.y + this.status.height + 4;
       this.shieldBar.fillStyle(0x000000, 0.5).fillRoundedRect(20, y, 180, 12, 6);
       this.shieldBar.fillStyle(COLORS.shield, 1).fillRoundedRect(20, y, 180 * fraction, 12, 6);
+      below += 16;
     }
+    below = this.updateReports(below);
+    this.updateTakeOver(below);
 
     const held = new Set<string>(w.bases.filter((b) => b.owner === 'player').map((b) => b.kind));
     this.perks.setText(
@@ -210,6 +238,43 @@ export class HudScene extends Phaser.Scene {
         .map(([, words]) => words)
         .join('   '),
     );
+  }
+
+  /** The Adjutant's last few moves, newest on top, fading out after a few seconds. */
+  private updateReports(top: number): number {
+    const now = this.battle.world.time;
+    const recent = [...this.battle.adjutantReports()].reverse();
+    let y = top;
+    this.reports.forEach((t, i) => {
+      const r = recent[i];
+      const age = r ? now - r.at : Infinity;
+      const alpha = age < REPORT_SECONDS ? 1 : 1 - (age - REPORT_SECONDS) / REPORT_FADE;
+      t.setVisible(alpha > 0);
+      if (alpha <= 0 || !r) return;
+      t.setText(r.text).setAlpha(alpha).setPosition(20, y);
+      y += t.height + 2;
+    });
+    return y + 6;
+  }
+
+  private updateTakeOver(top: number) {
+    const can = this.battle.canTakeOver();
+    this.takeOverButton.setVisible(can);
+    if (!can) return;
+    const armed = this.time.now < this.takeOverArmedUntil;
+    const label = this.takeOverButton.list[1] as Phaser.GameObjects.Text;
+    label.setText(armed ? 'TAP AGAIN: ½ MEDALS' : 'COMMANDER, TAKE OVER');
+    this.takeOverButton.setPosition(20 + 150, top + 28);
+  }
+
+  /** First tap asks; a second tap within a few seconds hands the battle over. */
+  private pressTakeOver() {
+    if (this.time.now < this.takeOverArmedUntil) {
+      this.takeOverArmedUntil = 0;
+      this.battle.takeOver();
+      return;
+    }
+    this.takeOverArmedUntil = this.time.now + 3000;
   }
 
   /** Virtual canvas size for the HUD (screen size divided by the HUD zoom). */

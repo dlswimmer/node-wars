@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { OPENING_CHARGE, createAbilities, secondsUntilReady } from './abilities';
-import { createAdjutant, notePlayerOrder, updateAdjutant } from './adjutant';
+import { REPORTS_KEPT, createAdjutant, notePlayerOrder, updateAdjutant } from './adjutant';
 import type { LevelDef } from './types';
 import { createWorld, sendTroops } from './world';
 
@@ -34,10 +34,12 @@ describe('the Gunner', () => {
     for (const u of world.units) u.delay = 0;
     updateAdjutant(world, adj, 5, abilities);
     expect(world.bases[2]!.troops).toBe(15);
+    expect(adj.reports.map((r) => r.text)).toContain('Air strike on the barracks!');
     expect(secondsUntilReady(world, abilities, 'airStrike')).toBeGreaterThan(0);
     // One ability a turn: the Charge waits for its next turn.
     updateAdjutant(world, adj, 5, abilities);
     expect(world.chargeUntil.player).toBeGreaterThan(world.time);
+    expect(adj.reports.map((r) => r.text)).toContain('CHARGE!');
   });
 
   it('drops supplies on a base about to fall', () => {
@@ -45,6 +47,7 @@ describe('the Gunner', () => {
     sendTroops(world, 'enemy', 3, 1, 0.5);
     updateAdjutant(world, adj, 5, abilities);
     expect(world.bases[1]!.troops).toBeGreaterThanOrEqual(19);
+    expect(adj.reports.map((r) => r.text)).toContain('Supply drop on the outpost!');
   });
 
   it('needs the Gunner duty: lower levels never use abilities', () => {
@@ -55,5 +58,19 @@ describe('the Gunner', () => {
     for (const u of world.units) u.delay = 0;
     updateAdjutant(world, adj, 5, abilities);
     expect(secondsUntilReady(world, abilities, 'airStrike')).toBe(0);
+  });
+});
+
+describe('Adjutant reports', () => {
+  it('says what it does in kid words, keeping only the last few', () => {
+    const world = createWorld(level());
+    const adj = createAdjutant(3);
+    notePlayerOrder(world, adj);
+    world.bases[0]!.troops = 80;
+    updateAdjutant(world, adj, 5);
+    expect(adj.reports.at(-1)!.text).toBe('Taking the barracks!');
+    for (let i = 0; i < 6; i++) adj.reports.push({ at: 0, text: 'x' });
+    updateAdjutant(world, adj, 5);
+    expect(adj.reports.length).toBeLessThanOrEqual(REPORTS_KEPT + 6);
   });
 });

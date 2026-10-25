@@ -6,9 +6,10 @@ import {
   isWaiting,
   notePlayerOrder,
   updateAdjutant,
+  type AdjutantReport,
   type AdjutantState,
 } from '../sim/adjutant';
-import { adjutantLevel, campaignWorldOptions, medalsFor } from '../sim/upgrades';
+import { ADJUTANT_BUYABLE, adjutantLevel, campaignWorldOptions, medalsFor } from '../sim/upgrades';
 import { collegeEffects } from '../sim/collegeweb';
 import { DPR, cssToWorld } from '../display';
 import { createAi, updateAi, type AiState } from '../sim/ai';
@@ -425,6 +426,37 @@ export class BattleScene extends Phaser.Scene {
   toggleAdjutant() {
     this.adjutantOn = !this.adjutantOn;
     if (this.adjutant) notePlayerOrder(this.world, this.adjutant);
+  }
+
+  /** What the Adjutant just did, newest last (for the HUD's call-out). */
+  adjutantReports(): readonly AdjutantReport[] {
+    return this.adjutant && (this.adjutantOn || this.auto) ? this.adjutant.reports : [];
+  }
+
+  /** A Commander Adjutant can finish a campaign battle you started yourself. */
+  canTakeOver(): boolean {
+    return (
+      !this.auto &&
+      !this.gameOver &&
+      this.mode === 'campaign' &&
+      (this.adjutant?.level ?? 0) >= ADJUTANT_BUYABLE
+    );
+  }
+
+  /**
+   * Hand the rest of the battle to the Commander: from here it is an auto-battle, so it pays
+   * like one, has no mission and doesn't count toward mastery.
+   */
+  takeOver() {
+    if (!this.canTakeOver() || !this.adjutant) return;
+    this.auto = true;
+    this.adjutant.auto = true;
+    this.adjutantOn = true;
+    this.mission = null;
+    this.abilityArmed = null;
+    this.cancelGesture();
+    this.selected.clear();
+    this.armed.clear();
   }
 
   /** What the HUD shows about the Adjutant: null if there isn't one. */
