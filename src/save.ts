@@ -8,15 +8,14 @@ import {
   type UpgradeId,
   type UpgradeLevels,
 } from './sim/upgrades';
+import { honorFor, promotionProgress } from './sim/college';
 import {
-  NO_COLLEGE,
-  honorFor,
-  honorSpent,
-  nextHonorCost,
-  promotionProgress,
-  type CollegeId,
-  type CollegeLevels,
-} from './sim/college';
+  collegeCost,
+  collegeEffects,
+  collegeNode,
+  collegeSpent,
+  collegeState,
+} from './sim/collegeweb';
 import { OLD_MEDAL_SCALE } from './sim/economy';
 import { isUnlocked, newConquest, recordBattle, type ConquestState } from './sim/worldmap';
 
@@ -25,8 +24,8 @@ import { isUnlocked, newConquest, recordBattle, type ConquestState } from './sim
  * add fields and migrate old saves instead of wiping a kid's progress.
  */
 export interface SaveData {
-  /** 4: Honor, the War College and Tactical Retreats. */
-  version: 4;
+  /** 5: the War College is an upgrade web (4 had Honor and Tactical Retreats, college levels). */
+  version: 5;
   /** Medals to spend. */
   medals: number;
   /** Every medal ever earned (spending doesn't lower it); unlocks higher-star regions. */
@@ -40,10 +39,16 @@ export interface SaveData {
   honorEarned: number;
   /** Highest phase the player has been promoted to (1 = still in the first). */
   phase: number;
-  /** War College levels: permanent, never reset. */
-  college: CollegeLevels;
+  /** War College web nodes owned (ids from collegeweb.ts): permanent, never reset. */
+  college: string[];
   /** Tactical Retreats made; sets your insignia. */
   retreats: number;
+}
+
+/** Version 4 had the War College as levels of named upgrades. */
+interface SaveV4 extends Omit<SaveData, 'version' | 'college'> {
+  version: 4;
+  college: Record<string, number>;
 }
 
 /** Version 3 had whole medals but no prestige yet. */
@@ -76,7 +81,7 @@ function worldSeed(): number {
 
 function fresh(): SaveData {
   return {
-    version: 4,
+    version: 5,
     medals: 0,
     medalsEarned: 0,
     upgrades: { ...NO_UPGRADES },
@@ -87,7 +92,7 @@ function fresh(): SaveData {
 
 /** No Honor, no War College, no retreats yet. */
 function NO_PRESTIGE() {
-  return { honor: 0, honorEarned: 0, phase: 1, college: { ...NO_COLLEGE }, retreats: 0 };
+  return { honor: 0, honorEarned: 0, phase: 1, college: [] as string[], retreats: 0 };
 }
 
 /** Medals from before whole medals, scaled to keep the same buying power. */
@@ -101,7 +106,13 @@ function scaleOld(medals: unknown): number {
  * unknown).
  */
 export function migrate(data: unknown): SaveData | null {
-  const d = data as Partial<SaveData> | Partial<SaveV3> | Partial<SaveV2> | Partial<SaveV1> | null;
+  const d = data as
+    | Partial<SaveData>
+    | Partial<SaveV4>
+    | Partial<SaveV3>
+    | Partial<SaveV2>
+    | Partial<SaveV1>
+    | null;
   if (!d || typeof d !== 'object') return null;
   if (d.version === 1) {
     const conquest = newConquest(worldSeed());
@@ -111,7 +122,7 @@ export function migrate(data: unknown): SaveData | null {
     conquest.starWins[4] = Number(wins.general) || 0;
     const medals = scaleOld(d.medals);
     return {
-      version: 4,
+      version: 5,
       medals,
       medalsEarned: medals,
       upgrades: { ...NO_UPGRADES, ...d.upgrades },
@@ -122,7 +133,7 @@ export function migrate(data: unknown): SaveData | null {
   if (d.version === 2 && d.conquest) {
     const medals = scaleOld(d.medals);
     return {
-      version: 4,
+      version: 5,
       medals,
       // Early version-2 saves had no lifetime count yet.
       medalsEarned: Math.max(medals, scaleOld(d.medalsEarned)),
@@ -132,27 +143,34 @@ export function migrate(data: unknown): SaveData | null {
     };
   }
   if ((d.version === 3 || d.version === 4) && d.conquest) {
-    const v4 = d as Partial<SaveData>;
-    // Rally was swapped for Charge: anyone who bought Rally has Charge.
-    const college = { ...NO_COLLEGE, ...v4.college, charge: rallyToCharge(v4.college) };
-    // Officer Corps became free Adjutant levels from Honor: its Honor comes back.
-    const officers =
-      Number((v4.college as { officerCorps?: number } | undefined)?.officerCorps) || 0;
-    delete (college as { officerCorps?: number }).officerCorps;
-    const refund = OFFICER_CORPS_COSTS.slice(0, officers).reduce((a, b) => a + b, 0);
+    const v4 = d as Partial<SaveV4>;
+    // The War College became a web: every Honor spent on its old levels comes back to spend
+    // on the web (Officer Corps and Rally included).
+    const refund = legacyHonorSpent(v4.college ?? {});
     const honor = (Number(v4.honor) || 0) + refund;
     return {
-      version: 4,
+      version: 5,
       medals: Number(d.medals) || 0,
       medalsEarned: Number(d.medalsEarned) || 0,
       upgrades: { ...NO_UPGRADES, ...d.upgrades },
       conquest: d.conquest,
       honor,
-      // Saves from before lifetime Honor count what is in hand plus what was spent.
-      honorEarned: Number(v4.honorEarned) || honor + honorSpent(college),
+      // Saves from before lifetime Honor count what is in hand (now including the refund).
+      honorEarned: Number(v4.honorEarned) || honor,
       phase: Math.max(1, Number(v4.phase) || 1),
-      college,
+      college: [],
       retreats: Number(v4.retreats) || 0,
+    };
+  }
+  if (d.version === 5 && d.conquest) {
+    const v5 = d as Partial<SaveData>;
+    return {
+      ...fresh(),
+      ...v5,
+      version: 5,
+      upgrades: { ...NO_UPGRADES, ...v5.upgrades },
+      conquest: d.conquest,
+      college: Array.isArray(v5.college) ? v5.college.filter((id) => collegeNode(id)) : [],
     };
   }
   return null;
@@ -242,24 +260,47 @@ export function newWorld(): void {
   persist();
 }
 
-/** What Officer Corps cost before it was replaced by free Adjutant levels (for refunds). */
-const OFFICER_CORPS_COSTS = [4, 9, 15];
+/** What each level of the old War College cost (version 4 saves), for refunds. */
+const LEGACY_COLLEGE_COSTS: Record<string, number[]> = {
+  veteranPay: [3, 6, 10, 15, 22],
+  warChest: [2, 4, 7, 11, 16],
+  drillSchool: [3, 6, 10, 15, 22],
+  logistics: [3, 6, 10, 15, 22],
+  gunnery: [3, 6, 10, 15, 22],
+  fortifications: [4, 9, 15],
+  officerCorps: [4, 9, 15],
+  airStrike: [8],
+  supplyDrop: [8],
+  charge: [12],
+  rally: [8],
+};
 
-/** Charge replaced Rally; a War College that bought Rally gets Charge. */
-function rallyToCharge(college: Partial<CollegeLevels> | undefined): number {
-  const old = college as (Partial<CollegeLevels> & { rally?: number }) | undefined;
-  return Math.max(Number(old?.charge) || 0, Number(old?.rally) || 0);
+/** Honor a version-4 save spent on its War College levels. */
+function legacyHonorSpent(levels: Record<string, number>): number {
+  let spent = 0;
+  for (const [id, n] of Object.entries(levels)) {
+    const costs = LEGACY_COLLEGE_COSTS[id] ?? [];
+    spent += costs.slice(0, Number(n) || 0).reduce((a, b) => a + b, 0);
+  }
+  return spent;
 }
 
-/** Buy the next level of a War College upgrade with Honor. */
-export function buyCollege(id: CollegeId): boolean {
+/** Buy a War College web node with Honor. Returns false if it isn't open or is too dear. */
+export function buyCollege(id: string): boolean {
   const save = loadSave();
-  const cost = nextHonorCost(save.college, id);
-  if (cost === null || save.honor < cost) return false;
+  const node = collegeNode(id);
+  if (!node || collegeState(node, save.college) !== 'open') return false;
+  const cost = collegeCost(node);
+  if (save.honor < cost) return false;
   save.honor -= cost;
-  save.college[id] += 1;
+  save.college.push(id);
   persist();
   return true;
+}
+
+/** Honor spent in the War College so far. */
+export function collegeHonorSpent(): number {
+  return collegeSpent(loadSave().college);
 }
 
 /**
@@ -275,7 +316,7 @@ export function tacticalRetreat(): number {
   const starWins = save.conquest.starWins;
   let seed = worldSeed();
   while (seed === save.conquest.seed) seed = worldSeed();
-  const startMedals = 5 * save.college.warChest;
+  const startMedals = collegeEffects(save.college).startMedals;
   save.honor += honor;
   save.honorEarned += honor;
   save.retreats += 1;

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DIFFICULTIES } from './difficulty';
-import { COLLEGE, NO_COLLEGE, canRetreat, honorFor, insignia, medalBonus } from './college';
-import { HONOR_COSTS } from './economy';
+import { canRetreat, honorFor, insignia } from './college';
 import { NO_UPGRADES, campaignWorldOptions, medalsFor } from './upgrades';
 import { START_ID, naturalStars, newConquest, regionThreat } from './worldmap';
 
@@ -48,19 +47,6 @@ describe('Tactical Retreat and Honor', () => {
     expect(shallow).toBeGreaterThan(0);
     // The same number of regions, but harder ones, pays several times as much.
     expect(honorFor(holding(deep))).toBeGreaterThan(shallow * 3);
-  });
-
-  it('buys lasting edges and better pay in the War College', () => {
-    expect(medalBonus({ ...NO_COLLEGE, veteranPay: 2 })).toBe(1.5);
-    expect(medalsFor(4, true, false, 0, 1.5)).toBe(6);
-    const trained = campaignWorldOptions(DIFFICULTIES.soldier, 1, NO_UPGRADES, 0, {
-      ...NO_COLLEGE,
-      drillSchool: 2,
-      gunnery: 1,
-    });
-    expect(trained.handicap!.player!).toBeCloseTo(1.12);
-    expect(trained.boosts!.player!.attack).toBeCloseTo(1.05);
-    for (const c of COLLEGE) expect(c.costs).toEqual(HONOR_COSTS[c.id]);
   });
 
   it('raises your insignia with every retreat', () => {

@@ -5,7 +5,8 @@ import { canAutoBattle, loadSave, starsUnlocked } from '../save';
 import { difficultyForStars } from '../sim/difficulty';
 import type { LevelDef, Point } from '../sim/types';
 import { medalCount, medalSummary } from '../sim/economy';
-import { insignia, medalBonus } from '../sim/college';
+import { insignia } from '../sim/college';
+import { collegeEffects } from '../sim/collegeweb';
 import { regionMission } from '../sim/missions';
 import { medalsFor } from '../sim/upgrades';
 import {
@@ -59,9 +60,9 @@ export class WorldMapScene extends Phaser.Scene {
   /** Outline highlight for the selected region. */
   private selectGfx!: Phaser.GameObjects.Graphics;
   private selected: string | null = null;
-  /** Veteran Pay from the War College, so rewards on the map match what a win pays. */
+  /** Medal nodes from the War College, so rewards on the map match what a win pays. */
   private get bonus(): number {
-    return medalBonus(loadSave().college);
+    return collegeEffects(loadSave().college).medals;
   }
   private focus: string | null = null;
   private revealed: string[] = [];
@@ -325,7 +326,7 @@ export class WorldMapScene extends Phaser.Scene {
         label: 'COMMAND TENT',
         color: 0x5a4a1f,
         labelSize: 26,
-        onClick: () => this.scene.start('web'),
+        onClick: () => this.scene.start('web', { web: 'tent' }),
       }),
     );
     this.ui(addMuteButton(this, w - 48, 44, 64));

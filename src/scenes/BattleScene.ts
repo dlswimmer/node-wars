@@ -9,7 +9,7 @@ import {
   type AdjutantState,
 } from '../sim/adjutant';
 import { adjutantLevel, campaignWorldOptions, medalsFor } from '../sim/upgrades';
-import { medalBonus, unlockedAbilities } from '../sim/college';
+import { collegeEffects } from '../sim/collegeweb';
 import { DPR, cssToWorld } from '../display';
 import { createAi, updateAi, type AiState } from '../sim/ai';
 import {
@@ -261,7 +261,13 @@ export class BattleScene extends Phaser.Scene {
     this.world = createWorld(
       this.level,
       this.mode === 'campaign'
-        ? campaignWorldOptions(this.difficulty, seed, save.upgrades, this.threat, save.college)
+        ? campaignWorldOptions(
+            this.difficulty,
+            seed,
+            save.upgrades,
+            this.threat,
+            collegeEffects(save.college),
+          )
         : worldOptionsFor(this.difficulty, seed),
     );
     // Each enemy army rolls a personality (steady at the easy ranks), announced by the HUD.
@@ -274,7 +280,7 @@ export class BattleScene extends Phaser.Scene {
         return createAi(a, this.difficulty, p);
       });
     // Commander abilities are War College unlocks, for campaign battles you fight yourself.
-    const powers = unlockedAbilities(save.college);
+    const powers = collegeEffects(save.college).abilities;
     this.abilities =
       this.mode === 'campaign' && !this.auto && powers.length > 0
         ? createAbilities('player', powers)
@@ -1288,7 +1294,7 @@ Drag from a BLUE base!`,
     else sfx.defeat();
     if (this.mode === 'campaign') {
       this.missionDone = !!this.mission && missionComplete(this.mission, this.world, won);
-      const bonus = medalBonus(loadSave().college);
+      const bonus = collegeEffects(loadSave().college).medals;
       this.reward = medalsFor(this.stars, won, this.auto, this.threat, bonus);
       if (this.missionDone) this.reward += this.mission!.mission.medals;
       if (this.reward > 0) addMedals(this.reward);

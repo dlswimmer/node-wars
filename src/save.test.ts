@@ -24,7 +24,7 @@ describe('save migration', () => {
       wins: { recruit: 4, soldier: 6, general: 1 },
     };
     const save = migrate(v1)!;
-    expect(save.version).toBe(4);
+    expect(save.version).toBe(5);
     expect(save.medals).toBe(23); // 7.5 x 3, rounded
     expect(save.medalsEarned).toBe(23);
     expect(save.upgrades).toEqual({ ...NO_UPGRADES, headStart: 2, adjutant: 5 });
@@ -40,7 +40,7 @@ describe('save migration', () => {
     const conquest = newConquest(55);
     conquest.held.push(START_ID);
     const save = migrate({ version: 2, medals: 2.5, medalsEarned: 10.75, upgrades: {}, conquest })!;
-    expect(save.version).toBe(4);
+    expect(save.version).toBe(5);
     expect(save.medals).toBe(8);
     expect(save.medalsEarned).toBe(32);
     expect(save.conquest).toEqual(conquest);
@@ -94,10 +94,10 @@ describe('Tactical Retreat', () => {
       upgrades: {},
       conquest: newConquest(3),
     })!;
-    expect(save.version).toBe(4);
+    expect(save.version).toBe(5);
     expect(save.honor).toBe(0);
     expect(save.retreats).toBe(0);
-    expect(Object.values(save.college).every((n) => n === 0)).toBe(true);
+    expect(save.college).toEqual([]);
   });
 
   it('needs a 3-star region won, then banks Honor and starts a new war', () => {
@@ -112,7 +112,8 @@ describe('Tactical Retreat', () => {
     if (!c.held.some((id) => naturalStars(c.seed, id) >= 3)) return;
     save.medals = 30;
     save.upgrades.fastBuilders = 3;
-    save.college.warChest = 2;
+    // Two Head Start nodes on the start-medals line: +4 medals each new war.
+    save.college = ['-1,0', '-2,0'];
     const oldSeed = c.seed;
     const honor = tacticalRetreat();
     expect(honor).toBeGreaterThan(0);
@@ -121,36 +122,50 @@ describe('Tactical Retreat', () => {
     expect(after.retreats).toBe(1);
     expect(after.conquest.seed).not.toBe(oldSeed);
     expect(after.conquest.held).toEqual([]);
-    expect(after.medals).toBe(10);
+    expect(after.medals).toBe(4);
     expect(after.upgrades).toEqual(NO_UPGRADES);
-    expect(after.college.warChest).toBe(2);
+    expect(after.college).toEqual(['-1,0', '-2,0']);
   });
 
   it('spends Honor in the War College', () => {
     resetAll();
     const save = loadSave();
-    expect(buyCollege('veteranPay')).toBe(false);
+    // The first Hit Harder node, next to the centre, costs 2.
+    expect(buyCollege('1,0')).toBe(false);
     save.honor = 5;
-    expect(buyCollege('veteranPay')).toBe(true);
-    expect(loadSave().college.veteranPay).toBe(1);
-    expect(loadSave().honor).toBe(2);
+    expect(buyCollege('1,0')).toBe(true);
+    expect(loadSave().college).toEqual(['1,0']);
+    expect(loadSave().honor).toBe(3);
+    // Nodes must touch one you own, and can only be bought once.
+    expect(buyCollege('3,0')).toBe(false);
+    expect(buyCollege('1,0')).toBe(false);
+    expect(buyCollege('2,0')).toBe(true);
+    expect(buyCollege('nonsense')).toBe(false);
   });
 });
 
-describe('Charge replaced Rally', () => {
-  it('gives Charge to a War College that bought Rally', () => {
+describe('the War College became a web', () => {
+  it('refunds every Honor spent on the old levels, Rally and Officer Corps included', () => {
     const save = migrate({
       version: 4,
       medals: 0,
       medalsEarned: 0,
       upgrades: {},
       conquest: newConquest(5),
-      honor: 0,
-      college: { rally: 1, airStrike: 1 },
-      retreats: 1,
+      honor: 2,
+      honorEarned: 60,
+      college: { veteranPay: 2, rally: 1, officerCorps: 2, airStrike: 1 },
+      retreats: 2,
     })!;
-    expect(save.college.charge).toBe(1);
-    expect(save.college.airStrike).toBe(1);
+    // 2 in hand, 3 + 6 Veteran Pay, 8 Rally, 4 + 9 Officer Corps, 8 Air Strike.
+    expect(save.honor).toBe(40);
+    expect(save.honorEarned).toBe(60);
+    expect(save.college).toEqual([]);
+  });
+
+  it('keeps a version-5 web, dropping ids that are not nodes', () => {
+    const save = migrate({ ...loadSave(), college: ['1,0', 'veteranPay', '2,0'] })!;
+    expect(save.college).toEqual(['1,0', '2,0']);
   });
 });
 
@@ -166,8 +181,9 @@ describe('Promotion', () => {
       college: { veteranPay: 2, airStrike: 1 },
       retreats: 2,
     })!;
-    // 4 in hand, plus 3 + 6 on Veteran Pay and 8 on Air Strike.
+    // 4 in hand, plus 3 + 6 on Veteran Pay and 8 on Air Strike (all refunded).
     expect(save.honorEarned).toBe(21);
+    expect(save.honor).toBe(21);
     expect(save.phase).toBe(1);
   });
 
@@ -188,29 +204,12 @@ describe('Promotion', () => {
     const save = loadSave();
     save.honor = 10;
     save.honorEarned = 10;
-    expect(buyCollege('warChest')).toBe(true);
+    expect(buyCollege('-1,0')).toBe(true);
     expect(loadSave().honorEarned).toBe(10);
   });
 });
 
-describe('Officer Corps became free Adjutant levels', () => {
-  it('refunds the Honor spent on Officer Corps', () => {
-    const save = migrate({
-      version: 4,
-      medals: 0,
-      medalsEarned: 0,
-      upgrades: {},
-      conquest: newConquest(5),
-      honor: 2,
-      honorEarned: 40,
-      college: { officerCorps: 2 },
-      retreats: 2,
-    })!;
-    expect(save.honor).toBe(2 + 4 + 9);
-    expect(save.honorEarned).toBe(40);
-    expect('officerCorps' in save.college).toBe(false);
-  });
-
+describe('Adjutant levels', () => {
   it('lets you buy Adjutant levels only up to Commander, counting free ones', () => {
     resetAll();
     const save = loadSave();

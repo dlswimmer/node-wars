@@ -9,15 +9,14 @@
  * (battles stand in for play time), so we can check that pushing deep beats retreating
  * early, and when a new 8-year-old starts beating 5-star regions.
  */
+import { canRetreat, honorFor } from '../src/sim/college';
 import {
-  COLLEGE,
-  NO_COLLEGE,
-  canRetreat,
-  honorFor,
-  medalBonus,
-  nextHonorCost,
-} from '../src/sim/college';
-import type { CollegeLevels } from '../src/sim/college';
+  collegeCost,
+  collegeEffects,
+  collegeState,
+  collegeWeb,
+  visibleRings,
+} from '../src/sim/collegeweb';
 import { difficultyForStars } from '../src/sim/difficulty';
 import { PROFILES } from '../src/sim/playtest/bots';
 import { runMatch } from '../src/sim/playtest/harness';
@@ -50,7 +49,8 @@ const MAX_BATTLES = 80;
 
 interface Player {
   honor: number;
-  college: CollegeLevels;
+  /** War College web nodes owned. */
+  college: string[];
 }
 
 /** Spend on the cheapest thing first, like a kid who wants something now. */
@@ -65,9 +65,10 @@ function buyCheapest(costOf: () => { cost: number; buy: () => void } | null, wal
 /** Fight one war; returns what it achieved. */
 function war(player: Player, seed: number, retreatAfter: number) {
   const conquest: ConquestState = newConquest(seed);
-  let medals = 5 * player.college.warChest;
+  const edge = collegeEffects(player.college);
+  let medals = edge.startMedals;
   let earned = medals;
-  const upgrades: UpgradeLevels = { ...NO_UPGRADES, adjutant: player.college.officerCorps };
+  const upgrades: UpgradeLevels = { ...NO_UPGRADES };
   let battles = 0;
   let lossesInRow = 0;
   let bestStars = 0;
@@ -90,14 +91,14 @@ function war(player: Player, seed: number, retreatAfter: number) {
     const threat = regionThreat(seed, id);
     const d = difficultyForStars(stars);
     const matchSeed = seed * 1000 + battles;
-    const options = campaignWorldOptions(d, matchSeed, upgrades, threat, player.college);
+    const options = campaignWorldOptions(d, matchSeed, upgrades, threat, edge);
     const r = runMatch(regionLevel(seed, id), d, profile, matchSeed, 900, 'mixed', options);
     const won = r.winner === 'player';
     battles++;
     seconds += r.seconds;
     if (won) {
       lossesInRow = 0;
-      const pay = medalsFor(stars, true, false, threat, medalBonus(player.college));
+      const pay = medalsFor(stars, true, false, threat, edge.medals);
       medals += pay;
       earned += pay;
       bestStars = Math.max(bestStars, naturalStars(seed, id));
@@ -143,7 +144,7 @@ for (const [name, retreatAfter] of [
 ] as const) {
   console.log(`\n${profile.label}, ${name}:`);
   console.log('war  battles  held  best★  threat  honor  honor/battle  minutes  total honor');
-  const player: Player = { honor: 0, college: { ...NO_COLLEGE } };
+  const player: Player = { honor: 0, college: [] };
   let total = 0;
   for (let w = 0; w < wars; w++) {
     const r = war(player, 1000 + w * 17, retreatAfter);
@@ -151,17 +152,17 @@ for (const [name, retreatAfter] of [
     player.honor += r.honor;
     buyCheapest(
       () => {
-        const options = COLLEGE.map((c) => ({
-          c,
-          cost: nextHonorCost(player.college, c.id),
-        })).filter((o) => o.cost !== null);
+        // The cheapest open node, abilities first among equals (a kid wants the cool ones).
+        const options = collegeWeb(visibleRings(player.college))
+          .filter((n) => collegeState(n, player.college) === 'open')
+          .map((n) => ({ n, cost: collegeCost(n) - (n.ability ? 0.5 : 0) }));
         if (options.length === 0) return null;
-        const pick = options.sort((a, b) => a.cost! - b.cost!)[0]!;
+        const pick = options.sort((a, b) => a.cost - b.cost || a.n.id.localeCompare(b.n.id))[0]!;
         return {
-          cost: pick.cost!,
+          cost: collegeCost(pick.n),
           buy: () => {
-            player.honor -= pick.cost!;
-            player.college[pick.c.id] += 1;
+            player.honor -= collegeCost(pick.n);
+            player.college.push(pick.n.id);
           },
         };
       },

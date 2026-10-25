@@ -101,15 +101,17 @@ every push to `main` (CI runs lint, format, typecheck and tests first).
   current war would pay (`PROMOTION_HONOR`); for now it only awards a Phase 2 badge.
 - **Upgrade webs, two of them** (the user, 2026-10-25): the Command Tent (medals, resets each
   war) is a radial web (`src/sim/web.ts`, `src/scenes/WebScene.ts`): centre node, a spoke
-  per upgrade, a node per level. The War College (Honor, permanent) will become its own
-  endless web next. Two webs, not one, because they use different currencies and reset
-  differently. Kept separate on purpose; the user agreed.
+  per upgrade, a node per level. The War College (Honor, permanent) is an endless hex web
+  (`src/sim/collegeweb.ts`): any node touching one you own can be bought, so paths fork
+  freely. Two webs, not one, because they use different currencies and reset differently.
+  Kept separate on purpose; the user agreed. Old War College levels didn't map cleanly onto
+  the web, so save version 5 refunds all Honor spent on them instead of guessing.
 - **Retreating early must not pay.** Honor grows faster than progress (based on the hardest
   threat beaten and regions held), a retreat needs a minimum (e.g. a 3-star region beaten),
   and a bot test compares Honor per hour for "retreat after 5 battles", "after 15" and "push
   to the wall": pushing deep must come out clearly ahead.
-- **Active abilities are prestige unlocks** (air strike, supply drop, rally...), bought in
-  the War College, not free in every battle.
+- **Active abilities are prestige unlocks** (air strike, supply drop, charge...), nodes in
+  the War College web, not free in every battle.
 - **A fresh battle mechanic is wanted but undecided.** The user floated an army builder
   (earn resources, buy units, AI controls them) but isn't sure it fits. Prototype any new
   mechanic as its own Quick Battle mode first.

@@ -1,34 +1,30 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio';
-import { buyCollege, loadSave, promote, tacticalRetreat } from '../save';
+import { loadSave, promote, tacticalRetreat } from '../save';
+import { ABILITIES } from '../sim/abilities';
 import {
-  COLLEGE,
   RETREAT_MIN_STARS,
   canRetreat,
   honorFor,
   insignia,
-  nextHonorCost,
   promotionProgress,
 } from '../sim/college';
+import { collegeEffects, themeText, type Theme } from '../sim/collegeweb';
 import { ADJUTANT_LEVELS, adjutantLevel, nextAdjutantMilestone } from '../sim/upgrades';
 import { COLORS, textStyle } from '../theme';
 import { drawMapGrid } from './drawing';
 import { MENU_DESIGN, fitDesign } from './MenuScene';
 import { addButton, addMuteButton } from './ui';
 
-/** The War College's pages: lasting upgrades, and commander abilities (both bought with Honor). */
-type TentTab = 'college' | 'abilities';
-
 /** Where the Tactical Retreat button sits; the "no" of its confirm takes the same spot. */
 const RETREAT = { x: 640, y: 562 };
 
 /**
- * The Command Tent: spend medals on upgrades for this war, and Honor in the War College on
- * upgrades that last for good. The War College page also holds the Tactical Retreat.
+ * Rank & Retreat: your insignia, what the War College gives you, the Adjutant's free duties,
+ * progress toward a Promotion, and the Tactical Retreat. (The Command Tent and the War College
+ * themselves are upgrade webs; see WebScene.)
  */
 export class TentScene extends Phaser.Scene {
-  /** Which page is showing. */
-  private tab: TentTab = 'college';
   /** Asking "are you sure?" before a Tactical Retreat. */
   private confirming = false;
 
@@ -36,8 +32,7 @@ export class TentScene extends Phaser.Scene {
     super('tent');
   }
 
-  init(data: { tab?: TentTab; confirm?: boolean }) {
-    this.tab = data.tab ?? 'college';
+  init(data: { confirm?: boolean }) {
     this.confirming = !!data.confirm;
   }
 
@@ -59,95 +54,29 @@ export class TentScene extends Phaser.Scene {
   private page() {
     const save = loadSave();
     const cx = MENU_DESIGN.width / 2;
-    this.add.text(cx, 40, 'WAR COLLEGE', textStyle(60, COLORS.accent)).setOrigin(0.5);
+    this.add.text(cx, 40, 'RANK & RETREAT', textStyle(60, COLORS.accent)).setOrigin(0.5);
     const wallet = `${insignia(save.retreats)} · ${save.honor} Honor`;
     this.add.text(cx, 88, wallet, textStyle(28)).setOrigin(0.5);
 
-    // The Command Tent (its own web screen), then the War College's pages.
-    const tabs: { id: TentTab | 'tent'; label: string }[] = [
-      { id: 'tent', label: 'COMMAND TENT' },
-      { id: 'college', label: 'WAR COLLEGE' },
-      { id: 'abilities', label: 'ABILITIES' },
+    // The two upgrade webs, then this page.
+    const tabs = [
+      { label: 'COMMAND TENT', go: () => this.scene.start('web', { web: 'tent' }) },
+      { label: 'WAR COLLEGE', go: () => this.scene.start('web', { web: 'college' }) },
+      { label: 'RANK & RETREAT', go: () => undefined, active: true },
     ];
     tabs.forEach((t, i) => {
       addButton(this, cx + (i - 1) * 250, 132, {
         width: 236,
         height: 48,
         label: t.label,
-        color: t.id === this.tab ? 0x2f5f8a : 0x2a3324,
-        labelSize: 24,
-        onClick: () =>
-          t.id === 'tent' ? this.scene.start('web') : this.scene.restart({ tab: t.id }),
+        color: t.active ? 0x2f5f8a : 0x2a3324,
+        labelSize: 22,
+        onClick: t.go,
       });
     });
 
-    if (this.tab === 'college') this.collegeRows();
-    else this.abilityRows();
-
-    addButton(this, 110, 562, {
-      width: 180,
-      height: 56,
-      label: 'BACK',
-      labelSize: 32,
-      onClick: () => this.scene.start('worldmap'),
-    });
-  }
-
-  /** One upgrade: name, level pips, what you have and what's next, and its buy button. */
-  private row(
-    i: number,
-    spacing: number,
-    name: string,
-    level: number,
-    max: number,
-    detail: string,
-    price: { label: string; affordable: boolean } | null,
-    buy: () => boolean,
-    /** Shown instead of a price once there is nothing left to buy. */
-    done = 'MAXED',
-  ) {
-    const y = 190 + i * spacing;
-    const pips = '■'.repeat(level) + '□'.repeat(max - level);
-    // Tighter rows (the War College has more of them) get slightly smaller text.
-    const tight = spacing < 56;
-    this.add.text(40, y - (tight ? 22 : 24), name, textStyle(tight ? 23 : 26)).setOrigin(0, 0);
-    this.add.text(310, y - 20, pips, textStyle(tight ? 22 : 24, COLORS.accent)).setOrigin(0, 0);
-    this.add
-      .text(40, y + (tight ? 2 : 4), detail, textStyle(tight ? 19 : 22, COLORS.text))
-      .setOrigin(0, 0);
-    if (!price) {
-      this.add.text(870, y, done, textStyle(30, COLORS.accent)).setOrigin(0.5);
-      return;
-    }
-    addButton(this, 870, y, {
-      width: 220,
-      height: Math.min(50, spacing - 6),
-      label: price.label,
-      color: price.affordable ? 0x2f6b3a : 0x3a3a3a,
-      labelSize: 26,
-      onClick: () => {
-        if (buy()) {
-          sfx.capture();
-          this.scene.restart({ tab: this.tab });
-        } else {
-          sfx.failed();
-        }
-      },
-    });
-  }
-
-  private collegeRows() {
-    const save = loadSave();
-    COLLEGE.filter((c) => c.page === 'college').forEach((c, i) => {
-      const level = save.college[c.id];
-      const max = c.costs.length;
-      const cost = nextHonorCost(save.college, c.id);
-      const price =
-        cost === null ? null : { label: `${cost} HONOR`, affordable: save.honor >= cost };
-      const detail = nowAndNext(c.total, level, max);
-      this.row(i, 44, c.name, level, max, detail, price, () => buyCollege(c.id));
-    });
-
+    this.collegeSummary();
+    this.adjutantLine();
     this.promotionBar();
 
     // The Tactical Retreat: bank Honor for this war and start a new one.
@@ -162,10 +91,52 @@ export class TentScene extends Phaser.Scene {
       color: ready ? 0x7a4a1f : 0x3a3a3a,
       labelSize: 26,
       onClick: () => {
-        if (ready) this.scene.restart({ tab: 'college', confirm: true });
+        if (ready) this.scene.restart({ confirm: true });
         else sfx.failed();
       },
     });
+
+    addButton(this, 110, 562, {
+      width: 180,
+      height: 56,
+      label: 'BACK',
+      labelSize: 32,
+      onClick: () => this.scene.start('worldmap'),
+    });
+  }
+
+  /** What the War College web gives you, summed up. */
+  private collegeSummary() {
+    const save = loadSave();
+    const cx = MENU_DESIGN.width / 2;
+    const e = collegeEffects(save.college);
+    const order: Theme[] = ['attack', 'production', 'speed', 'capacity', 'medals', 'startMedals'];
+    const edges = order.filter((t) => e.steps[t] > 0).map((t) => themeText(t, e.steps[t]));
+    const powers = e.abilities.map((a) => ABILITIES[a].name);
+    const lines =
+      edges.length + powers.length === 0
+        ? ['Nothing yet: spend Honor in the WAR COLLEGE web.']
+        : [...edges, ...(powers.length ? [`Abilities: ${powers.join(', ')}`] : [])];
+    this.add.text(cx, 186, 'YOUR WAR COLLEGE', textStyle(26, COLORS.accent)).setOrigin(0.5, 0);
+    this.add
+      .text(cx, 222, lines.join('\n'), { ...textStyle(22), align: 'center' })
+      .setOrigin(0.5, 0)
+      .setLineSpacing(2);
+  }
+
+  /** The Adjutant learns duties for free as Honor adds up, the last one using your abilities. */
+  private adjutantLine() {
+    const save = loadSave();
+    const next = nextAdjutantMilestone(save.honorEarned);
+    const learned = adjutantLevel(0, save.honorEarned);
+    const line =
+      next === null
+        ? 'ADJUTANT: every duty learned, including GUNNER (uses your abilities for you)'
+        : `ADJUTANT: next free duty at ${next} Honor earned (you have ${save.honorEarned})\n` +
+          `${ADJUTANT_LEVELS[learned] ?? ''}`;
+    this.add
+      .text(MENU_DESIGN.width / 2, 440, line, { ...textStyle(21, COLORS.accent), align: 'center' })
+      .setOrigin(0.5);
   }
 
   /**
@@ -193,7 +164,7 @@ export class TentScene extends Phaser.Scene {
         onClick: () => {
           if (promote()) {
             sfx.victory();
-            this.scene.restart({ tab: 'college' });
+            this.scene.restart();
           }
         },
       });
@@ -211,39 +182,6 @@ export class TentScene extends Phaser.Scene {
     this.add
       .text(cx, y - 8, `PROMOTION: ${p.banked}${thisWar} / ${p.goal} HONOR EARNED`, textStyle(20))
       .setOrigin(0.5, 1);
-  }
-
-  /** Commander abilities: each unlocked once with Honor, then usable in campaign battles. */
-  private abilityRows() {
-    const save = loadSave();
-    COLLEGE.filter((c) => c.page === 'abilities').forEach((c, i) => {
-      const owned = save.college[c.id] > 0;
-      const cost = nextHonorCost(save.college, c.id);
-      const price =
-        cost === null ? null : { label: `${cost} HONOR`, affordable: save.honor >= cost };
-      const detail = `${owned ? 'Yours' : 'Unlock'}: ${c.total(1)}`;
-      const buy = () => buyCollege(c.id);
-      this.row(i, 70, c.name, save.college[c.id], 1, detail, price, buy, 'OWNED');
-    });
-    this.add
-      .text(
-        MENU_DESIGN.width / 2,
-        410,
-        'Abilities show as buttons in campaign battles: tap one, then tap a base.',
-        textStyle(22, COLORS.textDim),
-      )
-      .setOrigin(0.5);
-    // The Adjutant learns duties for free as Honor adds up, the last one using these abilities.
-    const next = nextAdjutantMilestone(save.honorEarned);
-    const learned = adjutantLevel(0, save.honorEarned);
-    const line =
-      next === null
-        ? 'ADJUTANT: every duty learned, including GUNNER (uses your abilities for you)'
-        : `ADJUTANT: next free duty at ${next} Honor earned (you have ${save.honorEarned})\n` +
-          `${ADJUTANT_LEVELS[learned] ?? ''}`;
-    this.add
-      .text(MENU_DESIGN.width / 2, 470, line, { ...textStyle(22, COLORS.accent), align: 'center' })
-      .setOrigin(0.5);
   }
 
   /** Ask again before retreating. NO sits where the retreat button was; YES is off to one side. */
@@ -273,7 +211,7 @@ export class TentScene extends Phaser.Scene {
       label: 'NO, KEEP FIGHTING',
       color: 0x2f6b3a,
       labelSize: 36,
-      onClick: () => this.scene.restart({ tab: 'college' }),
+      onClick: () => this.scene.restart({}),
     });
     addButton(this, 230, 420, {
       width: 380,
@@ -289,11 +227,4 @@ export class TentScene extends Phaser.Scene {
       },
     });
   }
-}
-
-/** "Next: …" at level 0, "Now: … (max)" when maxed, else both. */
-function nowAndNext(total: (levels: number) => string, level: number, max: number): string {
-  if (level === 0) return `Next: ${total(1)}`;
-  if (level >= max) return `Now: ${total(level)} (max)`;
-  return `Now: ${total(level)}  ·  Next: ${total(level + 1)}`;
 }

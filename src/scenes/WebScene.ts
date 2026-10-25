@@ -1,7 +1,25 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio';
 import { DPR, cssSize } from '../display';
-import { buyUpgrade, loadSave } from '../save';
+import { buyCollege, buyUpgrade, loadSave } from '../save';
+import type { AbilityId } from '../sim/abilities';
+import { insignia } from '../sim/college';
+import {
+  COLLEGE_CENTER,
+  COLLEGE_LINES,
+  THEME_NAMES,
+  collegeCost,
+  collegeEffects,
+  collegeLabel,
+  collegeNodeAt,
+  collegeState,
+  collegeWeb,
+  themeText,
+  visibleRings,
+  type CollegeNode,
+  type CollegeState,
+  type Theme,
+} from '../sim/collegeweb';
 import { medalCount, medalSummary } from '../sim/economy';
 import type { Point } from '../sim/types';
 import { ADJUTANT_LEVELS, UPGRADES } from '../sim/upgrades';
@@ -33,16 +51,46 @@ const LOOK: Record<NodeState, { fill: number; rim: number; text: string }> = {
   honorOnly: { fill: 0x23281e, rim: 0x7a5fc0, text: '#a99ad0' },
 };
 
+/** Each War College direction's colour, for its nodes' labels before they're bought. */
+const THEME_COLOR: Record<Theme, string> = {
+  attack: '#ff8a7a',
+  production: '#9dff9d',
+  speed: '#8ad8ff',
+  startMedals: '#ffd27a',
+  capacity: '#c8b0ff',
+  medals: '#f2c94c',
+};
+/** Short words inside small War College nodes. */
+const THEME_SHORT: Record<Theme, string> = {
+  attack: 'HIT',
+  production: 'BUILD',
+  speed: 'SPEED',
+  startMedals: 'START',
+  capacity: 'BASE',
+  medals: 'PAY',
+};
+const ABILITY_SHORT: Record<AbilityId, string> = {
+  airStrike: 'AIR',
+  supplyDrop: 'DROP',
+  charge: 'GO!',
+};
+
+/** Which web is showing: the Command Tent (medals, this war) or the War College (Honor). */
+type WebKind = 'tent' | 'college';
+
 type Gesture = 'none' | 'pan' | 'pinch';
 
 /**
- * The Command Tent as an upgrade web: a central node with a spoke per upgrade, one node per
- * level running outward, lit gold as you buy them. Pan and pinch like the world map; tap a
- * node to see it in the panel below and buy it.
+ * The upgrade webs. The Command Tent: a central node with a spoke per upgrade, one node per
+ * level running outward. The War College: an endless hex web where any node touching one you
+ * own can be bought. Pan and pinch like the world map; tap a node to see it in the panel below
+ * and buy it.
  */
 export class WebScene extends Phaser.Scene {
   private uiCam!: Phaser.Cameras.Scene2D.Camera;
+  private kind: WebKind = 'tent';
   private nodes: WebNode[] = [];
+  private hexes: CollegeNode[] = [];
   private webObjects: Phaser.GameObjects.GameObject[] = [];
   private uiObjects: Phaser.GameObjects.GameObject[] = [];
   private selected: string | null = null;
@@ -59,13 +107,16 @@ export class WebScene extends Phaser.Scene {
     super('web');
   }
 
+  init(data: { web?: WebKind }) {
+    this.kind = data.web ?? 'tent';
+  }
+
   create() {
-    this.nodes = tentWeb();
     this.selected = null;
     this.webObjects = [];
     this.uiObjects = [];
     this.gesture = 'none';
-    this.extent = Math.max(...this.nodes.map((n) => Math.hypot(n.x, n.y))) + 140;
+    this.layoutNodes();
     this.cameras.main.setBackgroundColor(BACKGROUND);
     this.uiCam = this.cameras.add(0, 0, this.scale.width, this.scale.height).setOrigin(0, 0);
 
@@ -99,15 +150,102 @@ export class WebScene extends Phaser.Scene {
     return obj;
   }
 
+  /** The nodes to show (the War College shows more rings as you buy further out). */
+  private layoutNodes() {
+    if (this.kind === 'college') {
+      this.nodes = [];
+      this.hexes = collegeWeb(visibleRings(loadSave().college));
+    } else {
+      this.nodes = tentWeb();
+      this.hexes = [];
+    }
+    const all: Point[] = [...this.nodes, ...this.hexes];
+    this.extent = Math.max(...all.map((n) => Math.hypot(n.x, n.y))) + 160;
+  }
+
   private stateOf(node: WebNode): NodeState {
     const save = loadSave();
     return tentNodeState(node, save.upgrades, save.honorEarned);
   }
 
-  /** The links, the nodes (coloured by state) and each spoke's name at its tip. */
+  private hexState(node: CollegeNode): CollegeState {
+    return collegeState(node, loadSave().college);
+  }
+
+  /** War College nodes: notables and abilities are bigger. */
+  private hexRadius(node: CollegeNode): number {
+    return node.kind === 'small' ? NODE_RADIUS : NODE_RADIUS * 1.3;
+  }
+
   private drawWeb() {
     for (const o of this.webObjects) o.destroy();
     this.webObjects = [];
+    if (this.kind === 'college') this.drawCollege();
+    else this.drawTent();
+  }
+
+  /** The War College: links between touching nodes, the nodes, and each direction's name. */
+  private drawCollege() {
+    const g = this.web(this.add.graphics());
+    const byId = new Map(this.hexes.map((n) => [n.id, n]));
+    const owned = (n: CollegeNode) => this.hexState(n) === 'owned';
+    for (const n of this.hexes) {
+      // Half the directions, so each link is drawn once.
+      for (const d of COLLEGE_LINES.slice(0, 3)) {
+        const m = byId.get(collegeNodeAt(n.q + d.q, n.r + d.r).id);
+        if (!m) continue;
+        const lit = owned(n) && owned(m);
+        g.lineStyle(lit ? 8 : 4, lit ? 0xf2c94c : 0x2e3528, 1);
+        g.lineBetween(n.x, n.y, m.x, m.y);
+      }
+    }
+    for (const n of this.hexes) {
+      if (n.id === COLLEGE_CENTER) {
+        g.fillStyle(0x5a4a1f, 1).fillCircle(0, 0, NODE_RADIUS * 1.5);
+        g.lineStyle(4, 0xf2c94c, 1).strokeCircle(0, 0, NODE_RADIUS * 1.5);
+        this.web(
+          this.add
+            .text(0, 0, 'WAR\nCOLLEGE', { ...textStyle(17, COLORS.accent), align: 'center' })
+            .setOrigin(0.5),
+        );
+        continue;
+      }
+      const state = this.hexState(n);
+      const look = LOOK[state];
+      const r = this.hexRadius(n);
+      // Abilities glow purple until bought, so they stand out as goals.
+      const fill = n.ability && state !== 'owned' ? 0x3a2f5a : look.fill;
+      g.fillStyle(fill, 1).fillCircle(n.x, n.y, r);
+      g.lineStyle(state === 'open' ? 6 : 4, look.rim, 1).strokeCircle(n.x, n.y, r);
+      if (n.id === this.selected) g.lineStyle(5, 0xffffff, 0.9).strokeCircle(n.x, n.y, r + 9);
+      const label = n.ability
+        ? ABILITY_SHORT[n.ability]
+        : n.kind === 'notable'
+          ? '★'
+          : THEME_SHORT[n.theme];
+      const color = state === 'owned' ? '#ffffff' : THEME_COLOR[n.theme];
+      const size = n.kind === 'notable' ? 36 : n.ability ? 21 : 17;
+      this.web(this.add.text(n.x, n.y, label, textStyle(size, color)).setOrigin(0.5));
+    }
+    // Each direction's name, just past the edge of the web along its main line.
+    const rings = Math.max(...this.hexes.map((n) => n.ring));
+    for (const line of COLLEGE_LINES) {
+      const step = collegeNodeAt(line.q, line.r);
+      const k = rings + 0.85;
+      this.web(
+        this.add
+          .text(step.x * k, step.y * k, THEME_NAMES[line.theme].replace(' ', '\n'), {
+            ...textStyle(26, THEME_COLOR[line.theme]),
+            align: 'center',
+          })
+          .setOrigin(0.5)
+          .setLineSpacing(-4),
+      );
+    }
+  }
+
+  /** The Command Tent: the links, the nodes (coloured by state) and each spoke's name. */
+  private drawTent() {
     const g = this.web(this.add.graphics());
     const byId = new Map(this.nodes.map((n) => [n.id, n]));
     for (const n of this.nodes) {
@@ -178,17 +316,18 @@ export class WebScene extends Phaser.Scene {
         onClick: () => this.scene.start('worldmap'),
       }),
     );
-    this.ui(this.add.text(w / 2, 26, 'COMMAND TENT', textStyle(38, COLORS.accent)).setOrigin(0.5));
-    this.ui(
-      this.add
-        .text(w / 2, 62, medalSummary(save.medals, save.medalsEarned), textStyle(22))
-        .setOrigin(0.5),
-    );
-    // The Command Tent web, then the War College's pages.
+    const college = this.kind === 'college';
+    const title = college ? 'WAR COLLEGE' : 'COMMAND TENT';
+    const wallet = college
+      ? `${insignia(save.retreats)} · ${save.honor} Honor`
+      : medalSummary(save.medals, save.medalsEarned);
+    this.ui(this.add.text(w / 2, 26, title, textStyle(38, COLORS.accent)).setOrigin(0.5));
+    this.ui(this.add.text(w / 2, 62, wallet, textStyle(22)).setOrigin(0.5));
+    // The two webs, then the rank and retreat page.
     const tabs = [
-      { label: 'COMMAND TENT', go: () => undefined, active: true },
-      { label: 'WAR COLLEGE', go: () => this.scene.start('tent', { tab: 'college' }) },
-      { label: 'ABILITIES', go: () => this.scene.start('tent', { tab: 'abilities' }) },
+      { label: 'COMMAND TENT', active: !college, go: () => this.scene.restart({ web: 'tent' }) },
+      { label: 'WAR COLLEGE', active: college, go: () => this.scene.restart({ web: 'college' }) },
+      { label: 'RANK & RETREAT', active: false, go: () => this.scene.start('tent', {}) },
     ];
     tabs.forEach((t, i) => {
       this.ui(
@@ -197,8 +336,8 @@ export class WebScene extends Phaser.Scene {
           height: 40,
           label: t.label,
           color: t.active ? 0x2f5f8a : 0x2a3324,
-          labelSize: 22,
-          onClick: t.go,
+          labelSize: 21,
+          onClick: t.active ? () => undefined : t.go,
         }),
       );
     });
@@ -215,22 +354,72 @@ export class WebScene extends Phaser.Scene {
     bg.fillStyle(0x000000, 0.75).fillRoundedRect(x0, y0, panelW, panelH, 14);
     bg.lineStyle(3, 0xf2c94c, 0.7).strokeRoundedRect(x0, y0, panelW, panelH, 14);
     this.ui(this.add.zone(x0, y0, panelW, panelH).setOrigin(0).setInteractive());
+    const box = { w, x0, y0, panelW, panelH };
+    if (this.kind === 'college') this.collegePanel(box);
+    else this.tentPanel(box);
+  }
+
+  private hint(box: PanelBox, text: string) {
+    this.ui(
+      this.add
+        .text(box.w / 2, box.y0 + box.panelH / 2, text, {
+          ...textStyle(22),
+          align: 'center',
+          wordWrap: { width: box.panelW - 40 },
+        })
+        .setOrigin(0.5),
+    );
+  }
+
+  /** The node's name and what it does, on the left of the panel. */
+  private describe(box: PanelBox, title: string, what: string) {
+    const tx = box.x0 + 20;
+    this.ui(this.add.text(tx, box.y0 + 12, title, textStyle(28)));
+    this.ui(
+      this.add.text(tx, box.y0 + 50, what, {
+        ...textStyle(20, COLORS.textDim),
+        wordWrap: { width: box.panelW - 280 },
+      }),
+    );
+  }
+
+  /** The BUY button on the right of the panel. */
+  private buyButton(box: PanelBox, label: string, affordable: boolean, buy: () => boolean) {
+    this.ui(
+      addButton(this, box.x0 + box.panelW - 120, box.y0 + box.panelH / 2, {
+        width: 210,
+        height: 70,
+        label,
+        color: affordable ? 0x2f6b3a : 0x3a3a3a,
+        labelSize: 24,
+        onClick: () => {
+          if (buy()) {
+            sfx.capture();
+            this.layoutNodes();
+            this.drawWeb();
+            this.buildUi();
+          } else {
+            sfx.failed();
+          }
+        },
+      }),
+    );
+  }
+
+  /** A word in place of the BUY button (OWNED, locked, ...). */
+  private stateWord(box: PanelBox, word: string) {
+    const [bx, by] = [box.x0 + box.panelW - 120, box.y0 + box.panelH / 2];
+    this.ui(
+      this.add
+        .text(bx, by, word, { ...textStyle(22, COLORS.accent), align: 'center' })
+        .setOrigin(0.5),
+    );
+  }
+
+  private tentPanel(box: PanelBox) {
     const node = this.nodes.find((n) => n.id === this.selected);
     if (!node?.upgrade || !node.level) {
-      this.ui(
-        this.add
-          .text(
-            w / 2,
-            y0 + panelH / 2,
-            'Tap a green node to upgrade. Each level opens the next one out.',
-            {
-              ...textStyle(22),
-              align: 'center',
-              wordWrap: { width: panelW - 40 },
-            },
-          )
-          .setOrigin(0.5),
-      );
+      this.hint(box, 'Tap a green node to upgrade. Each level opens the next one out.');
       return;
     }
     const save = loadSave();
@@ -241,37 +430,11 @@ export class WebScene extends Phaser.Scene {
       node.upgrade === 'adjutant'
         ? (ADJUTANT_LEVELS[node.level - 1] ?? '')
         : `Level ${node.level}: ${def.total(node.level)}`;
-    const tx = x0 + 20;
-    this.ui(this.add.text(tx, y0 + 12, `${def.name}  ·  ${node.level} of ${max}`, textStyle(28)));
-    this.ui(
-      this.add.text(tx, y0 + 50, what, {
-        ...textStyle(21, COLORS.textDim),
-        wordWrap: { width: panelW - 280 },
-      }),
-    );
-    const bx = x0 + panelW - 120;
-    const by = y0 + panelH / 2;
+    this.describe(box, `${def.name}  ·  ${node.level} of ${max}`, what);
     if (state === 'open') {
       const cost = tentNodeCost(node, save.upgrades) ?? 0;
-      const affordable = save.medals >= cost;
-      this.ui(
-        addButton(this, bx, by, {
-          width: 210,
-          height: 70,
-          label: `BUY: ${medalCount(cost).toUpperCase()}`,
-          color: affordable ? 0x2f6b3a : 0x3a3a3a,
-          labelSize: 24,
-          onClick: () => {
-            if (buyUpgrade(node.upgrade!)) {
-              sfx.capture();
-              this.drawWeb();
-              this.buildUi();
-            } else {
-              sfx.failed();
-            }
-          },
-        }),
-      );
+      const label = `BUY: ${medalCount(cost).toUpperCase()}`;
+      this.buyButton(box, label, save.medals >= cost, () => buyUpgrade(node.upgrade!));
       return;
     }
     const word: Record<NodeState, string> = {
@@ -281,11 +444,29 @@ export class WebScene extends Phaser.Scene {
       locked: 'BUY THE ONE\nBEFORE IT',
       honorOnly: 'LEARNED\nFROM HONOR',
     };
-    this.ui(
-      this.add
-        .text(bx, by, word[state], { ...textStyle(22, COLORS.accent), align: 'center' })
-        .setOrigin(0.5),
-    );
+    this.stateWord(box, word[state]);
+  }
+
+  /** The War College panel: the node, what it gives, what you have of it already, and BUY. */
+  private collegePanel(box: PanelBox) {
+    const node = this.hexes.find((n) => n.id === this.selected);
+    if (!node || node.id === COLLEGE_CENTER) {
+      this.hint(box, 'Honor buys upgrades that last for good. Buy any node touching one you own.');
+      return;
+    }
+    const save = loadSave();
+    const { name, text } = collegeLabel(node);
+    const state = this.hexState(node);
+    const kind = node.ability ? 'ABILITY' : node.kind === 'notable' ? '★ BIG ONE' : 'SMALL';
+    const steps = collegeEffects(save.college).steps[node.theme];
+    const have = !node.ability && steps > 0 ? `\nYou have: ${themeText(node.theme, steps)}` : '';
+    this.describe(box, `${name}  ·  ${kind}`, `${node.ability ? text : `Gives: ${text}`}${have}`);
+    if (state === 'open') {
+      const cost = collegeCost(node);
+      this.buyButton(box, `BUY: ${cost} HONOR`, save.honor >= cost, () => buyCollege(node.id));
+      return;
+    }
+    this.stateWord(box, state === 'owned' ? 'OWNED' : 'BUY ONE\nNEXT TO IT');
   }
 
   // ----- Camera ----------------------------------------------------------------------------
@@ -398,10 +579,12 @@ export class WebScene extends Phaser.Scene {
 
   /** Select the node under a tap (with some slack, for fingers). */
   private tapAt(w: Point) {
-    const reach = NODE_RADIUS + 14 / this.cameras.main.zoom;
-    const hit = this.nodes
-      .filter((n) => n.id !== CENTER)
-      .find((n) => Math.hypot(n.x - w.x, n.y - w.y) <= reach);
+    const slack = 14 / this.cameras.main.zoom;
+    const near = (n: Point, r: number) => Math.hypot(n.x - w.x, n.y - w.y) <= r + slack;
+    const hit =
+      this.kind === 'college'
+        ? this.hexes.find((n) => n.id !== COLLEGE_CENTER && near(n, this.hexRadius(n)))
+        : this.nodes.find((n) => n.id !== CENTER && near(n, NODE_RADIUS));
     this.selected = hit?.id ?? null;
     if (hit) {
       sfx.click();
@@ -433,4 +616,13 @@ export class WebScene extends Phaser.Scene {
     });
     if (Math.abs(got - wanted) > 1e-6) this.resetPinch(a, b);
   }
+}
+
+/** Where the bottom panel sits, in UI units. */
+interface PanelBox {
+  w: number;
+  x0: number;
+  y0: number;
+  panelW: number;
+  panelH: number;
 }

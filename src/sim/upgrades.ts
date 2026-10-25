@@ -1,4 +1,4 @@
-import { NO_COLLEGE, collegeEdges, type CollegeLevels } from './college';
+import { NO_COLLEGE_EFFECTS, type CollegeEffects } from './collegeweb';
 import { worldOptionsFor, type Difficulty } from './difficulty';
 import { ADJUTANT_MILESTONES, UPGRADE_COSTS, autoBattleMedals, winMedals } from './economy';
 import type { WorldOptions } from './world';
@@ -139,10 +139,9 @@ export function nextAdjutantMilestone(honorEarned: number): number | null {
 
 /** Wins you need yourself at a star level before the Adjutant may auto-battle it. */
 export const MASTERY_WINS = 5;
-/** Medals for a campaign battle in a region with this many stars (see economy.ts). */
 /**
  * Medals for a campaign battle: a region pays for its stars plus its Threat, times the War
- * College's Veteran Pay bonus.
+ * College's medal bonus.
  */
 export function medalsFor(
   stars: number,
@@ -205,12 +204,11 @@ export function campaignWorldOptions(
   seed: number,
   levels: UpgradeLevels,
   threat = 0,
-  college: CollegeLevels = NO_COLLEGE,
+  edge: CollegeEffects = NO_COLLEGE_EFFECTS,
 ): WorldOptions {
   const base = worldOptionsFor(d, seed);
   const up = upgradeOptions(levels, d.shieldSeconds);
   // The War College's edges stack on top of the Command Tent's.
-  const edge = collegeEdges(college);
   const mine = up.boosts!.player!;
   up.boosts = {
     player: {

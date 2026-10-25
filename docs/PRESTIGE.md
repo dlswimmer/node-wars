@@ -117,17 +117,25 @@ never the best play.
   speed, +6% hit strength, +6% capacity and +6 starting troops (`threatOptions` in
   `src/sim/upgrades.ts`), and the region pays stars + Threat medals. It never stops
   climbing, so every war hits a wall.
-- **Tactical Retreat.** From the War College page of the Command Tent, once a 3-star region
+- **Tactical Retreat.** From the RANK & RETREAT page (next to the two webs), once a 3-star region
   is won. It pays Honor: each held region adds (stars + Threat)² / 9, so deep regions are
   worth far more than many easy ones. Then a new war starts on a new world with no medals and
   no Command Tent upgrades; Honor, the War College, insignia and star mastery stay.
   ("Promotion" is kept for moving up to the next phase.)
-- **War College** (`src/sim/college.ts`, prices in `HONOR_COSTS`): Veteran Pay (+25% medals),
-  War Chest (start with medals), Drill School, Logistics and Gunnery School (lasting
-  build speed, troop speed and hit strength), Fortifications (bigger bases, longer shield),
-  (An Officer Corps upgrade that started wars with Adjutant levels was replaced by free
-  Adjutant duties from Honor; its Honor was refunded.)
-- **Commander abilities** (`src/sim/abilities.ts`), each unlocked once on the ABILITIES page:
+- **War College web** (`src/sim/collegeweb.ts`, drawn by `WebScene`): an endless hex web
+  bought with Honor. The centre is free; any node touching one you own can be bought. Six
+  directions, one theme each: hit strength (+3% a node), build speed (+3%), troop speed
+  (+3%), starting medals (+2 each new war), base strength (+4% capacity, +2 s shield) and
+  medals (+10% from wins). Nodes between the main lines take the nearest line's theme.
+  Every third node on a main line is a notable worth three small ones (Marksmen,
+  Training Camp, Forced March, War Chest, Bunker Engineers, Field Pay). Three steps out,
+  the hit strength, troop speed and base strength lines hold Air Strike, Charge and Supply
+  Drop instead. A small node costs 2 Honor in the first ring and 30% more each ring out;
+  notables and abilities cost double. The web shows two rings past your furthest node (at
+  least three), so it never ends. Effects are summed by `collegeEffects`. The old list of
+  named upgrades (Veteran Pay, Drill School, ...) was refunded in full when the web arrived
+  (save version 5).
+- **Commander abilities** (`src/sim/abilities.ts`), each a node in the War College web:
   Air Strike (knock 10 troops off a base you don't own; can't capture or hit a shielded army;
   45 s), Supply Drop (+15 troops to one of yours; 40 s) and Charge (no target: for 10 s your
   troops move 50% faster and hit 25% harder; 50 s). Campaign battles only, all recharging for
@@ -142,13 +150,15 @@ never the best play.
   base about to fall, an Air Strike where your troops are heading, a Charge once a big
   wave is out, one a turn at the Adjutant's careful pace.
 - **Promotion** (to the next phase): needs 100 Honor earned in total, counting what the current
-  war would pay right now (a gold bar on the War College page, banked solid and this war
+  war would pay right now (a gold bar on the RANK & RETREAT page, banked solid and this war
   lighter). Until Phase 2 exists it records a Phase 2 badge and the war goes on.
 - **Insignia:** Lieutenant, Captain, Major, Colonel, Brigadier, Field Marshal, then stars.
 - **Checked with bots** (`npm run campaign -- newKid 4`): retreating after 8 battles pays
   about 0.3-0.6 Honor a battle, after 20 about 0.6-1, and pushing to the wall 0.7 rising to
   2 as the War College adds up. A new-8yo bot beats 5 stars in its first war and 5 stars at
-  Threat 5 by its fourth.
+  Threat 5 by its fourth, and passes 100 Honor during its third or fourth war. (Rechecked
+  with the web: 0.25-0.4, 0.55-1.0 and 0.7-1.8 a battle; the bot buys the cheapest open node,
+  abilities first.)
 
 ## Later, with the expanding world (not designed yet)
 

@@ -1,4 +1,3 @@
-import type { CollegeId } from './college';
 import type { UpgradeId } from './upgrades';
 
 /**
@@ -24,23 +23,6 @@ export const MISSION_MEDALS = 1;
  * stars (index = stars). Gives a reason to replay and farm held regions for medals.
  */
 export const STAR_UNLOCK_MEDALS = [0, 0, 0, 0, 30, 75];
-
-/**
- * War College prices in Honor (only a Tactical Retreat pays Honor), the cost of each level
- * in order. A first retreat after a decent war pays roughly 10-20 Honor.
- */
-export const HONOR_COSTS: Record<CollegeId, number[]> = {
-  veteranPay: [3, 6, 10, 15, 22],
-  warChest: [2, 4, 7, 11, 16],
-  drillSchool: [3, 6, 10, 15, 22],
-  logistics: [3, 6, 10, 15, 22],
-  gunnery: [3, 6, 10, 15, 22],
-  fortifications: [4, 9, 15],
-  // Abilities are bought once.
-  airStrike: [8],
-  supplyDrop: [8],
-  charge: [12],
-};
 
 /**
  * Honor needed for a Promotion to the next phase: every Honor earned in past wars plus what
