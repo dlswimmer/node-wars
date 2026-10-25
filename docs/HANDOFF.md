@@ -91,6 +91,10 @@ every push to `main` (CI runs lint, format, typecheck and tests first).
 - **Prestige target:** after a few Tactical Retreats, the 8-year-old should be able to beat 5
   stars and beyond in the first phase. Tune the War College with bots so the "new 8yo"
   profile wins 5-star regions after a handful of retreats.
+- **Retreating early must not pay.** Honor grows faster than progress (based on the hardest
+  threat beaten and regions held), a retreat needs a minimum (e.g. a 3-star region beaten),
+  and a bot test compares Honor per hour for "retreat after 5 battles", "after 15" and "push
+  to the wall": pushing deep must come out clearly ahead.
 - **Active abilities are prestige unlocks** (air strike, supply drop, rally...), bought in
   the War College, not free in every battle.
 - **A fresh battle mechanic is wanted but undecided.** The user floated an army builder
