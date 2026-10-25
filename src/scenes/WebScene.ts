@@ -323,20 +323,25 @@ export class WebScene extends Phaser.Scene {
       : medalSummary(save.medals, save.medalsEarned);
     this.ui(this.add.text(w / 2, 26, title, textStyle(38, COLORS.accent)).setOrigin(0.5));
     this.ui(this.add.text(w / 2, 62, wallet, textStyle(22)).setOrigin(0.5));
-    // The two webs, then the rank and retreat page.
+    // The two webs, then the stats and the rank and retreat pages.
     const tabs = [
       { label: 'COMMAND TENT', active: !college, go: () => this.scene.restart({ web: 'tent' }) },
       { label: 'WAR COLLEGE', active: college, go: () => this.scene.restart({ web: 'college' }) },
-      { label: 'RANK & RETREAT', active: false, go: () => this.scene.start('tent', {}) },
+      { label: 'STATS', active: false, go: () => this.scene.start('tent', { page: 'stats' }) },
+      {
+        label: 'RANK & RETREAT',
+        active: false,
+        go: () => this.scene.start('tent', { page: 'rank' }),
+      },
     ];
     tabs.forEach((t, i) => {
       this.ui(
-        addButton(this, w / 2 + (i - 1) * 240, 106, {
-          width: 228,
+        addButton(this, w / 2 + (i - 1.5) * 214, 106, {
+          width: 204,
           height: 40,
           label: t.label,
           color: t.active ? 0x2f5f8a : 0x2a3324,
-          labelSize: 21,
+          labelSize: 19,
           onClick: t.active ? () => undefined : t.go,
         }),
       );

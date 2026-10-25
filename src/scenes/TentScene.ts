@@ -10,21 +10,26 @@ import {
   promotionProgress,
 } from '../sim/college';
 import { collegeEffects, themeText, type Theme } from '../sim/collegeweb';
+import { NONE, playerStats } from '../sim/stats';
 import { ADJUTANT_LEVELS, adjutantLevel, nextAdjutantMilestone } from '../sim/upgrades';
 import { COLORS, textStyle } from '../theme';
 import { drawMapGrid } from './drawing';
 import { MENU_DESIGN, fitDesign } from './MenuScene';
 import { addButton, addMuteButton } from './ui';
 
+/** Stats (every number, added up) or Rank & Retreat. */
+type TentPage = 'stats' | 'rank';
+
 /** Where the Tactical Retreat button sits; the "no" of its confirm takes the same spot. */
 const RETREAT = { x: 640, y: 562 };
 
 /**
- * Rank & Retreat: your insignia, what the War College gives you, the Adjutant's free duties,
+ * Stats: every number the Command Tent and War College give you, added up. Rank & Retreat: your insignia, what the War College gives you, the Adjutant's free duties,
  * progress toward a Promotion, and the Tactical Retreat. (The Command Tent and the War College
  * themselves are upgrade webs; see WebScene.)
  */
 export class TentScene extends Phaser.Scene {
+  private pageId: TentPage = 'rank';
   /** Asking "are you sure?" before a Tactical Retreat. */
   private confirming = false;
 
@@ -32,7 +37,8 @@ export class TentScene extends Phaser.Scene {
     super('tent');
   }
 
-  init(data: { confirm?: boolean }) {
+  init(data: { page?: TentPage; confirm?: boolean }) {
+    this.pageId = data.page ?? 'rank';
     this.confirming = !!data.confirm;
   }
 
@@ -54,26 +60,41 @@ export class TentScene extends Phaser.Scene {
   private page() {
     const save = loadSave();
     const cx = MENU_DESIGN.width / 2;
-    this.add.text(cx, 40, 'RANK & RETREAT', textStyle(60, COLORS.accent)).setOrigin(0.5);
+    const stats = this.pageId === 'stats';
+    const title = stats ? 'STATS' : 'RANK & RETREAT';
+    this.add.text(cx, 40, title, textStyle(60, COLORS.accent)).setOrigin(0.5);
     const wallet = `${insignia(save.retreats)} · ${save.honor} Honor`;
     this.add.text(cx, 88, wallet, textStyle(28)).setOrigin(0.5);
 
-    // The two upgrade webs, then this page.
+    // The two upgrade webs, then these two pages.
     const tabs = [
       { label: 'COMMAND TENT', go: () => this.scene.start('web', { web: 'tent' }) },
       { label: 'WAR COLLEGE', go: () => this.scene.start('web', { web: 'college' }) },
-      { label: 'RANK & RETREAT', go: () => undefined, active: true },
+      { label: 'STATS', go: () => this.scene.restart({ page: 'stats' }), active: stats },
+      { label: 'RANK & RETREAT', go: () => this.scene.restart({ page: 'rank' }), active: !stats },
     ];
     tabs.forEach((t, i) => {
-      addButton(this, cx + (i - 1) * 250, 132, {
-        width: 236,
+      addButton(this, cx + (i - 1.5) * 240, 132, {
+        width: 228,
         height: 48,
         label: t.label,
         color: t.active ? 0x2f5f8a : 0x2a3324,
-        labelSize: 22,
-        onClick: t.go,
+        labelSize: 21,
+        onClick: t.active ? () => undefined : t.go,
       });
     });
+
+    addButton(this, 110, 562, {
+      width: 180,
+      height: 56,
+      label: 'BACK',
+      labelSize: 32,
+      onClick: () => this.scene.start('worldmap'),
+    });
+    if (stats) {
+      this.statsTable();
+      return;
+    }
 
     this.collegeSummary();
     this.adjutantLine();
@@ -95,13 +116,49 @@ export class TentScene extends Phaser.Scene {
         else sfx.failed();
       },
     });
+  }
 
-    addButton(this, 110, 562, {
-      width: 180,
-      height: 56,
-      label: 'BACK',
-      labelSize: 32,
-      onClick: () => this.scene.start('worldmap'),
+  /** Every stat: from the Command Tent, from the War College, and the total in battle. */
+  private statsTable() {
+    const save = loadSave();
+    const college = collegeEffects(save.college);
+    // Only what you have, so the rows can be big enough to read on a phone.
+    const rows = playerStats(save.upgrades, college, save.honorEarned).filter(
+      (r) => r.total !== NONE,
+    );
+    const cx = MENU_DESIGN.width / 2;
+    if (rows.length === 0) {
+      const text = 'Nothing yet! Upgrades from the Command Tent and\nWar College add up here.';
+      this.add.text(cx, 330, text, { ...textStyle(28), align: 'center' }).setOrigin(0.5);
+      return;
+    }
+    const cols = [
+      { x: 600, head: 'TENT', key: 'tent' as const },
+      { x: 750, head: 'COLLEGE', key: 'college' as const },
+      { x: 900, head: 'TOTAL', key: 'total' as const },
+    ];
+    const top = 170;
+    // Rows fill the space down to the BACK button, never smaller than readable.
+    const gap = Math.min(36, Math.floor((528 - top - 30) / rows.length));
+    const size = Math.min(26, gap - 4);
+    for (const c of cols) {
+      this.add.text(c.x, top, c.head, textStyle(22, COLORS.accent)).setOrigin(0.5, 0);
+    }
+    rows.forEach((r, i) => {
+      const y = top + 30 + i * gap;
+      // Every other row a little darker, so each line is easy to follow across.
+      if (i % 2 === 0) this.add.rectangle(30, y - 2, 940, gap, 0x000000, 0.3).setOrigin(0);
+      this.add.text(40, y, r.label, textStyle(size));
+      if (r.wide) {
+        this.add.text(960, y, r.total, textStyle(size, COLORS.accent)).setOrigin(1, 0);
+        return;
+      }
+      for (const c of cols) {
+        const value = r[c.key];
+        const color =
+          value === NONE ? COLORS.textDim : c.key === 'total' ? COLORS.accent : COLORS.text;
+        this.add.text(c.x, y, value, textStyle(size, color)).setOrigin(0.5, 0);
+      }
     });
   }
 

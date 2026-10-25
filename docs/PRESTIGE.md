@@ -153,6 +153,9 @@ never the best play.
 - **Promotion** (to the next phase): needs 100 Honor earned in total, counting what the current
   war would pay right now (a gold bar on the RANK & RETREAT page, banked solid and this war
   lighter). Until Phase 2 exists it records a Phase 2 badge and the war goes on.
+- **Stats page** (`src/sim/stats.ts`): a STATS tab beside the webs lists every edge you have,
+  from the Command Tent and the War College and their total (percent edges multiply, as in
+  battle), plus your Adjutant duty and abilities. Rows with nothing yet are hidden.
 - **Insignia:** Lieutenant, Captain, Major, Colonel, Brigadier, Field Marshal, then stars.
 - **Checked with bots** (`npm run campaign -- newKid 4`): retreating after 8 battles pays
   about 0.3-0.6 Honor a battle, after 20 about 0.6-1, and pushing to the wall 0.7 rising to
