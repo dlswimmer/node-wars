@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio';
 import { buyUpgrade, loadSave } from '../save';
-import { medalCount } from '../sim/economy';
+import { medalCount, medalSummary } from '../sim/economy';
 import { ADJUTANT_LEVELS, UPGRADES, nextCost, type UpgradeTab } from '../sim/upgrades';
 import { COLORS, textStyle } from '../theme';
 import { drawMapGrid } from './drawing';
@@ -29,7 +29,9 @@ export class TentScene extends Phaser.Scene {
     const save = loadSave();
     const cx = MENU_DESIGN.width / 2;
     this.add.text(cx, 40, 'COMMAND TENT', textStyle(60, COLORS.accent)).setOrigin(0.5);
-    this.add.text(cx, 88, `You have ${medalCount(save.medals)}`, textStyle(28)).setOrigin(0.5);
+    this.add
+      .text(cx, 88, `You have ${medalSummary(save.medals, save.medalsEarned)}`, textStyle(28))
+      .setOrigin(0.5);
 
     // Two pages, so every upgrade gets a readable row on a phone.
     const tabs: { id: UpgradeTab; label: string }[] = [

@@ -46,6 +46,14 @@ export const UPGRADE_COSTS: Record<UpgradeId, number[]> = {
  */
 export const OLD_MEDAL_SCALE = 3;
 
+/**
+ * Medals to spend now and every medal ever earned (spending never lowers that; it unlocks
+ * higher-star regions), e.g. "12 medals · 48 earned".
+ */
+export function medalSummary(have: number, earned: number): string {
+  return `${medalCount(have)} · ${earned} earned`;
+}
+
 /** "1 medal", "4 medals". */
 export function medalCount(n: number): string {
   return `${n} medal${n === 1 ? '' : 's'}`;

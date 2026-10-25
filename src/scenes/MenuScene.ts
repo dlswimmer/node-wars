@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { DPR, cssSize } from '../display';
 import { loadSave } from '../save';
+import { medalSummary } from '../sim/economy';
 import { DIFFICULTIES, DIFFICULTY_ORDER, type DifficultyId } from '../sim/difficulty';
 import { loadDifficulty, loadFreeForAll, saveDifficulty, saveFreeForAll } from '../settings';
 import { COLORS, textStyle } from '../theme';
@@ -84,12 +85,12 @@ export class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    const medals = loadSave().medals;
+    const save = loadSave();
     addButton(this, cx - 220, 410, {
       width: 400,
       height: 180,
       label: 'CAMPAIGN',
-      sublabel: `Conquer the map · ${medals} medals`,
+      sublabel: medalSummary(save.medals, save.medalsEarned),
       color: 0x2f4f7a,
       labelSize: 56,
       onClick: () => this.scene.start('worldmap'),

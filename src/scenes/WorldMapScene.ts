@@ -4,7 +4,7 @@ import { DPR, cssSize } from '../display';
 import { canAutoBattle, loadSave, starsUnlocked } from '../save';
 import { difficultyForStars } from '../sim/difficulty';
 import type { LevelDef, Point } from '../sim/types';
-import { medalCount } from '../sim/economy';
+import { medalCount, medalSummary } from '../sim/economy';
 import { regionMission } from '../sim/missions';
 import { medalsFor } from '../sim/upgrades';
 import {
@@ -297,7 +297,11 @@ export class WorldMapScene extends Phaser.Scene {
     this.ui(
       this.add.text(w / 2, 26, 'WORLD MAP', textStyle(38, COLORS.accent)).setOrigin(0.5, 0.5),
     );
-    this.ui(this.add.text(w / 2, 60, medalCount(save.medals), textStyle(22)).setOrigin(0.5, 0.5));
+    this.ui(
+      this.add
+        .text(w / 2, 60, medalSummary(save.medals, save.medalsEarned), textStyle(22))
+        .setOrigin(0.5, 0.5),
+    );
     this.ui(
       addButton(this, w - 230, 44, {
         width: 240,

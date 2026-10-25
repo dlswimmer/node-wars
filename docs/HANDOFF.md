@@ -82,6 +82,17 @@ every push to `main` (CI runs lint, format, typecheck and tests first).
   own routes, and a route's `time` (full-speed distance) is what the preview and AI use.
   Balance barely moved (bots: Soldier vs typical kid 77% before, 79% after) and battles got
   about 10% longer. They are scenery patches (`features`), so the save is unchanged.
+- **Prestige direction** (the user, 2026-10-25): the campaign should get so hard a kid can't go
+  on, then pay a deep currency for permanent upgrades. Plan: enemy upgrades that grow with a
+  Threat level as you conquer outward; a Promotion that resets the world, medals and Tent for
+  Honor based on how far you got; a War College of permanent upgrades bought with Honor.
+- **Active abilities are prestige unlocks** (air strike, supply drop, rally...), bought in
+  the War College, not free in every battle.
+- **A fresh battle mechanic is wanted but undecided.** The user floated an army builder
+  (earn resources, buy units, AI controls them) but isn't sure it fits. Prototype any new
+  mechanic as its own Quick Battle mode first.
+- **Medals show both counts**: what you have to spend and every medal ever earned (which
+  unlocks higher-star regions), on the menu, world map and Command Tent.
 - **Swarm clashes** cancel troop for troop mid-field (Armory counts; a tank absorbs soldiers).
 - **Bunker AI by rank:** only General and Marshal know a Bunker needs double troops and value
   Bunkers/Hospitals by position. Easier AIs waste troops on Bunkers. This keeps early ranks
