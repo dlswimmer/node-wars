@@ -7,6 +7,10 @@ import type { LevelDef } from './types';
 import {
   NO_UPGRADES,
   UPGRADES,
+  adjutantLevel,
+  canBuyAdjutant,
+  freeAdjutantLevels,
+  nextAdjutantMilestone,
   campaignWorldOptions,
   medalsFor,
   nextCost,
@@ -178,5 +182,28 @@ describe('new upgrades', () => {
     // Once taken, the rest of the swarm just adds to it, so the gap is the 4 from Recruiters
     // (plus a little from needing fewer hits to break in).
     expect(strong.bases[1]!.troops - plain.bases[1]!.troops).toBeGreaterThanOrEqual(4);
+  });
+});
+
+describe('Adjutant levels from Honor', () => {
+  it('learns a free duty at each Honor milestone', () => {
+    expect(freeAdjutantLevels(0)).toBe(0);
+    expect(freeAdjutantLevels(10)).toBe(1);
+    expect(freeAdjutantLevels(99)).toBe(4);
+    expect(freeAdjutantLevels(1000)).toBe(6);
+    expect(nextAdjutantMilestone(30)).toBe(45);
+    expect(nextAdjutantMilestone(500)).toBeNull();
+  });
+
+  it('stacks bought levels on top of free ones, up to Commander', () => {
+    // Two free levels plus one bought (at the cheapest price) is level 3.
+    expect(adjutantLevel(1, 25)).toBe(3);
+    expect(canBuyAdjutant(3, 25)).toBe(false);
+    expect(canBuyAdjutant(2, 25)).toBe(true);
+    expect(adjutantLevel(9, 0)).toBe(5);
+    // The Gunner comes only from its milestone, on top of Commander.
+    expect(adjutantLevel(0, 130)).toBe(6);
+    expect(adjutantLevel(5, 129)).toBe(5);
+    expect(canBuyAdjutant(0, 100)).toBe(false);
   });
 });

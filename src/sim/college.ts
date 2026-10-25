@@ -16,7 +16,6 @@ export type CollegeId =
   | 'logistics'
   | 'gunnery'
   | 'fortifications'
-  | 'officerCorps'
   | AbilityId;
 
 export interface CollegeDef {
@@ -43,11 +42,6 @@ const LASTING: Def[] = [
     name: 'FORTIFICATIONS',
     total: (n) => `bases hold +${8 * n}% more, +${5 * n} s shield`,
   },
-  {
-    id: 'officerCorps',
-    name: 'OFFICER CORPS',
-    total: (n) => `start each war with ${n} Adjutant level${n === 1 ? '' : 's'}`,
-  },
 ];
 
 /** Commander abilities: unlocked once, then usable in every campaign battle. */
@@ -73,7 +67,6 @@ export const NO_COLLEGE: CollegeLevels = {
   logistics: 0,
   gunnery: 0,
   fortifications: 0,
-  officerCorps: 0,
   airStrike: 0,
   supplyDrop: 0,
   charge: 0,

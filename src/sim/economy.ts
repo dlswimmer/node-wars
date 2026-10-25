@@ -36,7 +36,6 @@ export const HONOR_COSTS: Record<CollegeId, number[]> = {
   logistics: [3, 6, 10, 15, 22],
   gunnery: [3, 6, 10, 15, 22],
   fortifications: [4, 9, 15],
-  officerCorps: [4, 9, 15],
   // Abilities are bought once.
   airStrike: [8],
   supplyDrop: [8],
@@ -50,6 +49,13 @@ export const HONOR_COSTS: Record<CollegeId, number[]> = {
  * cycle back through the early phases often, with more powers each time.
  */
 export const PROMOTION_HONOR = 100;
+
+/**
+ * Honor earned in total (spending doesn't lower it) at which the Adjutant learns each duty
+ * for free, for good: Defender, Quartermaster, Scout, Field Officer, Commander, then Gunner
+ * (uses your abilities), which only a milestone teaches.
+ */
+export const ADJUTANT_MILESTONES = [10, 25, 45, 70, 100, 130];
 
 /** Command Tent prices: the cost of each level, in order. */
 export const UPGRADE_COSTS: Record<UpgradeId, number[]> = {

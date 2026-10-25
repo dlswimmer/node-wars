@@ -113,7 +113,6 @@ describe('Tactical Retreat', () => {
     save.medals = 30;
     save.upgrades.fastBuilders = 3;
     save.college.warChest = 2;
-    save.college.officerCorps = 1;
     const oldSeed = c.seed;
     const honor = tacticalRetreat();
     expect(honor).toBeGreaterThan(0);
@@ -123,7 +122,7 @@ describe('Tactical Retreat', () => {
     expect(after.conquest.seed).not.toBe(oldSeed);
     expect(after.conquest.held).toEqual([]);
     expect(after.medals).toBe(10);
-    expect(after.upgrades).toEqual({ ...NO_UPGRADES, adjutant: 1 });
+    expect(after.upgrades).toEqual(NO_UPGRADES);
     expect(after.college.warChest).toBe(2);
   });
 
@@ -191,5 +190,35 @@ describe('Promotion', () => {
     save.honorEarned = 10;
     expect(buyCollege('warChest')).toBe(true);
     expect(loadSave().honorEarned).toBe(10);
+  });
+});
+
+describe('Officer Corps became free Adjutant levels', () => {
+  it('refunds the Honor spent on Officer Corps', () => {
+    const save = migrate({
+      version: 4,
+      medals: 0,
+      medalsEarned: 0,
+      upgrades: {},
+      conquest: newConquest(5),
+      honor: 2,
+      honorEarned: 40,
+      college: { officerCorps: 2 },
+      retreats: 2,
+    })!;
+    expect(save.honor).toBe(2 + 4 + 9);
+    expect(save.honorEarned).toBe(40);
+    expect('officerCorps' in save.college).toBe(false);
+  });
+
+  it('lets you buy Adjutant levels only up to Commander, counting free ones', () => {
+    resetAll();
+    const save = loadSave();
+    save.honorEarned = 70; // four free duties
+    save.medals = 100;
+    expect(buyUpgrade('adjutant')).toBe(true);
+    // The first bought level costs the cheapest price.
+    expect(save.medals).toBe(97);
+    expect(buyUpgrade('adjutant')).toBe(false);
   });
 });

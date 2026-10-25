@@ -125,7 +125,8 @@ never the best play.
 - **War College** (`src/sim/college.ts`, prices in `HONOR_COSTS`): Veteran Pay (+25% medals),
   War Chest (start with medals), Drill School, Logistics and Gunnery School (lasting
   build speed, troop speed and hit strength), Fortifications (bigger bases, longer shield),
-  Officer Corps (start with Adjutant levels).
+  (An Officer Corps upgrade that started wars with Adjutant levels was replaced by free
+  Adjutant duties from Honor; its Honor was refunded.)
 - **Commander abilities** (`src/sim/abilities.ts`), each unlocked once on the ABILITIES page:
   Air Strike (knock 10 troops off a base you don't own; can't capture or hit a shielded army;
   45 s), Supply Drop (+15 troops to one of yours; 40 s) and Charge (no target: for 10 s your
@@ -133,6 +134,13 @@ never the best play.
   the first 20 s. In battle they are buttons at the bottom right: tap one, then tap a base
   (Charge goes off at once). Charge replaced a Rally ability (every base sends troops to one)
   that was too close to what dragging already does; saves that bought Rally have Charge.
+- **The Adjutant learns duties from Honor.** At 10, 25, 45, 70, 100 and 130 Honor earned in
+  total it learns Defender, Quartermaster, Scout, Field Officer, Commander and Gunner, for
+  free and for good. Command Tent levels bought with medals stack on top and always start
+  at the cheapest price (so free levels save the expensive top ones); buying stops at
+  Commander. The Gunner (milestone only) uses your bought abilities: a Supply Drop on a
+  base about to fall, an Air Strike where your troops are heading, a Charge once a big
+  wave is out, one a turn at the Adjutant's careful pace.
 - **Promotion** (to the next phase): needs 100 Honor earned in total, counting what the current
   war would pay right now (a gold bar on the War College page, banked solid and this war
   lighter). Until Phase 2 exists it records a Phase 2 badge and the war goes on.

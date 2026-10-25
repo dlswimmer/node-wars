@@ -11,7 +11,17 @@ import {
   promotionProgress,
 } from '../sim/college';
 import { medalCount, medalSummary } from '../sim/economy';
-import { ADJUTANT_LEVELS, UPGRADES, nextCost, type UpgradeTab } from '../sim/upgrades';
+import {
+  ADJUTANT_BUYABLE,
+  ADJUTANT_LEVELS,
+  UPGRADES,
+  adjutantLevel,
+  canBuyAdjutant,
+  freeAdjutantLevels,
+  nextAdjutantMilestone,
+  nextCost,
+  type UpgradeTab,
+} from '../sim/upgrades';
 import { COLORS, textStyle } from '../theme';
 import { drawMapGrid } from './drawing';
 import { MENU_DESIGN, fitDesign } from './MenuScene';
@@ -149,22 +159,45 @@ export class TentScene extends Phaser.Scene {
   private tentRows(tab: UpgradeTab) {
     const save = loadSave();
     UPGRADES.filter((u) => u.tab === tab).forEach((u, i) => {
+      if (u.id === 'adjutant') {
+        this.adjutantRow(i);
+        return;
+      }
       const level = save.upgrades[u.id];
       const max = u.costs.length;
       const cost = nextCost(save.upgrades, u.id);
-      // What you have now and what the next level brings; the Adjutant names its next duty.
-      const detail =
-        u.id === 'adjutant'
-          ? level >= max
-            ? 'All duties learned'
-            : (ADJUTANT_LEVELS[level] ?? '')
-          : nowAndNext(u.total, level, max);
+      // What you have now and what the next level brings.
+      const detail = nowAndNext(u.total, level, max);
       const price =
         cost === null
           ? null
           : { label: medalCount(cost).toUpperCase(), affordable: save.medals >= cost };
       this.row(i, 56, u.name, level, max, detail, price, () => buyUpgrade(u.id));
     });
+  }
+
+  /**
+   * The Adjutant: duties learned for free from Honor milestones plus levels bought this war,
+   * which stack on top and always start at the cheapest price.
+   */
+  private adjutantRow(i: number) {
+    const save = loadSave();
+    const bought = save.upgrades.adjutant;
+    const level = Math.min(ADJUTANT_BUYABLE, adjutantLevel(bought, save.honorEarned));
+    const free = Math.min(ADJUTANT_BUYABLE, freeAdjutantLevels(save.honorEarned));
+    const room = canBuyAdjutant(bought, save.honorEarned);
+    const cost = room ? nextCost(save.upgrades, 'adjutant') : null;
+    const gift = free > 0 ? `  (${free} free from Honor)` : '';
+    const detail =
+      level >= ADJUTANT_BUYABLE
+        ? `All duties learned${gift}`
+        : `Next: ${ADJUTANT_LEVELS[level] ?? ''}${gift}`;
+    const price =
+      cost === null
+        ? null
+        : { label: medalCount(cost).toUpperCase(), affordable: save.medals >= cost };
+    const buy = () => buyUpgrade('adjutant');
+    this.row(i, 56, 'ADJUTANT', level, ADJUTANT_BUYABLE, detail, price, buy);
   }
 
   private collegeRows() {
@@ -259,10 +292,21 @@ export class TentScene extends Phaser.Scene {
     this.add
       .text(
         MENU_DESIGN.width / 2,
-        420,
+        410,
         'Abilities show as buttons in campaign battles: tap one, then tap a base.',
         textStyle(22, COLORS.textDim),
       )
+      .setOrigin(0.5);
+    // The Adjutant learns duties for free as Honor adds up, the last one using these abilities.
+    const next = nextAdjutantMilestone(save.honorEarned);
+    const learned = adjutantLevel(0, save.honorEarned);
+    const line =
+      next === null
+        ? 'ADJUTANT: every duty learned, including GUNNER (uses your abilities for you)'
+        : `ADJUTANT: next free duty at ${next} Honor earned (you have ${save.honorEarned})\n` +
+          `${ADJUTANT_LEVELS[learned] ?? ''}`;
+    this.add
+      .text(MENU_DESIGN.width / 2, 470, line, { ...textStyle(22, COLORS.accent), align: 'center' })
       .setOrigin(0.5);
   }
 

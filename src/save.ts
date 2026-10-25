@@ -1,7 +1,9 @@
 import {
+  ADJUTANT_BUYABLE,
   MASTERY_WINS,
   NO_UPGRADES,
-  UPGRADES,
+  adjutantLevel,
+  canBuyAdjutant,
   nextCost,
   type UpgradeId,
   type UpgradeLevels,
@@ -133,7 +135,12 @@ export function migrate(data: unknown): SaveData | null {
     const v4 = d as Partial<SaveData>;
     // Rally was swapped for Charge: anyone who bought Rally has Charge.
     const college = { ...NO_COLLEGE, ...v4.college, charge: rallyToCharge(v4.college) };
-    const honor = Number(v4.honor) || 0;
+    // Officer Corps became free Adjutant levels from Honor: its Honor comes back.
+    const officers =
+      Number((v4.college as { officerCorps?: number } | undefined)?.officerCorps) || 0;
+    delete (college as { officerCorps?: number }).officerCorps;
+    const refund = OFFICER_CORPS_COSTS.slice(0, officers).reduce((a, b) => a + b, 0);
+    const honor = (Number(v4.honor) || 0) + refund;
     return {
       version: 4,
       medals: Number(d.medals) || 0,
@@ -192,6 +199,7 @@ export function recordRegionBattle(region: string, won: boolean, auto: boolean):
 /** Buy the next level of an upgrade. Returns false if it's maxed or too expensive. */
 export function buyUpgrade(id: UpgradeId): boolean {
   const save = loadSave();
+  if (id === 'adjutant' && !canBuyAdjutant(save.upgrades.adjutant, save.honorEarned)) return false;
   const cost = nextCost(save.upgrades, id);
   if (cost === null || save.medals < cost) return false;
   save.medals -= cost;
@@ -211,10 +219,10 @@ export function isMastered(stars: number): boolean {
 
 /** The Adjutant may auto-battle a region you hold, once you've mastered its star level. */
 export function canAutoBattle(region: string): boolean {
-  const { conquest, upgrades } = loadSave();
-  const adjutantMax = UPGRADES.find((u) => u.id === 'adjutant')!.costs.length;
+  const { conquest, upgrades, honorEarned } = loadSave();
   const stars = conquest.regions[region]?.stars ?? 0;
-  return upgrades.adjutant >= adjutantMax && conquest.held.includes(region) && isMastered(stars);
+  const commander = adjutantLevel(upgrades.adjutant, honorEarned) >= ADJUTANT_BUYABLE;
+  return commander && conquest.held.includes(region) && isMastered(stars);
 }
 
 /** Whether you've earned enough medals to attack a region with this many stars. */
@@ -233,6 +241,9 @@ export function newWorld(): void {
   save.conquest = { ...newConquest(seed), starWins };
   persist();
 }
+
+/** What Officer Corps cost before it was replaced by free Adjutant levels (for refunds). */
+const OFFICER_CORPS_COSTS = [4, 9, 15];
 
 /** Charge replaced Rally; a War College that bought Rally gets Charge. */
 function rallyToCharge(college: Partial<CollegeLevels> | undefined): number {
@@ -270,7 +281,7 @@ export function tacticalRetreat(): number {
   save.retreats += 1;
   save.medals = startMedals;
   save.medalsEarned = startMedals;
-  save.upgrades = { ...NO_UPGRADES, adjutant: save.college.officerCorps };
+  save.upgrades = { ...NO_UPGRADES };
   save.conquest = { ...newConquest(seed), starWins };
   persist();
   return honor;

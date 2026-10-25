@@ -1,4 +1,5 @@
 import { DEFAULT_SEND_FRACTION } from './config';
+import { secondsUntilReady, useAbility, type AbilityId, type AbilityState } from './abilities';
 import type { Army, Base, World } from './types';
 import {
   capacityOf,
@@ -52,7 +53,12 @@ export function isWaiting(world: World, adj: AdjutantState): boolean {
   return !adj.auto && world.time - adj.lastOrderAt > HELPER_PATIENCE;
 }
 
-export function updateAdjutant(world: World, adj: AdjutantState, dt: number): void {
+export function updateAdjutant(
+  world: World,
+  adj: AdjutantState,
+  dt: number,
+  abilities: AbilityState | null = null,
+): void {
   if (world.winner || adj.level <= 0 || isWaiting(world, adj)) return;
   adj.cooldown -= dt;
   if (adj.cooldown > 0) return;
@@ -61,12 +67,55 @@ export function updateAdjutant(world: World, adj: AdjutantState, dt: number): vo
   const mine = world.bases.filter((b) => b.owner === adj.army);
   if (mine.length === 0) return;
   // When auto-battling it may use every duty; when helping, only the ones it has learned.
-  const level = adj.auto ? 5 : adj.level;
+  const level = adj.auto ? Math.max(5, adj.level) : adj.level;
+
+  // The Gunner uses your abilities, alongside whatever else it does this turn.
+  if (level >= 6 && abilities) gunner(world, adj, mine, abilities);
 
   if (level >= 1 && defend(world, adj, mine)) return;
   if (level >= 4 && attack(world, adj, mine, (b) => b.owner !== 'neutral')) return;
   if (level >= 3 && attack(world, adj, mine, (b) => b.owner === 'neutral')) return;
   if (level >= 2) pushForward(world, adj, mine);
+}
+
+/** Own troops in flight a Charge is worth waiting for. */
+const CHARGE_WAVE = 15;
+/** Own troops heading for a base before an Air Strike there is worth it. */
+const STRIKE_BEHIND = 5;
+
+/**
+ * The Gunner: uses one ready ability a turn, the way a careful player would. A Supply Drop
+ * on a base about to fall, an Air Strike on the base your troops are heading for, or a
+ * Charge once a big wave is on its way.
+ */
+function gunner(world: World, adj: AdjutantState, mine: Base[], abilities: AbilityState): void {
+  const ready = (id: AbilityId) => secondsUntilReady(world, abilities, id) === 0;
+  const theirs = new Map<number, number>();
+  const ours = new Map<number, number>();
+  let inFlight = 0;
+  for (const u of world.units) {
+    if (u.owner === adj.army) {
+      ours.set(u.targetId, (ours.get(u.targetId) ?? 0) + u.power);
+      if (u.delay <= 0) inFlight += u.power;
+    } else {
+      const hit = u.power * getBonuses(world, u.owner).attack;
+      theirs.set(u.targetId, (theirs.get(u.targetId) ?? 0) + hit);
+    }
+  }
+  if (ready('supplyDrop') && !isShielded(world, adj.army)) {
+    const falling = mine.find((b) => (theirs.get(b.id) ?? 0) >= b.troops * 0.8);
+    if (falling && useAbility(world, abilities, 'supplyDrop', falling.id)) return;
+  }
+  if (ready('airStrike')) {
+    const target = [...ours]
+      .map(([id, power]) => ({ base: world.bases[id]!, power }))
+      .filter(
+        ({ base, power }) => base.owner !== adj.army && base.troops > 0 && power >= STRIKE_BEHIND,
+      )
+      .sort((a, b) => b.power - a.power)[0];
+    if (target && useAbility(world, abilities, 'airStrike', target.base.id)) return;
+  }
+  if (ready('charge') && inFlight >= CHARGE_WAVE) useAbility(world, abilities, 'charge');
 }
 
 function send(world: World, adj: AdjutantState, from: Base, to: Base): boolean {

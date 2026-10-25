@@ -8,7 +8,7 @@ import {
   updateAdjutant,
   type AdjutantState,
 } from '../sim/adjutant';
-import { campaignWorldOptions, medalsFor } from '../sim/upgrades';
+import { adjutantLevel, campaignWorldOptions, medalsFor } from '../sim/upgrades';
 import { medalBonus, unlockedAbilities } from '../sim/college';
 import { DPR, cssToWorld } from '../display';
 import { createAi, updateAi, type AiState } from '../sim/ai';
@@ -280,8 +280,10 @@ export class BattleScene extends Phaser.Scene {
         ? createAbilities('player', powers)
         : null;
     this.abilityArmed = null;
-    const adjutantLevel = this.mode === 'campaign' ? save.upgrades.adjutant : 0;
-    this.adjutant = adjutantLevel > 0 ? createAdjutant(adjutantLevel, this.auto) : null;
+    // Free Adjutant levels from Honor milestones, plus any bought this war.
+    const helper =
+      this.mode === 'campaign' ? adjutantLevel(save.upgrades.adjutant, save.honorEarned) : 0;
+    this.adjutant = helper > 0 ? createAdjutant(helper, this.auto) : null;
     this.adjutantOn = true;
     this.reward = 0;
     this.selected.clear();
@@ -374,7 +376,7 @@ export class BattleScene extends Phaser.Scene {
     if (!this.gameOver && !this.paused) {
       for (const ai of this.ais) updateAi(this.world, ai, dt);
       if (this.adjutant && (this.adjutantOn || this.auto)) {
-        updateAdjutant(this.world, this.adjutant, dt);
+        updateAdjutant(this.world, this.adjutant, dt, this.abilities);
       }
       step(this.world, dt);
       if (this.mission) trackMission(this.mission, this.world);

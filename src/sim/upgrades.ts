@@ -1,6 +1,6 @@
 import { NO_COLLEGE, collegeEdges, type CollegeLevels } from './college';
 import { worldOptionsFor, type Difficulty } from './difficulty';
-import { UPGRADE_COSTS, autoBattleMedals, winMedals } from './economy';
+import { ADJUTANT_MILESTONES, UPGRADE_COSTS, autoBattleMedals, winMedals } from './economy';
 import type { WorldOptions } from './world';
 
 export type UpgradeId =
@@ -118,7 +118,37 @@ export const ADJUTANT_LEVELS = [
   'SCOUT: grabs gray bases it is sure to win',
   'FIELD OFFICER: attacks when the odds are good',
   'COMMANDER: auto-battles your regions at stars you have mastered',
+  'GUNNER: uses your abilities for you',
 ];
+
+/** Adjutant duties a Command Tent purchase can reach; the Gunner only comes from Honor. */
+export const ADJUTANT_BUYABLE = 5;
+
+/** Adjutant levels the War College gives for free: one per Honor milestone reached. */
+export function freeAdjutantLevels(honorEarned: number): number {
+  return ADJUTANT_MILESTONES.filter((m) => honorEarned >= m).length;
+}
+
+/**
+ * The Adjutant's level in battle: free levels from Honor plus levels bought this war, which
+ * stack on top (the first bought level always costs the cheapest price). Buying stops at
+ * Commander; the Gunner duty comes only from its Honor milestone.
+ */
+export function adjutantLevel(bought: number, honorEarned: number): number {
+  const free = freeAdjutantLevels(honorEarned);
+  const base = Math.min(ADJUTANT_BUYABLE, Math.min(free, ADJUTANT_BUYABLE) + bought);
+  return free > ADJUTANT_BUYABLE ? base + 1 : base;
+}
+
+/** Whether another Adjutant level can still be bought (free levels fill the top first). */
+export function canBuyAdjutant(bought: number, honorEarned: number): boolean {
+  return Math.min(freeAdjutantLevels(honorEarned), ADJUTANT_BUYABLE) + bought < ADJUTANT_BUYABLE;
+}
+
+/** The next Honor milestone for a free Adjutant duty, or null once all are earned. */
+export function nextAdjutantMilestone(honorEarned: number): number | null {
+  return ADJUTANT_MILESTONES.find((m) => honorEarned < m) ?? null;
+}
 
 /** Wins you need yourself at a star level before the Adjutant may auto-battle it. */
 export const MASTERY_WINS = 5;
