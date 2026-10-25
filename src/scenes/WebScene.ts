@@ -42,11 +42,15 @@ const MIN_NODE_CSS = 22;
 const UI_DESIGN = { width: 1000, height: 560 };
 const BACKGROUND = 0x0f150c;
 
-/** How each node state looks: fill, rim, and text colour. */
-const LOOK: Record<NodeState, { fill: number; rim: number; text: string }> = {
+/** A node's look: its state, or 'dear' for one you could buy but can't afford yet. */
+type Look = NodeState | 'dear';
+
+/** How each look is drawn: fill, rim, and text colour. */
+const LOOK: Record<Look, { fill: number; rim: number; text: string }> = {
   owned: { fill: 0xb8902a, rim: 0xffe08a, text: '#1a1408' },
   free: { fill: 0x7a5fc0, rim: 0xd8c8ff, text: '#ffffff' },
   open: { fill: 0x2f5a2f, rim: 0x9dff9d, text: '#ffffff' },
+  dear: { fill: 0x3a3020, rim: 0xb07a3a, text: '#d8b880' },
   locked: { fill: 0x23281e, rim: 0x4a5040, text: '#7a806c' },
   honorOnly: { fill: 0x23281e, rim: 0x7a5fc0, text: '#a99ad0' },
 };
@@ -186,6 +190,7 @@ export class WebScene extends Phaser.Scene {
 
   /** The War College: links between touching nodes, the nodes, and each direction's name. */
   private drawCollege() {
+    const save = loadSave();
     const g = this.web(this.add.graphics());
     const byId = new Map(this.hexes.map((n) => [n.id, n]));
     const owned = (n: CollegeNode) => this.hexState(n) === 'owned';
@@ -211,12 +216,14 @@ export class WebScene extends Phaser.Scene {
         continue;
       }
       const state = this.hexState(n);
-      const look = LOOK[state];
+      // Open but too dear: a dull amber rim instead of bright green.
+      const dear = state === 'open' && save.honor < collegeCost(n);
+      const look = LOOK[dear ? 'dear' : state];
       const r = this.hexRadius(n);
       // Abilities glow purple until bought, so they stand out as goals.
       const fill = n.ability && state !== 'owned' ? 0x3a2f5a : look.fill;
       g.fillStyle(fill, 1).fillCircle(n.x, n.y, r);
-      g.lineStyle(state === 'open' ? 6 : 4, look.rim, 1).strokeCircle(n.x, n.y, r);
+      g.lineStyle(state === 'open' && !dear ? 6 : 4, look.rim, 1).strokeCircle(n.x, n.y, r);
       if (n.id === this.selected) g.lineStyle(5, 0xffffff, 0.9).strokeCircle(n.x, n.y, r + 9);
       const label = n.ability
         ? ABILITY_SHORT[n.ability]
@@ -246,6 +253,7 @@ export class WebScene extends Phaser.Scene {
 
   /** The Command Tent: the links, the nodes (coloured by state) and each spoke's name. */
   private drawTent() {
+    const save = loadSave();
     const g = this.web(this.add.graphics());
     const byId = new Map(this.nodes.map((n) => [n.id, n]));
     for (const n of this.nodes) {
@@ -267,9 +275,11 @@ export class WebScene extends Phaser.Scene {
         continue;
       }
       const state = this.stateOf(n);
-      const look = LOOK[state];
+      const dear = state === 'open' && save.medals < (tentNodeCost(n, save.upgrades) ?? 0);
+      const look = LOOK[dear ? 'dear' : state];
       g.fillStyle(look.fill, 1).fillCircle(n.x, n.y, NODE_RADIUS);
-      g.lineStyle(state === 'open' ? 6 : 4, look.rim, 1).strokeCircle(n.x, n.y, NODE_RADIUS);
+      const rim = state === 'open' && !dear ? 6 : 4;
+      g.lineStyle(rim, look.rim, 1).strokeCircle(n.x, n.y, NODE_RADIUS);
       if (n.id === this.selected) {
         g.lineStyle(5, 0xffffff, 0.9).strokeCircle(n.x, n.y, NODE_RADIUS + 9);
       }
@@ -424,7 +434,10 @@ export class WebScene extends Phaser.Scene {
   private tentPanel(box: PanelBox) {
     const node = this.nodes.find((n) => n.id === this.selected);
     if (!node?.upgrade || !node.level) {
-      this.hint(box, 'Tap a green node to upgrade. Each level opens the next one out.');
+      this.hint(
+        box,
+        'Green nodes you can buy now; brown ones need more medals. Each level opens the next one out.',
+      );
       return;
     }
     const save = loadSave();
@@ -438,8 +451,9 @@ export class WebScene extends Phaser.Scene {
     this.describe(box, `${def.name}  ·  ${node.level} of ${max}`, what);
     if (state === 'open') {
       const cost = tentNodeCost(node, save.upgrades) ?? 0;
-      const label = `BUY: ${medalCount(cost).toUpperCase()}`;
-      this.buyButton(box, label, save.medals >= cost, () => buyUpgrade(node.upgrade!));
+      const short = cost - save.medals;
+      const label = short > 0 ? `NEED ${short} MORE` : `BUY: ${medalCount(cost).toUpperCase()}`;
+      this.buyButton(box, label, short <= 0, () => buyUpgrade(node.upgrade!));
       return;
     }
     const word: Record<NodeState, string> = {
@@ -463,7 +477,7 @@ export class WebScene extends Phaser.Scene {
         box,
         fresh
           ? 'New war! Spend your Honor before you fight: STARTING MEDALS pay out right away.'
-          : 'Honor buys upgrades that last for good. Buy any node touching one you own.',
+          : 'Honor buys upgrades for good. Green nodes you can buy now; brown ones need more Honor.',
       );
       return;
     }
@@ -476,7 +490,9 @@ export class WebScene extends Phaser.Scene {
     this.describe(box, `${name}  ·  ${kind}`, `${node.ability ? text : `Gives: ${text}`}${have}`);
     if (state === 'open') {
       const cost = collegeCost(node);
-      this.buyButton(box, `BUY: ${cost} HONOR`, save.honor >= cost, () => buyCollege(node.id));
+      const short = cost - save.honor;
+      const label = short > 0 ? `NEED ${short} MORE` : `BUY: ${cost} HONOR`;
+      this.buyButton(box, label, short <= 0, () => buyCollege(node.id));
       return;
     }
     this.stateWord(box, state === 'owned' ? 'OWNED' : 'BUY ONE\nNEXT TO IT');
