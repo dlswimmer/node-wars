@@ -451,7 +451,15 @@ export class WebScene extends Phaser.Scene {
   private collegePanel(box: PanelBox) {
     const node = this.hexes.find((n) => n.id === this.selected);
     if (!node || node.id === COLLEGE_CENTER) {
-      this.hint(box, 'Honor buys upgrades that last for good. Buy any node touching one you own.');
+      // Right after a Tactical Retreat: spend before the first battle (starting medals count).
+      const save = loadSave();
+      const fresh = save.retreats > 0 && save.conquest.battles === 0;
+      this.hint(
+        box,
+        fresh
+          ? 'New war! Spend your Honor before you fight: STARTING MEDALS pay out right away.'
+          : 'Honor buys upgrades that last for good. Buy any node touching one you own.',
+      );
       return;
     }
     const save = loadSave();

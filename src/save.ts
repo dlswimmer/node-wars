@@ -292,8 +292,16 @@ export function buyCollege(id: string): boolean {
   if (!node || collegeState(node, save.college) !== 'open') return false;
   const cost = collegeCost(node);
   if (save.honor < cost) return false;
+  const before = collegeEffects(save.college).startMedals;
   save.honor -= cost;
   save.college.push(id);
+  // Starting medals bought before a war's first battle still count for that war, so you can
+  // spend Honor right after a Tactical Retreat.
+  if (save.conquest.battles === 0) {
+    const extra = collegeEffects(save.college).startMedals - before;
+    save.medals += extra;
+    save.medalsEarned += extra;
+  }
   persist();
   return true;
 }

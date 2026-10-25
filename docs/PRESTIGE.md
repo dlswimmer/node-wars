@@ -134,7 +134,8 @@ never the best play.
   notables and abilities cost double. The web shows two rings past your furthest node (at
   least three), so it never ends. Effects are summed by `collegeEffects`. The old list of
   named upgrades (Veteran Pay, Drill School, ...) was refunded in full when the web arrived
-  (save version 5).
+  (save version 5). After a retreat you land in the War College web: starting medals bought
+  before the new war's first battle pay into that war at once.
 - **Commander abilities** (`src/sim/abilities.ts`), each a node in the War College web:
   Air Strike (knock 10 troops off a base you don't own; can't capture or hit a shielded army;
   45 s), Supply Drop (+15 troops to one of yours; 40 s) and Charge (no target: for 10 s your

@@ -142,6 +142,23 @@ describe('Tactical Retreat', () => {
     expect(buyCollege('2,0')).toBe(true);
     expect(buyCollege('nonsense')).toBe(false);
   });
+
+  it('pays starting medals bought before the first battle into the new war', () => {
+    resetAll();
+    const save = loadSave();
+    save.honor = 20;
+    // A fresh war: the Savings node next to the centre adds its 2 medals now.
+    expect(buyCollege('-1,0')).toBe(true);
+    expect(loadSave().medals).toBe(2);
+    expect(loadSave().medalsEarned).toBe(2);
+    // Other nodes add no medals.
+    expect(buyCollege('1,0')).toBe(true);
+    expect(loadSave().medals).toBe(2);
+    // Once a battle is fought, they wait for the next war.
+    recordRegionBattle(START_ID, true, false);
+    expect(buyCollege('-2,0')).toBe(true);
+    expect(loadSave().medals).toBe(2);
+  });
 });
 
 describe('the War College became a web', () => {

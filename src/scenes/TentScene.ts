@@ -196,7 +196,7 @@ export class TentScene extends Phaser.Scene {
         210,
         [
           `You earn ${honor} Honor and become ${insignia(save.retreats + 1)}.`,
-          'Then a new war starts on a new world.',
+          'Then spend your Honor and start a new war on a new world.',
           '',
           'You keep: Honor, the War College and your rank.',
           'You lose: this map, your medals and Command Tent upgrades.',
@@ -222,7 +222,7 @@ export class TentScene extends Phaser.Scene {
       onClick: () => {
         if (tacticalRetreat() > 0) {
           sfx.victory();
-          this.scene.start('worldmap');
+          this.scene.start('web', { web: 'college' });
         }
       },
     });
