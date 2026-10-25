@@ -2,7 +2,8 @@ import type { UpgradeId } from './upgrades';
 
 /**
  * Every medal number in the game, in one place so the campaign's pace is easy to tune.
- * Medals are always whole numbers.
+ * Prices are whole numbers. What you have can carry a fraction (medal bonuses like +10% on a
+ * 2-medal win pay 2.2), kept exactly behind the scenes and shown rounded down.
  */
 
 /** Medals for winning a conquest region yourself: one per star. */
@@ -66,10 +67,21 @@ export const OLD_MEDAL_SCALE = 3;
  * higher-star regions), e.g. "12 medals · 48 earned".
  */
 export function medalSummary(have: number, earned: number): string {
-  return `${medalCount(have)} · ${earned} earned`;
+  return `${medalCount(wholeMedals(have))} · ${wholeMedals(earned)} earned`;
 }
 
-/** "1 medal", "4 medals". */
+/** "1 medal", "4 medals", "2.2 medals" (a pay with a bonus shows its tenths). */
 export function medalCount(n: number): string {
-  return `${n} medal${n === 1 ? '' : 's'}`;
+  const v = Math.round(n * 10) / 10;
+  return `${v} medal${v === 1 ? '' : 's'}`;
+}
+
+/** The whole medals in a wallet that may carry a fraction (shown rounded down). */
+export function wholeMedals(n: number): number {
+  return Math.floor(n + 1e-9);
+}
+
+/** Medal amounts kept to the hundredth, so adding up fractions never drifts. */
+export function exactMedals(n: number): number {
+  return Math.round(n * 100) / 100;
 }

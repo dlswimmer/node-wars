@@ -16,7 +16,7 @@ import {
   collegeSpent,
   collegeState,
 } from './sim/collegeweb';
-import { OLD_MEDAL_SCALE } from './sim/economy';
+import { OLD_MEDAL_SCALE, exactMedals } from './sim/economy';
 import { isUnlocked, newConquest, recordBattle, type ConquestState } from './sim/worldmap';
 
 /**
@@ -201,8 +201,8 @@ function persist(): void {
 /** Earn medals (auto-battle medals count too, so farming unlocks regions). */
 export function addMedals(amount: number): void {
   const save = loadSave();
-  save.medals += amount;
-  save.medalsEarned += amount;
+  save.medals = exactMedals(save.medals + amount);
+  save.medalsEarned = exactMedals(save.medalsEarned + amount);
   persist();
 }
 
@@ -220,7 +220,7 @@ export function buyUpgrade(id: UpgradeId): boolean {
   if (id === 'adjutant' && !canBuyAdjutant(save.upgrades.adjutant, save.honorEarned)) return false;
   const cost = nextCost(save.upgrades, id);
   if (cost === null || save.medals < cost) return false;
-  save.medals -= cost;
+  save.medals = exactMedals(save.medals - cost);
   save.upgrades[id] += 1;
   persist();
   return true;

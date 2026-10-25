@@ -451,7 +451,7 @@ export class WebScene extends Phaser.Scene {
     this.describe(box, `${def.name}  ·  ${node.level} of ${max}`, what);
     if (state === 'open') {
       const cost = tentNodeCost(node, save.upgrades) ?? 0;
-      const short = cost - save.medals;
+      const short = Math.ceil(cost - save.medals - 1e-9);
       const label = short > 0 ? `NEED ${short} MORE` : `BUY: ${medalCount(cost).toUpperCase()}`;
       this.buyButton(box, label, short <= 0, () => buyUpgrade(node.upgrade!));
       return;

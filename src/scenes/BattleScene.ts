@@ -5,11 +5,19 @@ import {
   createAdjutant,
   isWaiting,
   notePlayerOrder,
+  startAutoBattle,
   updateAdjutant,
   type AdjutantReport,
   type AdjutantState,
 } from '../sim/adjutant';
-import { ADJUTANT_BUYABLE, adjutantLevel, campaignWorldOptions, medalsFor } from '../sim/upgrades';
+import {
+  ADJUTANT_BUYABLE,
+  AUTO_SPEED,
+  adjutantLevel,
+  campaignWorldOptions,
+  medalsFor,
+  takeOverMedals,
+} from '../sim/upgrades';
 import { collegeEffects } from '../sim/collegeweb';
 import { DPR, cssToWorld } from '../display';
 import { createAi, updateAi, type AiState } from '../sim/ai';
@@ -150,6 +158,8 @@ export class BattleScene extends Phaser.Scene {
   private revealed: string[] = [];
   private adjutant: AdjutantState | null = null;
   private adjutantOn = true;
+  /** World time the Commander took over a battle you started, or null. */
+  private takenOverAt: number | null = null;
 
   /** One AI for every army but yours. */
   ais: AiState[] = [];
@@ -290,8 +300,10 @@ export class BattleScene extends Phaser.Scene {
     // Free Adjutant levels from Honor milestones, plus any bought this war.
     const helper =
       this.mode === 'campaign' ? adjutantLevel(save.upgrades.adjutant, save.honorEarned) : 0;
-    this.adjutant = helper > 0 ? createAdjutant(helper, this.auto) : null;
+    this.adjutant =
+      helper > 0 ? createAdjutant(helper, this.auto, 'player', this.difficulty) : null;
     this.adjutantOn = true;
+    this.takenOverAt = null;
     this.reward = 0;
     this.selected.clear();
     this.armed.clear();
@@ -380,7 +392,9 @@ export class BattleScene extends Phaser.Scene {
 
   update(_time: number, deltaMs: number) {
     const dt = Math.min(deltaMs / 1000, MAX_DT);
-    if (!this.gameOver && !this.paused) {
+    // Auto-battles run faster: the same steps, more of them each frame, so the rules match.
+    const steps = this.auto ? AUTO_SPEED : 1;
+    for (let i = 0; i < steps && !this.gameOver && !this.paused; i++) {
       for (const ai of this.ais) updateAi(this.world, ai, dt);
       if (this.adjutant && (this.adjutantOn || this.auto)) {
         updateAdjutant(this.world, this.adjutant, dt, this.abilities);
@@ -450,7 +464,8 @@ export class BattleScene extends Phaser.Scene {
   takeOver() {
     if (!this.canTakeOver() || !this.adjutant) return;
     this.auto = true;
-    this.adjutant.auto = true;
+    this.takenOverAt = this.world.time;
+    startAutoBattle(this.adjutant, this.difficulty);
     this.adjutantOn = true;
     this.mission = null;
     this.abilityArmed = null;
@@ -1328,6 +1343,12 @@ Drag from a BLUE base!`,
       this.missionDone = !!this.mission && missionComplete(this.mission, this.world, won);
       const bonus = collegeEffects(loadSave().college).medals;
       this.reward = medalsFor(this.stars, won, this.auto, this.threat, bonus);
+      if (this.takenOverAt !== null) {
+        // Full pay for the part you fought, auto-battle pay for the Commander's part.
+        const full = medalsFor(this.stars, won, false, this.threat, bonus);
+        const played = this.takenOverAt / Math.max(1, this.world.time);
+        this.reward = takeOverMedals(full, this.reward, played);
+      }
       if (this.missionDone) this.reward += this.mission!.mission.medals;
       if (this.reward > 0) addMedals(this.reward);
       if (this.region) this.revealed = recordRegionBattle(this.region, won, this.auto);

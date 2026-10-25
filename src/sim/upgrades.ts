@@ -1,6 +1,12 @@
 import { NO_COLLEGE_EFFECTS, type CollegeEffects } from './collegeweb';
 import { worldOptionsFor, type Difficulty } from './difficulty';
-import { ADJUTANT_MILESTONES, UPGRADE_COSTS, autoBattleMedals, winMedals } from './economy';
+import {
+  ADJUTANT_MILESTONES,
+  UPGRADE_COSTS,
+  autoBattleMedals,
+  exactMedals,
+  winMedals,
+} from './economy';
 import type { WorldOptions } from './world';
 
 export type UpgradeId =
@@ -137,6 +143,19 @@ export function nextAdjutantMilestone(honorEarned: number): number | null {
   return ADJUTANT_MILESTONES.find((m) => honorEarned < m) ?? null;
 }
 
+/** Auto-battles run this many times faster: nothing to do but watch, so the time comes back. */
+export const AUTO_SPEED = 2;
+
+/**
+ * Pay for a battle the Commander took over: full pay for the share you fought yourself,
+ * auto-battle pay for the rest. `played` is the fraction of the battle's time before the
+ * hand-over (0 to 1).
+ */
+export function takeOverMedals(full: number, auto: number, played: number): number {
+  const p = Math.min(1, Math.max(0, played));
+  return exactMedals(full * p + auto * (1 - p));
+}
+
 /** Wins you need yourself at a star level before the Adjutant may auto-battle it. */
 export const MASTERY_WINS = 5;
 
@@ -167,7 +186,8 @@ export function medalsFor(
 ): number {
   if (!won) return 0;
   const hard = stars + Math.max(0, threat);
-  return Math.round((auto ? autoBattleMedals(hard) : winMedals(hard)) * bonus);
+  // Not rounded: a bonus's fraction of a medal is kept (see exactMedals).
+  return exactMedals((auto ? autoBattleMedals(hard) : winMedals(hard)) * bonus);
 }
 
 export function nextCost(levels: UpgradeLevels, id: UpgradeId): number | null {

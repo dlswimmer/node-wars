@@ -3,6 +3,7 @@ import { DPR, cssSize } from '../display';
 import { medalCount } from '../sim/economy';
 import { ABILITIES, secondsUntilReady, type AbilityId } from '../sim/abilities';
 import { REPORTS_KEPT } from '../sim/adjutant';
+import { AUTO_SPEED } from '../sim/upgrades';
 import { missionStatus } from '../sim/missions';
 import { countBases, isCharging, isShielded } from '../sim/world';
 import { ARMY_NAMES, COLORS, FACTION_COLORS, textStyle } from '../theme';
@@ -212,7 +213,7 @@ export class HudScene extends Phaser.Scene {
     if (mission) lines.push(`MISSION: ${missionStatus(mission, w).toUpperCase()}`);
     if (isCharging(w, 'player')) lines.push(`CHARGE! ${Math.ceil(w.chargeUntil.player - w.time)}`);
     const adj = this.battle.adjutantStatus();
-    if (adj === 'auto') lines.push('AUTO-BATTLE');
+    if (adj === 'auto') lines.push(`AUTO-BATTLE ×${AUTO_SPEED}`);
     else if (adj === 'waiting') lines.push("ADJUTANT: give an order and I'll help");
     this.adjutantButton.setVisible(adj !== null && adj !== 'auto');
     if (adj && adj !== 'auto') {
@@ -263,7 +264,7 @@ export class HudScene extends Phaser.Scene {
     if (!can) return;
     const armed = this.time.now < this.takeOverArmedUntil;
     const label = this.takeOverButton.list[1] as Phaser.GameObjects.Text;
-    label.setText(armed ? 'TAP AGAIN: ½ MEDALS' : 'COMMANDER, TAKE OVER');
+    label.setText(armed ? 'TAP AGAIN: ½ PAY FROM NOW' : 'COMMANDER, TAKE OVER');
     this.takeOverButton.setPosition(20 + 150, top + 28);
   }
 

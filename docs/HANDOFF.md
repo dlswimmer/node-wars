@@ -106,6 +106,11 @@ every push to `main` (CI runs lint, format, typecheck and tests first).
   freely. Two webs, not one, because they use different currencies and reset differently.
   Kept separate on purpose; the user agreed. Old War College levels didn't map cleanly onto
   the web, so save version 5 refunds all Honor spent on them instead of guessing.
+- **The Adjutant only knows what the player could see** (the user, 2026-10-25): bases,
+  troops and troops already moving (shown as rings and incoming numbers), never the enemy
+  AI's plans. If fog of war is added, the Adjutant and the Commander must obey it too.
+- **Commander = enemy brain at the same rank** (the user, 2026-10-25): AI against AI with no
+  upgrades is a coin flip; upgrades are what make auto-battles win.
 - **Retreating early must not pay.** Honor grows faster than progress (based on the hardest
   threat beaten and regions held), a retreat needs a minimum (e.g. a 3-star region beaten),
   and a bot test compares Honor per hour for "retreat after 5 battles", "after 15" and "push

@@ -154,8 +154,19 @@ never the best play.
   kid words ("Reinforcing the barracks!", "Troops advance to the outpost", "Air strike on the
   enemy HQ!") and fades after a few seconds. A helper still waits once you go quiet for 15 s.
 - **Commander can take over** a campaign battle you started yourself (the user asked for
-  this): COMMANDER, TAKE OVER on the left, tapped twice. From then on it's an auto-battle:
-  half medals, no mission, no mastery win, and you can't take it back.
+  this): COMMANDER, TAKE OVER on the left, tapped twice. From then on it's an auto-battle (no
+  mission, no mastery win, no taking it back). Pay: full medals for the share of the battle
+  you fought, auto-battle pay (half) for the rest.
+- **Auto-battles run at ×2** (`AUTO_SPEED`): more sim steps per frame, same rules.
+- **The Commander fights with the enemy's brain.** Running a battle, it uses the enemy AI at
+  the region's own rank (the user: "AI to AI with no upgrades should be 50/50"), plus its
+  Gunner and call-outs. `npm run commander`: with no upgrades it wins about half of 4★
+  fights (the even rank), more at 1-3★ (those enemies build 10% slower), little at 5★; a
+  mid-war Command Tent wins nearly everything, so upgrades shine in auto-battles. Base
+  worth (`src/sim/value.ts`) is shared by the enemy AI and the helping Adjutant, so neither
+  wastes moves on Checkpoints. Held regions you can auto-battle say AUTO-BATTLE on the map.
+- **Medals keep fractions.** Pay isn't rounded (a +10% bonus on a 2-medal win pays 2.2);
+  wallets show whole medals rounded down, prices stay whole.
 - **Promotion** (to the next phase): needs 100 Honor earned in total, counting what the current
   war would pay right now (a gold bar on the RANK & RETREAT page, banked solid and this war
   lighter). Until Phase 2 exists it records a Phase 2 badge and the war goes on.

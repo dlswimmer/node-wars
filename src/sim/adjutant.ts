@@ -1,6 +1,10 @@
 import { DEFAULT_SEND_FRACTION } from './config';
 import { secondsUntilReady, useAbility, type AbilityId, type AbilityState } from './abilities';
+import { createAi, updateAi, type AiState } from './ai';
+import { DIFFICULTIES, type Difficulty } from './difficulty';
+import { PERSONALITIES } from './personality';
 import type { Army, Base, BaseKind, World } from './types';
+import { baseWorth } from './value';
 import {
   capacityOf,
   getBonuses,
@@ -12,8 +16,10 @@ import {
 
 /**
  * The Adjutant: an AI officer that helps run the player's army. Each level adds one duty.
- * It deliberately acts slower than a kid so an attentive player always does better; at
- * level 5 it can run a whole battle (auto-battle), a bit faster but still careful.
+ * It deliberately acts slower than a kid so an attentive player always does better. At
+ * level 5 (Commander) it can run a whole battle (auto-battle): then it fights with the same
+ * brain as the enemy it faces (same rank), so AI against AI with nothing else different is
+ * a coin flip, and your upgrades decide it.
  */
 export interface AdjutantState {
   army: Army;
@@ -27,6 +33,8 @@ export interface AdjutantState {
   lastOrderAt: number;
   /** What it has just done, newest last, for the call-out on the battle screen. */
   reports: AdjutantReport[];
+  /** The brain that fights an auto-battle (the enemy's rank); null while it only helps. */
+  brain: AiState | null;
 }
 
 export interface AdjutantReport {
@@ -67,17 +75,40 @@ function called(adj: AdjutantState, base: Base): string {
 /** A helper (not auto-battling) only works while the player has given an order recently. */
 export const HELPER_PATIENCE = 15;
 
-/** Seconds between Adjutant decisions: helping slowly, auto-battling a bit faster. */
+/** Seconds between Adjutant decisions while helping; when running a battle, the Gunner's beat. */
 const ASSIST_INTERVAL = 5;
-const AUTO_INTERVAL = 4;
+const AUTO_INTERVAL = 2;
 /**
  * The Quartermaster moves troops forward from bases at least this full. Battles rarely last
  * long enough for bases to fill right up, so waiting for full meant it hardly ever acted.
  */
 const PUSH_FULLNESS = 0.7;
 
-export function createAdjutant(level: number, auto = false, army: Army = 'player'): AdjutantState {
-  return { army, level, auto, cooldown: 2, squads: new Set(), lastOrderAt: 0, reports: [] };
+export function createAdjutant(
+  level: number,
+  auto = false,
+  army: Army = 'player',
+  /** The enemy's rank, which a Commander matches when it runs the battle. */
+  rank: Difficulty = DIFFICULTIES.general,
+): AdjutantState {
+  const adj: AdjutantState = {
+    army,
+    level,
+    auto: false,
+    cooldown: 2,
+    squads: new Set(),
+    lastOrderAt: 0,
+    reports: [],
+    brain: null,
+  };
+  if (auto) startAutoBattle(adj, rank);
+  return adj;
+}
+
+/** From now on the Commander runs the whole battle (an auto-battle, or taking over yours). */
+export function startAutoBattle(adj: AdjutantState, rank: Difficulty): void {
+  adj.auto = true;
+  adj.brain ??= createAi(adj.army, rank, PERSONALITIES.steady);
 }
 
 /** Call whenever the player gives an order, so a helping Adjutant keeps working. */
@@ -97,6 +128,10 @@ export function updateAdjutant(
   abilities: AbilityState | null = null,
 ): void {
   if (world.winner || adj.level <= 0 || isWaiting(world, adj)) return;
+  if (adj.brain) {
+    commandBattle(world, adj, dt, abilities);
+    return;
+  }
   adj.cooldown -= dt;
   if (adj.cooldown > 0) return;
   adj.cooldown = adj.auto ? AUTO_INTERVAL : ASSIST_INTERVAL;
@@ -113,6 +148,40 @@ export function updateAdjutant(
   if (level >= 4 && attack(world, adj, mine, (b) => b.owner !== 'neutral')) return;
   if (level >= 3 && attack(world, adj, mine, (b) => b.owner === 'neutral')) return;
   if (level >= 2) pushForward(world, adj, mine);
+}
+
+/**
+ * Running a whole battle: the enemy-rank brain picks attacks and defends, the Gunner (if
+ * learned) uses abilities on the Adjutant's own beat, and every order it gives is reported.
+ */
+function commandBattle(
+  world: World,
+  adj: AdjutantState,
+  dt: number,
+  abilities: AbilityState | null,
+): void {
+  const before = world.nextSquadId;
+  updateAi(world, adj.brain!, dt);
+  for (let squad = before; squad < world.nextSquadId; squad++) {
+    const unit = world.units.find((u) => u.squad === squad);
+    if (!unit || unit.owner !== adj.army) continue;
+    adj.squads.add(squad);
+    const target = world.bases[unit.targetId]!;
+    const verb =
+      target.owner === adj.army
+        ? 'Reinforcing'
+        : target.owner === 'neutral'
+          ? 'Taking'
+          : 'Attacking';
+    report(world, adj, `${verb} ${called(adj, target)}!`);
+  }
+  adj.cooldown -= dt;
+  if (adj.cooldown > 0) return;
+  adj.cooldown = AUTO_INTERVAL;
+  if (adj.level >= 6 && abilities) {
+    const mine = world.bases.filter((b) => b.owner === adj.army);
+    gunner(world, adj, mine, abilities);
+  }
 }
 
 /** Own troops in flight a Charge is worth waiting for. */
@@ -210,7 +279,10 @@ function attack(
       if (from.troops < 8) continue;
       const p = previewAttack(world, adj.army, [from.id], to.id, DEFAULT_SEND_FRACTION);
       if (p.outcome !== 'win') continue;
-      const score = to.troops + travelDistance(world, from.id, to.id) * 0.05;
+      // Cheap, close and worth having: a Barracks or Factory beats a Checkpoint that builds
+      // nothing, unless the Checkpoint is far cheaper.
+      const travel = travelDistance(world, from.id, to.id);
+      const score = to.troops + travel * 0.05 - baseWorth(world, adj.army, to);
       if (!best || score < best.score) best = { from, to, score };
     }
   }

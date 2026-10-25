@@ -16,7 +16,8 @@
     "format:check": "prettier --check .",
     "balance": "tsx scripts/balance.ts",
     "sweep": "tsx scripts/sweep.ts",
-    "campaign": "tsx scripts/campaign.ts"
+    "campaign": "tsx scripts/campaign.ts",
+    "commander": "tsx scripts/commander.ts"
   },
   "engines": {
     "node": ">=20.19"

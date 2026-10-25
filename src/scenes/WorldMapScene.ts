@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio';
 import { DPR, cssSize } from '../display';
-import { canAutoBattle, loadSave, starWins, starsUnlocked } from '../save';
+import { canAutoBattle, isMastered, loadSave, starWins, starsUnlocked } from '../save';
 import { difficultyForStars } from '../sim/difficulty';
 import type { LevelDef, Point } from '../sim/types';
 import { medalCount, medalSummary } from '../sim/economy';
@@ -182,15 +182,28 @@ export class WorldMapScene extends Phaser.Scene {
     const c = centroid(region.polygon);
     // Two short lines fit inside a region better than one long one.
     const title = region.name.toUpperCase().replace(' ', '\n');
+    // A held region whose star level you've mastered says so, so you can see where the
+    // Adjutant may auto-battle without opening each one.
+    const stars = this.conquest.regions[id]?.stars ?? 0;
+    const tag = held && isMastered(stars) ? (canAutoBattle(id) ? 'AUTO-BATTLE' : 'MASTERED') : '';
+    const nameY = held ? c.y - (tag ? 8 : 0) : c.y - 20;
     const name = this.world(
       this.add
-        .text(c.x, c.y - (held ? 0 : 20), title, { ...textStyle(12), align: 'center' })
+        .text(c.x, nameY, title, { ...textStyle(12), align: 'center' })
         .setLineSpacing(-3)
         .setOrigin(0.5)
         .setDepth(3),
     );
-    if (held) return [name];
-    const stars = this.conquest.regions[id]!.stars;
+    if (held && !tag) return [name];
+    if (held) {
+      const badge = this.world(
+        this.add
+          .text(c.x, c.y + 16, tag, textStyle(10, tag === 'MASTERED' ? '#a99ad0' : '#d8c8ff'))
+          .setOrigin(0.5)
+          .setDepth(3),
+      );
+      return [name, badge];
+    }
     const first = id === START_ID && this.conquest.held.length === 0;
     // "FIRST BATTLE" on one line keeps the start region's label as compact as the others, so
     // it stays inside the region on an iPad.
@@ -395,7 +408,7 @@ export class WorldMapScene extends Phaser.Scene {
       const pay = `+${medalCount(medalsFor(progress.stars, true, false, regionThreat(seed, id), this.bonus))}`;
       const first = id === START_ID && !held;
       locked = !held && !starsUnlocked(progress.stars);
-      const need = unlockMedals(progress.stars) - loadSave().medalsEarned;
+      const need = Math.ceil(unlockMedals(progress.stars) - loadSave().medalsEarned - 1e-9);
       line2 = first ? 'FIRST BATTLE' : `${'★'.repeat(progress.stars)}  ${d.label}`;
       const threat = regionThreat(seed, id);
       if (threat > 0) line2 += `  ·  THREAT ${threat}`;

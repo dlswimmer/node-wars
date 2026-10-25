@@ -10,6 +10,7 @@ with mouse and touch on PC, phone, and iPad.
 - `npm run balance` (bot win rates per difficulty), `npm run sweep -- <profile> <winRate>`
 - `npm run campaign -- <profile> <wars>` (bots play whole wars with upgrades, Threat and
   Tactical Retreats; checks that pushing deep earns more Honor than retreating early)
+- `npm run commander -- <battles>` (Commander auto-battle win rates per star level)
 - Run lint, format:check, typecheck, and tests before committing; CI runs the same checks.
 
 ## Architecture

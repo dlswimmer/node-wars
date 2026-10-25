@@ -1,4 +1,4 @@
-import { BASE_STATS, HOSPITAL_RANGE, UNIT_SPEED } from './config';
+import { BASE_STATS, UNIT_SPEED } from './config';
 import { DIFFICULTIES, type Difficulty } from './difficulty';
 import {
   damageFactor,
@@ -10,6 +10,7 @@ import {
 } from './world';
 import { PERSONALITIES, withPersonality, type Personality } from './personality';
 import type { Army, Base, World } from './types';
+import { SPECIAL_KINDS, SPECIAL_WORTH, positionValue } from './value';
 
 export interface AiState {
   army: Army;
@@ -43,8 +44,6 @@ const STALEMATE_SECONDS = 12;
 const LONG_BATTLE_SECONDS = 360;
 /** Extra troops the AI wants on top of the defenders in a long battle. */
 const LONG_MARGIN = 6;
-
-const SPECIAL_KINDS = new Set(['factory', 'radar', 'armory', 'airfield']);
 
 /** Makes at most one attack per decision. Difficulty controls how often and how cleverly. */
 export function updateAi(world: World, ai: AiState, dt: number): void {
@@ -104,7 +103,7 @@ export function updateAi(world: World, ai: AiState, dt: number): void {
     const travel = dist(world, used[used.length - 1]!, target);
     let score = needed + travel * (0.05 + p.distance);
     if (!long) score -= p.likes?.(world, ai.army, target) ?? 0;
-    if (SPECIAL_KINDS.has(target.kind)) score -= 5;
+    if (SPECIAL_KINDS.has(target.kind)) score -= SPECIAL_WORTH;
     if (s.aiKnowsBases) score -= positionValue(world, ai.army, target);
     if (score < bestScore) {
       bestScore = score;
@@ -165,32 +164,6 @@ function isSnipe(world: World, ai: AiState, target: Base): boolean {
     target.lastAttackedBy !== ai.army &&
     world.time - (target.lastAttackedAt ?? -Infinity) < guard;
   return recentlyHit || world.units.some((u) => u.targetId === target.id && u.owner !== ai.army);
-}
-
-/**
- * Extra worth of a Bunker or Field Hospital from where it stands: a Bunker on the road
- * between the two HQs is a chokepoint, and a Hospital is worth most close to the front.
- */
-function positionValue(world: World, army: Army, target: Base): number {
-  if (target.kind === 'bunker') {
-    const home = world.bases.find((b) => b.kind === 'hq' && b.owner === army);
-    const rival = world.bases.find(
-      (b) => b.kind === 'hq' && b.owner !== army && b.owner !== 'neutral',
-    );
-    if (!home || !rival) return 2;
-    // 1 when it sits right on the line between the HQs, falling off to 0 well to the side.
-    const detour =
-      dist(world, home, target) + dist(world, target, rival) - dist(world, home, rival);
-    return 2 + 4 * Math.max(0, 1 - detour / 300);
-  }
-  if (target.kind === 'hospital') {
-    const front = world.bases.some(
-      (b) =>
-        b.owner !== army && b.owner !== 'neutral' && dist(world, b, target) <= HOSPITAL_RANGE * 1.5,
-    );
-    return front ? 5 : 2;
-  }
-  return 0;
 }
 
 function dist(world: World, a: Base, b: Base): number {

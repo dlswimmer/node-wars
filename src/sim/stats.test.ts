@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { NO_COLLEGE_EFFECTS, collegeEffects } from './collegeweb';
 import { playerStats } from './stats';
-import { NO_UPGRADES, masteryNote } from './upgrades';
+import { medalCount, medalSummary } from './economy';
+import { NO_UPGRADES, masteryNote, medalsFor, takeOverMedals } from './upgrades';
 
 const row = (rows: ReturnType<typeof playerStats>, label: string) =>
   rows.find((r) => r.label === label)!;
@@ -45,5 +46,20 @@ describe('mastery', () => {
     expect(masteryNote(3, 4, true)).toContain('win 1 more ★★★ fight yourself');
     expect(masteryNote(3, 5, true)).toBe('★★★ mastered: AUTO-BATTLE is ready');
     expect(masteryNote(3, 5, false)).toContain('COMMANDER');
+  });
+});
+
+describe('medal pay', () => {
+  it('keeps the fraction a medal bonus adds', () => {
+    expect(medalsFor(2, true, false, 0, 1.1)).toBe(2.2);
+    expect(medalCount(2.2)).toBe('2.2 medals');
+    expect(medalSummary(6.6, 30.6)).toBe('6 medals · 30 earned');
+  });
+
+  it('pays a taken-over battle full for your part and auto pay for the rest', () => {
+    // Played half: halfway between 4 (full) and 2 (auto).
+    expect(takeOverMedals(4, 2, 0.5)).toBe(3);
+    expect(takeOverMedals(4, 2, 0.9)).toBe(3.8);
+    expect(takeOverMedals(4, 2, 0)).toBe(2);
   });
 });
