@@ -112,7 +112,8 @@ describe('Tactical Retreat', () => {
     if (!c.held.some((id) => naturalStars(c.seed, id) >= 3)) return;
     save.medals = 30;
     save.upgrades.fastBuilders = 3;
-    // Two Head Start nodes on the start-medals line: +4 medals each new war.
+    c.starWins[3] = 4;
+    // Two Savings nodes on the starting-medals line: +4 medals each new war.
     save.college = ['-1,0', '-2,0'];
     const oldSeed = c.seed;
     const honor = tacticalRetreat();
@@ -125,6 +126,8 @@ describe('Tactical Retreat', () => {
     expect(after.medals).toBe(4);
     expect(after.upgrades).toEqual(NO_UPGRADES);
     expect(after.college).toEqual(['-1,0', '-2,0']);
+    // Mastery (your own wins per star level) is your skill: it carries into the new war.
+    expect(after.conquest.starWins[3]).toBe(4);
   });
 
   it('spends Honor in the War College', () => {

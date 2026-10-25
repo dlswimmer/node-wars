@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { NO_COLLEGE_EFFECTS, collegeEffects } from './collegeweb';
 import { playerStats } from './stats';
-import { NO_UPGRADES } from './upgrades';
+import { NO_UPGRADES, masteryNote } from './upgrades';
 
 const row = (rows: ReturnType<typeof playerStats>, label: string) =>
   rows.find((r) => r.label === label)!;
@@ -31,5 +31,19 @@ describe('the Stats page', () => {
   it('lists the abilities you own', () => {
     const rows = playerStats(NO_UPGRADES, collegeEffects(['1,0', '2,0', '3,0']), 0);
     expect(row(rows, 'Abilities').total).toBe('AIR STRIKE');
+  });
+});
+
+describe('mastery', () => {
+  it('shows mastered star levels and progress on the rest', () => {
+    const rows = playerStats(NO_UPGRADES, NO_COLLEGE_EFFECTS, 0, [0, 9, 5, 2, 0, 0]);
+    expect(row(rows, 'Mastered (auto-battle)').total).toBe('1★ 2★  ·  3★ 2/5');
+  });
+
+  it('tells a held region how many more wins it needs to auto-battle', () => {
+    expect(masteryNote(3, 2, true)).toBe('AUTO-BATTLE: win 3 more ★★★ fights yourself (2/5)');
+    expect(masteryNote(3, 4, true)).toContain('win 1 more ★★★ fight yourself');
+    expect(masteryNote(3, 5, true)).toBe('★★★ mastered: AUTO-BATTLE is ready');
+    expect(masteryNote(3, 5, false)).toContain('COMMANDER');
   });
 });

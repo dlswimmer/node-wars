@@ -1,6 +1,12 @@
 import { ABILITIES } from './abilities';
 import type { CollegeEffects } from './collegeweb';
-import { ADJUTANT_LEVELS, adjutantLevel, upgradeOptions, type UpgradeLevels } from './upgrades';
+import {
+  ADJUTANT_LEVELS,
+  MASTERY_WINS,
+  adjutantLevel,
+  upgradeOptions,
+  type UpgradeLevels,
+} from './upgrades';
 
 /**
  * The player's full numbers for the Stats page: what the Command Tent (this war) and the War
@@ -27,6 +33,7 @@ export function playerStats(
   levels: UpgradeLevels,
   college: CollegeEffects,
   honorEarned: number,
+  starWins: readonly number[] = [],
 ): StatRow[] {
   const up = upgradeOptions(levels, 0);
   const b = up.boosts!.player!;
@@ -88,5 +95,24 @@ export function playerStats(
       total: college.abilities.map((id) => ABILITIES[id].name).join(', ') || NONE,
       wide: true,
     },
+    {
+      label: 'Mastered (auto-battle)',
+      tent: NONE,
+      college: NONE,
+      total: mastery(starWins),
+      wide: true,
+    },
   ];
+}
+
+/** Star levels you've mastered, then progress on the ones you've started: "1★ 2★ · 3★ 4/5". */
+function mastery(starWins: readonly number[]): string {
+  const done: string[] = [];
+  const going: string[] = [];
+  starWins.forEach((wins, stars) => {
+    if (stars === 0 || wins <= 0) return;
+    if (wins >= MASTERY_WINS) done.push(`${stars}★`);
+    else going.push(`${stars}★ ${wins}/${MASTERY_WINS}`);
+  });
+  return [done.join(' '), going.join(' ')].filter(Boolean).join('  ·  ') || NONE;
 }

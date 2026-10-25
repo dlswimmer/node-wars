@@ -123,9 +123,12 @@ export class TentScene extends Phaser.Scene {
     const save = loadSave();
     const college = collegeEffects(save.college);
     // Only what you have, so the rows can be big enough to read on a phone.
-    const rows = playerStats(save.upgrades, college, save.honorEarned).filter(
-      (r) => r.total !== NONE,
-    );
+    const rows = playerStats(
+      save.upgrades,
+      college,
+      save.honorEarned,
+      save.conquest.starWins,
+    ).filter((r) => r.total !== NONE);
     const cx = MENU_DESIGN.width / 2;
     if (rows.length === 0) {
       const text = 'Nothing yet! Upgrades from the Command Tent and\nWar College add up here.';

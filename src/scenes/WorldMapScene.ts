@@ -1,14 +1,14 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio';
 import { DPR, cssSize } from '../display';
-import { canAutoBattle, loadSave, starsUnlocked } from '../save';
+import { canAutoBattle, loadSave, starWins, starsUnlocked } from '../save';
 import { difficultyForStars } from '../sim/difficulty';
 import type { LevelDef, Point } from '../sim/types';
 import { medalCount, medalSummary } from '../sim/economy';
 import { insignia } from '../sim/college';
 import { collegeEffects } from '../sim/collegeweb';
 import { regionMission } from '../sim/missions';
-import { medalsFor } from '../sim/upgrades';
+import { ADJUTANT_BUYABLE, adjutantLevel, masteryNote, medalsFor } from '../sim/upgrades';
 import {
   START_ID,
   availableRegions,
@@ -94,6 +94,9 @@ export class WorldMapScene extends Phaser.Scene {
     this.selected = null;
     this.uiObjects = [];
     this.gesture = 'none';
+    // Leaving mid-reveal kills its tweens before they clear this, which used to leave the map
+    // ignoring every tap on the next visit (buttons still worked).
+    this.animating = false;
     const cam = this.cameras.main;
     cam.setBackgroundColor(BACKGROUND);
     this.uiCam = this.cameras.add(0, 0, this.scale.width, this.scale.height).setOrigin(0, 0);
@@ -347,6 +350,13 @@ export class WorldMapScene extends Phaser.Scene {
     this.drawSelection();
   }
 
+  /** How close a star level is to auto-battling (mastery wins, and whether you have a Commander). */
+  private masteryLine(stars: number): string {
+    const { upgrades, honorEarned } = loadSave();
+    const commander = adjutantLevel(upgrades.adjutant, honorEarned) >= ADJUTANT_BUYABLE;
+    return masteryNote(stars, starWins(stars), commander);
+  }
+
   /** Bottom panel for the selected region: what it is, its ground, what it pays, and FIGHT. */
   private regionPanel(id: string, w: number, h: number) {
     const region = getRegion(this.conquest.seed, id);
@@ -360,7 +370,9 @@ export class WorldMapScene extends Phaser.Scene {
         ? regionMission(seed, id, level, naturalStars(seed, id), false)
         : null;
     const panelW = Math.min(720, w - 24);
-    const panelH = mission ? 176 : 140;
+    // Held regions get one more line: how close you are to auto-battling them.
+    const mastery = held && progress ? this.masteryLine(progress.stars) : null;
+    const panelH = (mission ? 176 : 140) + (mastery ? 34 : 0);
     const x0 = (w - panelW) / 2;
     const y0 = h - panelH - 12;
     const bg = this.ui(this.add.graphics());
@@ -405,6 +417,15 @@ export class WorldMapScene extends Phaser.Scene {
     if (mission) {
       const bonus = `MISSION: ${mission.text} (+${medalCount(mission.medals)})`;
       this.ui(this.add.text(textX, y0 + 130, bonus, textStyle(21, COLORS.accent)));
+    }
+    if (mastery) {
+      const my = y0 + (mission ? 162 : 126);
+      this.ui(
+        this.add.text(textX, my, mastery, {
+          ...textStyle(21, '#c8b0ff'),
+          wordWrap: { width: panelW - 250 },
+        }),
+      );
     }
     if (!progress || locked) return;
 

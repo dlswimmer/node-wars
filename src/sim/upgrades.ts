@@ -139,6 +139,21 @@ export function nextAdjutantMilestone(honorEarned: number): number | null {
 
 /** Wins you need yourself at a star level before the Adjutant may auto-battle it. */
 export const MASTERY_WINS = 5;
+
+/**
+ * One line on a held region's panel about auto-battling it: how many more wins of your own
+ * at its star level, or what's still missing. Mastery is per star level and never resets.
+ */
+export function masteryNote(stars: number, wins: number, commander: boolean): string {
+  const label = `${'★'.repeat(stars)}`;
+  if (wins < MASTERY_WINS) {
+    const more = MASTERY_WINS - wins;
+    return `AUTO-BATTLE: win ${more} more ${label} fight${more === 1 ? '' : 's'} yourself (${wins}/${MASTERY_WINS})`;
+  }
+  return commander
+    ? `${label} mastered: AUTO-BATTLE is ready`
+    : `${label} mastered: a COMMANDER Adjutant can auto-battle it`;
+}
 /**
  * Medals for a campaign battle: a region pays for its stars plus its Threat, times the War
  * College's medal bonus.
