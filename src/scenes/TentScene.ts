@@ -16,8 +16,11 @@ import { drawMapGrid } from './drawing';
 import { MENU_DESIGN, fitDesign } from './MenuScene';
 import { addButton, addMuteButton } from './ui';
 
-/** The Command Tent's pages: the two of medal upgrades, and the War College (Honor). */
-type TentTab = UpgradeTab | 'college';
+/**
+ * The Command Tent's pages: two of medal upgrades, then the War College's lasting upgrades and
+ * commander abilities (both bought with Honor).
+ */
+type TentTab = UpgradeTab | 'college' | 'abilities';
 
 /** Where the Tactical Retreat button sits; the "no" of its confirm takes the same spot. */
 const RETREAT = { x: 640, y: 562 };
@@ -59,7 +62,7 @@ export class TentScene extends Phaser.Scene {
   private page() {
     const save = loadSave();
     const cx = MENU_DESIGN.width / 2;
-    const college = this.tab === 'college';
+    const college = this.tab === 'college' || this.tab === 'abilities';
     this.add
       .text(cx, 40, college ? 'WAR COLLEGE' : 'COMMAND TENT', textStyle(60, COLORS.accent))
       .setOrigin(0.5);
@@ -73,10 +76,11 @@ export class TentScene extends Phaser.Scene {
       { id: 'army', label: 'ARMY' },
       { id: 'bases', label: 'BASES & GEAR' },
       { id: 'college', label: 'WAR COLLEGE' },
+      { id: 'abilities', label: 'ABILITIES' },
     ];
     tabs.forEach((t, i) => {
-      addButton(this, cx + (i - 1) * 250, 132, {
-        width: 230,
+      addButton(this, cx + (i - 1.5) * 240, 132, {
+        width: 228,
         height: 48,
         label: t.label,
         color: t.id === this.tab ? 0x2f5f8a : 0x2a3324,
@@ -85,7 +89,8 @@ export class TentScene extends Phaser.Scene {
       });
     });
 
-    if (college) this.collegeRows();
+    if (this.tab === 'college') this.collegeRows();
+    else if (this.tab === 'abilities') this.abilityRows();
     else this.tentRows(this.tab as UpgradeTab);
 
     addButton(this, 110, 562, {
@@ -107,6 +112,8 @@ export class TentScene extends Phaser.Scene {
     detail: string,
     price: { label: string; affordable: boolean } | null,
     buy: () => boolean,
+    /** Shown instead of a price once there is nothing left to buy. */
+    done = 'MAXED',
   ) {
     const y = 190 + i * spacing;
     const pips = '■'.repeat(level) + '□'.repeat(max - level);
@@ -118,7 +125,7 @@ export class TentScene extends Phaser.Scene {
       .text(40, y + (tight ? 2 : 4), detail, textStyle(tight ? 19 : 22, COLORS.text))
       .setOrigin(0, 0);
     if (!price) {
-      this.add.text(870, y, 'MAXED', textStyle(30, COLORS.accent)).setOrigin(0.5);
+      this.add.text(870, y, done, textStyle(30, COLORS.accent)).setOrigin(0.5);
       return;
     }
     addButton(this, 870, y, {
@@ -161,7 +168,7 @@ export class TentScene extends Phaser.Scene {
 
   private collegeRows() {
     const save = loadSave();
-    COLLEGE.forEach((c, i) => {
+    COLLEGE.filter((c) => c.page === 'college').forEach((c, i) => {
       const level = save.college[c.id];
       const max = c.costs.length;
       const cost = nextHonorCost(save.college, c.id);
@@ -187,6 +194,28 @@ export class TentScene extends Phaser.Scene {
         else sfx.failed();
       },
     });
+  }
+
+  /** Commander abilities: each unlocked once with Honor, then usable in campaign battles. */
+  private abilityRows() {
+    const save = loadSave();
+    COLLEGE.filter((c) => c.page === 'abilities').forEach((c, i) => {
+      const owned = save.college[c.id] > 0;
+      const cost = nextHonorCost(save.college, c.id);
+      const price =
+        cost === null ? null : { label: `${cost} HONOR`, affordable: save.honor >= cost };
+      const detail = `${owned ? 'Yours' : 'Unlock'}: ${c.total(1)}`;
+      const buy = () => buyCollege(c.id);
+      this.row(i, 70, c.name, save.college[c.id], 1, detail, price, buy, 'OWNED');
+    });
+    this.add
+      .text(
+        MENU_DESIGN.width / 2,
+        420,
+        'Abilities show as buttons in campaign battles: tap one, then tap a base.',
+        textStyle(22, COLORS.textDim),
+      )
+      .setOrigin(0.5);
   }
 
   /** Ask again before retreating. NO sits where the retreat button was; YES is off to one side. */

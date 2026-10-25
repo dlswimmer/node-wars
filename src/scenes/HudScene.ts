@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { DPR, cssSize } from '../display';
 import { medalCount } from '../sim/economy';
+import { ABILITIES, secondsUntilReady, type AbilityId } from '../sim/abilities';
 import { missionStatus } from '../sim/missions';
 import { countBases, isShielded } from '../sim/world';
 import { ARMY_NAMES, COLORS, FACTION_COLORS, textStyle } from '../theme';
@@ -12,6 +13,9 @@ const PERK_WORDS: Record<string, string> = {
   radar: 'FAST TROOPS + EARLY WARNING',
   armory: 'STRONG TROOPS',
 };
+
+/** Size of an ability button in HUD units. */
+const ABILITY_SIZE = { w: 118, h: 96 };
 
 const DEFEAT_TIPS = [
   'Tip: double-tap your base to send ALL its troops, not just half!',
@@ -47,6 +51,16 @@ export class HudScene extends Phaser.Scene {
   private endButtonsReady = false;
   private won = false;
   private tip = '';
+  /** Commander ability buttons (bottom right), one per ability unlocked. */
+  private abilityButtons: {
+    id: AbilityId;
+    button: Phaser.GameObjects.Container;
+    shade: Phaser.GameObjects.Graphics;
+    border: Phaser.GameObjects.Graphics;
+    timer: Phaser.GameObjects.Text;
+  }[] = [];
+  /** "AIR STRIKE: tap a base", above the ability buttons while one is armed. */
+  private abilityHint!: Phaser.GameObjects.Text;
   /** The start-of-battle announcement (personalities, mission), while it shows. */
   private intro: Phaser.GameObjects.GameObject[] = [];
 
@@ -68,6 +82,12 @@ export class HudScene extends Phaser.Scene {
     this.muteButton = addMuteButton(this, 0, 0).setDepth(110);
     this.adjutantButton = this.createAdjutantButton();
     this.pauseMenu = this.createPauseMenu();
+    this.abilityButtons = this.createAbilityButtons();
+    this.abilityHint = this.add
+      .text(0, 0, '', textStyle(26, COLORS.accent))
+      .setOrigin(1, 1)
+      .setDepth(110)
+      .setVisible(false);
 
     const onPause = (paused: boolean) => {
       this.pauseMenu.setVisible(paused);
@@ -157,6 +177,7 @@ export class HudScene extends Phaser.Scene {
     const playing = !this.battle.gameOver;
     this.status.setVisible(playing);
     this.perks.setVisible(playing);
+    this.updateAbilityButtons(playing);
     this.shieldBar.clear();
     if (!playing) return;
 
@@ -207,6 +228,11 @@ export class HudScene extends Phaser.Scene {
     this.pauseButton.setPosition(v.width - 62, 62);
     this.muteButton.setPosition(v.width - 172, 62);
     this.adjutantButton.setPosition(v.width - 282, 62);
+    // Ability buttons in a row along the bottom-right corner, kept clear of bases by map making.
+    this.abilityButtons.forEach((a, i) => {
+      a.button.setPosition(v.width - 70 - i * (ABILITY_SIZE.w + 14), v.height - 62);
+    });
+    this.abilityHint.setPosition(v.width - 16, v.height - 62 - ABILITY_SIZE.h / 2 - 10);
     // One short line hugging the bottom edge, below the bottom-row base labels.
     this.perks.setPosition(20, v.height - 6);
     this.pauseShade.setSize(v.width, v.height);
@@ -264,6 +290,58 @@ ${goal}`;
       .setVisible(false);
     makePressable(button, () => this.battle.toggleAdjutant());
     return button;
+  }
+
+  private createAbilityButtons() {
+    const abilities = this.battle.abilities;
+    if (!abilities) return [];
+    const { w, h } = ABILITY_SIZE;
+    return (Object.keys(abilities.readyAt) as AbilityId[]).map((id) => {
+      const bg = this.add.graphics();
+      bg.fillStyle(0x3a2a14, 0.88).fillRoundedRect(-w / 2, -h / 2, w, h, 16);
+      const label = this.add
+        .text(0, 0, ABILITIES[id].name.replace(' ', '\n'), {
+          ...textStyle(22, COLORS.accent),
+          align: 'center',
+        })
+        .setOrigin(0.5)
+        .setLineSpacing(-4);
+      const shade = this.add.graphics();
+      const border = this.add.graphics();
+      // Seconds left sit small in the corner, so the name stays readable while it recharges.
+      const timer = this.add.text(w / 2 - 8, h / 2 - 4, '', textStyle(22)).setOrigin(1, 1);
+      const button = this.add
+        .container(0, 0, [bg, label, shade, border, timer])
+        .setSize(w, h)
+        .setDepth(110);
+      makePressable(button, () => this.battle.armAbility(id));
+      return { id, button, shade, border, timer };
+    });
+  }
+
+  /** Recharge shade and seconds left on each ability, a gold border on the armed one. */
+  private updateAbilityButtons(playing: boolean) {
+    const abilities = this.battle.abilities;
+    const armed = this.battle.abilityArmed;
+    this.abilityHint.setVisible(playing && armed !== null);
+    if (armed) this.abilityHint.setText(`${ABILITIES[armed].name}: tap a base`);
+    const { w, h } = ABILITY_SIZE;
+    for (const a of this.abilityButtons) {
+      a.button.setVisible(playing);
+      if (!abilities || !playing) continue;
+      const left = secondsUntilReady(this.battle.world, abilities, a.id) ?? 0;
+      const share = Math.min(1, left / ABILITIES[a.id].cooldown);
+      a.shade.clear();
+      if (left > 0) {
+        a.shade.fillStyle(0x000000, 0.45).fillRoundedRect(-w / 2, -h / 2, w, h * share, 16);
+      }
+      a.timer.setText(left > 0 ? String(Math.ceil(left)) : '');
+      const isArmed = armed === a.id;
+      a.border.clear();
+      a.border
+        .lineStyle(isArmed ? 6 : 3, isArmed ? 0xffd23f : left > 0 ? 0x5a4a30 : 0xffb347, 0.95)
+        .strokeRoundedRect(-w / 2, -h / 2, w, h, 16);
+    }
   }
 
   private createPauseButton() {

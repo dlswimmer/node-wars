@@ -161,6 +161,13 @@ export const sfx = {
       ),
     );
   },
+  /** An Air Strike landing: a falling whistle, then a deep boom. */
+  strike() {
+    play([
+      { freq: 1400, to: 500, duration: 0.25, type: 'sine', volume: 0.08 },
+      { freq: 110, to: 35, start: 0.22, duration: 0.5, type: 'sawtooth', volume: 0.22 },
+    ]);
+  },
   defeat() {
     const notes = [392, 330, 262];
     play(

@@ -9,9 +9,20 @@ import {
   type AdjutantState,
 } from '../sim/adjutant';
 import { campaignWorldOptions, medalsFor } from '../sim/upgrades';
-import { medalBonus } from '../sim/college';
+import { medalBonus, unlockedAbilities } from '../sim/college';
 import { DPR, cssToWorld } from '../display';
 import { createAi, updateAi, type AiState } from '../sim/ai';
+import {
+  ABILITIES,
+  AIR_STRIKE_TROOPS,
+  SUPPLY_DROP_TROOPS,
+  canTarget,
+  createAbilities,
+  secondsUntilReady,
+  useAbility,
+  type AbilityId,
+  type AbilityState,
+} from '../sim/abilities';
 import { PERSONALITIES, rollPersonality } from '../sim/personality';
 import { BASE_STATS, DEFAULT_SEND_FRACTION } from '../sim/config';
 import {
@@ -141,6 +152,10 @@ export class BattleScene extends Phaser.Scene {
 
   /** One AI for every army but yours. */
   ais: AiState[] = [];
+  /** Your commander abilities from the War College (campaign only), or null. */
+  abilities: AbilityState | null = null;
+  /** The ability waiting for you to tap its target, if any. */
+  abilityArmed: AbilityId | null = null;
   private baseGfx!: Phaser.GameObjects.Graphics;
   /** Reused unit sprites; one per visible unit, extras hidden. */
   private unitSprites: Phaser.GameObjects.Image[] = [];
@@ -258,6 +273,13 @@ export class BattleScene extends Phaser.Scene {
         this.world.handicap[a] *= p.production;
         return createAi(a, this.difficulty, p);
       });
+    // Commander abilities are War College unlocks, for campaign battles you fight yourself.
+    const powers = unlockedAbilities(save.college);
+    this.abilities =
+      this.mode === 'campaign' && !this.auto && powers.length > 0
+        ? createAbilities('player', powers)
+        : null;
+    this.abilityArmed = null;
     const adjutantLevel = this.mode === 'campaign' ? save.upgrades.adjutant : 0;
     this.adjutant = adjutantLevel > 0 ? createAdjutant(adjutantLevel, this.auto) : null;
     this.adjutantOn = true;
@@ -623,6 +645,10 @@ export class BattleScene extends Phaser.Scene {
   /** A tap that didn't start on one of your bases. */
   private finishTap() {
     const base = this.world.bases[this.downBaseId];
+    if (this.abilityArmed) {
+      this.fireAbility(base);
+      return;
+    }
     if (base && this.armed.size > 0) {
       this.issueOrder([...this.armed], base.id, this.armedFraction());
     } else if (base && base.owner !== 'player') {
@@ -644,6 +670,11 @@ Drag from a BLUE base!`,
   }
 
   private finishDrag(p: Phaser.Input.Pointer) {
+    if (!this.moved && this.abilityArmed) {
+      this.fireAbility(this.world.bases[this.dragStartId]);
+      this.selected.clear();
+      return;
+    }
     if (!this.moved) {
       // A tap on one of your bases.
       if (this.tapMightReinforce) {
@@ -713,6 +744,39 @@ Drag from a BLUE base!`,
     return this.sendAll ? 1 : DEFAULT_SEND_FRACTION;
   }
 
+  /** Arm an ability (or put it away again), from its HUD button. */
+  armAbility(id: AbilityId) {
+    if (!this.abilities || this.gameOver || this.paused) return;
+    if (this.abilityArmed === id) {
+      this.abilityArmed = null;
+      return;
+    }
+    if (secondsUntilReady(this.world, this.abilities, id) !== 0) {
+      sfx.failed();
+      return;
+    }
+    this.abilityArmed = id;
+    this.armed.clear();
+    sfx.click();
+  }
+
+  /** Use the armed ability on the tapped base, if it can go there. */
+  private fireAbility(base: Base | undefined) {
+    const id = this.abilityArmed!;
+    this.abilityArmed = null;
+    this.armed.clear();
+    if (!base || !this.abilities) return;
+    if (!useAbility(this.world, this.abilities, id, base.id)) {
+      const mine = ABILITIES[id].target === 'mine';
+      this.hint(
+        base,
+        mine ? 'Pick one of YOUR bases!' : "Pick a base you DON'T own!",
+        COLORS.accent,
+      );
+      sfx.failed();
+    }
+  }
+
   private issueOrder(sourceIds: number[], targetId: number, fraction = DEFAULT_SEND_FRACTION) {
     if (this.adjutant) notePlayerOrder(this.world, this.adjutant);
     let sent = 0;
@@ -770,6 +834,8 @@ Drag from a BLUE base!`,
           this.lastHitFx.set(base.id, this.world.time);
           this.addEffect('flash', base.x, base.y, r + 4, FACTION_COLORS[e.by], 0.2);
         }
+      } else if (e.type === 'ability') {
+        this.abilityEffect(e.ability, base, r);
       } else if (e.type === 'blocked') {
         const last = this.lastHitFx.get(base.id) ?? -1;
         if (this.world.time - last > 0.15) {
@@ -833,6 +899,36 @@ Drag from a BLUE base!`,
         this.hint(target, 'FAILED!', '#ffb36b');
         sfx.failed();
       }
+    }
+  }
+
+  /** Show an ability landing: a blast, a crate drop, or a rally flare. */
+  private abilityEffect(id: AbilityId, base: Base, r: number) {
+    if (id === 'airStrike') {
+      this.addEffect('flash', base.x, base.y, r + 30, 0xffb347, 0.5);
+      this.addEffect('ring', base.x, base.y, r + 10, 0xff5a1f, 0.8);
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        this.addEffect(
+          'spark',
+          base.x + Math.cos(a) * r,
+          base.y + Math.sin(a) * r,
+          10,
+          0xffd27f,
+          0.5,
+        );
+      }
+      this.hint(base, `AIR STRIKE! -${AIR_STRIKE_TROOPS}`, '#ffb347');
+      sfx.strike();
+      if (screenShake()) this.cameras.main.shake(250, 0.008);
+    } else if (id === 'supplyDrop') {
+      this.addEffect('ring', base.x, base.y, r + 6, 0x7dff9a, 0.8);
+      this.hint(base, `SUPPLY DROP! +${SUPPLY_DROP_TROOPS}`, '#7dff9a');
+      sfx.capture();
+    } else {
+      this.addEffect('ring', base.x, base.y, r + 6, FACTION_COLORS.player, 1);
+      this.hint(base, 'RALLY HERE!', '#9ec5ff');
+      sfx.send();
     }
   }
 
@@ -1098,6 +1194,15 @@ Drag from a BLUE base!`,
   /** While a base is armed by a tap, show which targets the attack would win. */
   private renderArmed() {
     this.armedLabel.setVisible(false);
+    // An armed ability rings every base it could hit, in gold.
+    if (this.abilityArmed && this.abilities) {
+      for (const b of this.world.bases) {
+        if (!canTarget(this.world, this.abilities, this.abilityArmed, b.id)) continue;
+        this.orderGfx.lineStyle(5, 0xffd23f, 0.85);
+        this.orderGfx.strokeCircle(b.x, b.y, BASE_STATS[b.kind].radius + 16);
+      }
+      return;
+    }
     if (this.armed.size === 0 || this.gesture !== 'none') return;
     const sources = [...this.armed];
     for (const b of this.world.bases) {

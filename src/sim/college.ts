@@ -1,3 +1,4 @@
+import { ABILITIES, type AbilityId } from './abilities';
 import { HONOR_COSTS } from './economy';
 import type { ConquestState } from './worldmap';
 import { naturalStars, regionThreat } from './worldmap';
@@ -15,18 +16,23 @@ export type CollegeId =
   | 'logistics'
   | 'gunnery'
   | 'fortifications'
-  | 'officerCorps';
+  | 'officerCorps'
+  | AbilityId;
 
 export interface CollegeDef {
   id: CollegeId;
   name: string;
+  /** Lasting upgrades, or commander abilities to unlock (one level each). */
+  page: 'college' | 'abilities';
   /** What this many levels add up to, in kid words. */
   total: (levels: number) => string;
   /** Honor cost of each level (index 0 buys level 1); see HONOR_COSTS in economy.ts. */
   costs: number[];
 }
 
-const DEFS: Omit<CollegeDef, 'costs'>[] = [
+type Def = Omit<CollegeDef, 'costs' | 'page'>;
+
+const LASTING: Def[] = [
   { id: 'veteranPay', name: 'VETERAN PAY', total: (n) => `+${25 * n}% medals from every win` },
   { id: 'warChest', name: 'WAR CHEST', total: (n) => `start each war with ${5 * n} medals` },
   { id: 'drillSchool', name: 'DRILL SCHOOL', total: (n) => `+${6 * n}% troop building, always` },
@@ -44,6 +50,18 @@ const DEFS: Omit<CollegeDef, 'costs'>[] = [
   },
 ];
 
+/** Commander abilities: unlocked once, then usable in every campaign battle. */
+const POWERS: Def[] = (Object.keys(ABILITIES) as AbilityId[]).map((id) => ({
+  id,
+  name: ABILITIES[id].name,
+  total: () => `${ABILITIES[id].blurb} (every ${ABILITIES[id].cooldown} s)`,
+}));
+
+const DEFS: Omit<CollegeDef, 'costs'>[] = [
+  ...LASTING.map((d) => ({ ...d, page: 'college' as const })),
+  ...POWERS.map((d) => ({ ...d, page: 'abilities' as const })),
+];
+
 export const COLLEGE: CollegeDef[] = DEFS.map((d) => ({ ...d, costs: HONOR_COSTS[d.id] }));
 
 export type CollegeLevels = Record<CollegeId, number>;
@@ -56,7 +74,15 @@ export const NO_COLLEGE: CollegeLevels = {
   gunnery: 0,
   fortifications: 0,
   officerCorps: 0,
+  airStrike: 0,
+  supplyDrop: 0,
+  rally: 0,
 };
+
+/** The commander abilities this War College has unlocked. */
+export function unlockedAbilities(levels: CollegeLevels): AbilityId[] {
+  return (Object.keys(ABILITIES) as AbilityId[]).filter((id) => levels[id] > 0);
+}
 
 export function nextHonorCost(levels: CollegeLevels, id: CollegeId): number | null {
   const def = COLLEGE.find((c) => c.id === id)!;

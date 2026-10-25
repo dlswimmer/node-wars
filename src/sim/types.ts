@@ -95,7 +95,9 @@ export type SimEvent =
   /** Opposing units met mid-field and cancelled each other out (at least partly). */
   | { type: 'clash'; x: number; y: number }
   /** Troops lost in a fight near a Field Hospital came back to it (can be a fraction). */
-  | { type: 'heal'; baseId: number; amount: number };
+  | { type: 'heal'; baseId: number; amount: number }
+  /** A commander ability was used on a base (see abilities.ts). */
+  | { type: 'ability'; ability: 'airStrike' | 'supplyDrop' | 'rally'; baseId: number; by: Army };
 
 export interface World {
   width: number;

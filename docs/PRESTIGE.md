@@ -126,6 +126,11 @@ never the best play.
   War Chest (start with medals), Drill School, Logistics and Gunnery School (lasting
   build speed, troop speed and hit strength), Fortifications (bigger bases, longer shield),
   Officer Corps (start with Adjutant levels).
+- **Commander abilities** (`src/sim/abilities.ts`), each unlocked once on the ABILITIES page:
+  Air Strike (knock 10 troops off a base you don't own; can't capture or hit a shielded army;
+  45 s), Supply Drop (+15 troops to one of yours; 40 s), Rally (every base sends a quarter
+  of its troops to one of yours; 30 s). Campaign battles only, all recharging for the first
+  20 s. In battle they are buttons at the bottom right: tap one, then tap a base.
 - **Insignia:** Lieutenant, Captain, Major, Colonel, Brigadier, Field Marshal, then stars.
 - **Checked with bots** (`npm run campaign -- newKid 4`): retreating after 8 battles pays
   about 0.3-0.6 Honor a battle, after 20 about 0.6-1, and pushing to the wall 0.7 rising to

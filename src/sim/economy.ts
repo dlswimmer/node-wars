@@ -37,6 +37,10 @@ export const HONOR_COSTS: Record<CollegeId, number[]> = {
   gunnery: [3, 6, 10, 15, 22],
   fortifications: [4, 9, 15],
   officerCorps: [4, 9, 15],
+  // Abilities are bought once.
+  airStrike: [8],
+  supplyDrop: [8],
+  rally: [12],
 };
 
 /** Command Tent prices: the cost of each level, in order. */
