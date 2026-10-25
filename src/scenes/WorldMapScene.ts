@@ -84,6 +84,9 @@ export class WorldMapScene extends Phaser.Scene {
   init(data: WorldMapData) {
     this.focus = data.focus ?? null;
     this.revealed = data.revealed ?? [];
+    // Phaser reuses a scene's last data when started without any, so a later visit (say,
+    // after a Tactical Retreat onto a new world) would replay an old reveal. Use it once.
+    this.sys.settings.data = {};
   }
 
   create() {
