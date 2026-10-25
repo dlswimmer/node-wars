@@ -129,7 +129,8 @@ export function migrate(data: unknown): SaveData | null {
       upgrades: { ...NO_UPGRADES, ...d.upgrades },
       conquest: d.conquest,
       honor: Number(v4.honor) || 0,
-      college: { ...NO_COLLEGE, ...v4.college },
+      // Rally was swapped for Charge: anyone who bought Rally has Charge.
+      college: { ...NO_COLLEGE, ...v4.college, charge: rallyToCharge(v4.college) },
       retreats: Number(v4.retreats) || 0,
     };
   }
@@ -217,6 +218,12 @@ export function newWorld(): void {
   const starWins = save.conquest.starWins;
   save.conquest = { ...newConquest(seed), starWins };
   persist();
+}
+
+/** Charge replaced Rally; a War College that bought Rally gets Charge. */
+function rallyToCharge(college: Partial<CollegeLevels> | undefined): number {
+  const old = college as (Partial<CollegeLevels> & { rally?: number }) | undefined;
+  return Math.max(Number(old?.charge) || 0, Number(old?.rally) || 0);
 }
 
 /** Buy the next level of a War College upgrade with Honor. */

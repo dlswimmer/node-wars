@@ -97,7 +97,7 @@ export type SimEvent =
   /** Troops lost in a fight near a Field Hospital came back to it (can be a fraction). */
   | { type: 'heal'; baseId: number; amount: number }
   /** A commander ability was used on a base (see abilities.ts). */
-  | { type: 'ability'; ability: 'airStrike' | 'supplyDrop' | 'rally'; baseId: number; by: Army };
+  | { type: 'ability'; ability: 'airStrike' | 'supplyDrop' | 'charge'; baseId: number; by: Army };
 
 export interface World {
   width: number;
@@ -121,6 +121,8 @@ export interface World {
   nextUnitId: number;
   nextSquadId: number;
   rng: () => number;
+  /** Until when each army's troops are on a Charge (faster and harder-hitting). */
+  chargeUntil: Record<Army, number>;
   /** The way from every base to every other one, around terrain (see paths.ts). */
   routes: Route[][];
   /** The same for tanks, which bog down most in forest and mud. */

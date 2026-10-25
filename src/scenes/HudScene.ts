@@ -3,7 +3,7 @@ import { DPR, cssSize } from '../display';
 import { medalCount } from '../sim/economy';
 import { ABILITIES, secondsUntilReady, type AbilityId } from '../sim/abilities';
 import { missionStatus } from '../sim/missions';
-import { countBases, isShielded } from '../sim/world';
+import { countBases, isCharging, isShielded } from '../sim/world';
 import { ARMY_NAMES, COLORS, FACTION_COLORS, textStyle } from '../theme';
 import type { BattleScene } from './BattleScene';
 import { addButton, addMuteButton, makePressable, uiZoom } from './ui';
@@ -186,6 +186,7 @@ export class HudScene extends Phaser.Scene {
     if (shieldLeft > 0) lines.push(`SHIELD ${Math.ceil(shieldLeft)}`);
     const mission = this.battle.mission;
     if (mission) lines.push(`MISSION: ${missionStatus(mission, w).toUpperCase()}`);
+    if (isCharging(w, 'player')) lines.push(`CHARGE! ${Math.ceil(w.chargeUntil.player - w.time)}`);
     const adj = this.battle.adjutantStatus();
     if (adj === 'auto') lines.push('AUTO-BATTLE');
     else if (adj === 'waiting') lines.push('ADJUTANT: waiting for your orders');

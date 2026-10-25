@@ -40,7 +40,7 @@ export const HONOR_COSTS: Record<CollegeId, number[]> = {
   // Abilities are bought once.
   airStrike: [8],
   supplyDrop: [8],
-  rally: [12],
+  charge: [12],
 };
 
 /** Command Tent prices: the cost of each level, in order. */

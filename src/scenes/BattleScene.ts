@@ -755,6 +755,11 @@ Drag from a BLUE base!`,
       sfx.failed();
       return;
     }
+    // Charge needs no target: it goes off as soon as you tap it.
+    if (ABILITIES[id].target === 'none') {
+      useAbility(this.world, this.abilities, id);
+      return;
+    }
     this.abilityArmed = id;
     this.armed.clear();
     sfx.click();
@@ -811,6 +816,10 @@ Drag from a BLUE base!`,
       }
       if (e.type === 'heal') {
         this.healed.set(e.baseId, (this.healed.get(e.baseId) ?? 0) + e.amount);
+        continue;
+      }
+      if (e.type === 'ability' && e.ability === 'charge') {
+        this.chargeEffect();
         continue;
       }
       const base = this.world.bases[e.baseId];
@@ -902,7 +911,18 @@ Drag from a BLUE base!`,
     }
   }
 
-  /** Show an ability landing: a blast, a crate drop, or a rally flare. */
+  /** A Charge: a flare around every base of yours and a shout over your HQ. */
+  private chargeEffect() {
+    for (const b of this.world.bases) {
+      if (b.owner !== 'player') continue;
+      this.addEffect('ring', b.x, b.y, BASE_STATS[b.kind].radius + 4, 0xffd23f, 0.7);
+    }
+    const hq = this.world.bases.find((b) => b.kind === 'hq' && b.owner === 'player');
+    if (hq) this.hint(hq, 'CHARGE!', '#ffd23f');
+    sfx.victory();
+  }
+
+  /** Show an ability landing: a blast or a crate drop. */
   private abilityEffect(id: AbilityId, base: Base, r: number) {
     if (id === 'airStrike') {
       this.addEffect('flash', base.x, base.y, r + 30, 0xffb347, 0.5);
@@ -925,10 +945,6 @@ Drag from a BLUE base!`,
       this.addEffect('ring', base.x, base.y, r + 6, 0x7dff9a, 0.8);
       this.hint(base, `SUPPLY DROP! +${SUPPLY_DROP_TROOPS}`, '#7dff9a');
       sfx.capture();
-    } else {
-      this.addEffect('ring', base.x, base.y, r + 6, FACTION_COLORS.player, 1);
-      this.hint(base, 'RALLY HERE!', '#9ec5ff');
-      sfx.send();
     }
   }
 

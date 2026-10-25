@@ -102,7 +102,7 @@ Full plan in [CONQUEST.md](CONQUEST.md). The bridge from single battles to the p
       climbing outward until the war can't be pushed further
 - [x] Tactical Retreat (prestige): bank Honor for how far the war got, start a new war, spend
       Honor in the War College on upgrades that last for good; your insignia rises each time
-- [x] Prestige-only active abilities in the War College (air strike, supply drop, rally)
+- [x] Prestige-only active abilities in the War College (air strike, supply drop, charge)
 
 ## Phase 2: Zones and the persistent world (current)
 

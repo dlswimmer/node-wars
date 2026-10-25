@@ -211,6 +211,6 @@ starting points for the bot balance harness, not final values.
 1. **Jets only raid.** They knock troops off but never capture.
 2. **Fog of war** (Phase 2) is on for **Soldier and General**, off for Recruit.
 3. **Abilities live in a player ability bar.** The first three (Air Strike, Supply Drop,
-   Rally) are War College unlocks bought with Honor (see PRESTIGE.md). Base-unlocked abilities
+   Charge) are War College unlocks bought with Honor (see PRESTIGE.md). Base-unlocked abilities
    and a pre-battle loadout may come later.
 4. **Neutral bases never fight back**, at least for now.

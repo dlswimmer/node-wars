@@ -10,7 +10,8 @@ import {
   useAbility,
 } from './abilities';
 import type { LevelDef } from './types';
-import { createWorld } from './world';
+import { CHARGE_ATTACK, CHARGE_SECONDS, CHARGE_SPEED } from './config';
+import { createWorld, getBonuses, isCharging, sendTroops, step } from './world';
 
 const level = (): LevelDef => ({
   id: 'a',
@@ -29,7 +30,7 @@ const level = (): LevelDef => ({
 const ready = (time = OPENING_CHARGE) => {
   const world = createWorld(level());
   world.time = time;
-  return { world, state: createAbilities('player', ['airStrike', 'supplyDrop', 'rally']) };
+  return { world, state: createAbilities('player', ['airStrike', 'supplyDrop', 'charge']) };
 };
 
 describe('abilities', () => {
@@ -37,7 +38,7 @@ describe('abilities', () => {
     const { world, state } = ready(5);
     expect(secondsUntilReady(world, state, 'airStrike')).toBe(OPENING_CHARGE - 5);
     expect(useAbility(world, state, 'airStrike', 3)).toBe(false);
-    expect(secondsUntilReady(world, createAbilities('player', []), 'rally')).toBeNull();
+    expect(secondsUntilReady(world, createAbilities('player', []), 'charge')).toBeNull();
   });
 
   it('Air Strike knocks troops off a base you do not own, but never captures it', () => {
@@ -67,10 +68,26 @@ describe('abilities', () => {
     expect(world.bases[1]!.troops).toBe(20 + SUPPLY_DROP_TROOPS);
   });
 
-  it('Rally sends troops from every other base to the chosen one', () => {
+  it('Charge makes your troops faster and harder-hitting for a while, with no target', () => {
     const { world, state } = ready();
-    expect(useAbility(world, state, 'rally', 1)).toBe(true);
-    expect(world.units.length).toBe(10);
-    expect(world.units.every((u) => u.targetId === 1 && u.owner === 'player')).toBe(true);
+    const before = getBonuses(world, 'player').attack;
+    expect(useAbility(world, state, 'charge')).toBe(true);
+    expect(isCharging(world, 'player')).toBe(true);
+    expect(getBonuses(world, 'player').attack).toBeCloseTo(before * CHARGE_ATTACK);
+    expect(isCharging(world, 'enemy')).toBe(false);
+    // A marching soldier covers more ground while the Charge lasts.
+    const march = (charge: boolean) => {
+      const w = createWorld(level());
+      if (charge) w.chargeUntil.player = 99;
+      sendTroops(w, 'player', 0, 3, 0.1);
+      const u = w.units[0]!;
+      u.delay = 0;
+      const x = u.x;
+      step(w, 0.5);
+      return u.x - x;
+    };
+    expect(march(true)).toBeCloseTo(march(false) * CHARGE_SPEED, 0);
+    world.time += CHARGE_SECONDS;
+    expect(isCharging(world, 'player')).toBe(false);
   });
 });

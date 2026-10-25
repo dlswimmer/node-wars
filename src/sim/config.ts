@@ -116,6 +116,10 @@ export const JET_SPEED = 2.2;
 /** Tanks move at this fraction of soldier speed. */
 export const TANK_SPEED = 0.6;
 export const DEFAULT_SEND_FRACTION = 0.5;
+/** How long a Charge (an ability) lasts, and how much faster and harder your troops go. */
+export const CHARGE_SECONDS = 10;
+export const CHARGE_SPEED = 1.5;
+export const CHARGE_ATTACK = 1.25;
 /** Opposing units closer than this mid-field clash and cancel out. */
 export const CLASH_RADIUS = 12;
 /**

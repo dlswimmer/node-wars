@@ -2,6 +2,8 @@ import {
   BASE_STATS,
   BONUS_PER_BASE,
   BUNKER_DAMAGE,
+  CHARGE_ATTACK,
+  CHARGE_SPEED,
   CLASH_RADIUS,
   HOSPITAL_RANGE,
   HOSPITAL_RECOVERY,
@@ -82,6 +84,7 @@ export function createWorld(level: LevelDef, opts: WorldOptions = {}): World {
     nextUnitId: 1,
     nextSquadId: 1,
     rng: createRng(opts.seed ?? 1),
+    chargeUntil: perArmy(() => 0),
     routes: levelRoutes(level),
     tankRoutes: levelRoutes(level, 'tank'),
     ground: levelGround(level),
@@ -115,7 +118,10 @@ export function getBonuses(world: World, army: Army): Bonuses {
   return {
     production: 1 + factories * BONUS_PER_BASE.factory,
     speed: 1 + radars * BONUS_PER_BASE.radar,
-    attack: (1 + armories * BONUS_PER_BASE.armory) * world.boosts[army].attack,
+    attack:
+      (1 + armories * BONUS_PER_BASE.armory) *
+      world.boosts[army].attack *
+      (isCharging(world, army) ? CHARGE_ATTACK : 1),
   };
 }
 
@@ -131,6 +137,11 @@ export function grownTroops(
   capacity = BASE_STATS[kind].capacity,
 ): number {
   return troops >= capacity ? troops : Math.min(capacity, troops + rate * seconds);
+}
+
+/** Whether an army's troops are on a Charge right now. */
+export function isCharging(world: World, army: Army): boolean {
+  return world.time < world.chargeUntil[army];
 }
 
 /** How many troops a base builds up to for its owner (upgrades can raise it). */
@@ -371,8 +382,9 @@ function moveUnits(world: World, dt: number, bonuses: Record<Army, Bonuses>): vo
       survivors.push(u);
       continue;
     }
-    // Forest and mud slow everyone on foot, tanks most.
-    let move = u.speed * dt * groundSpeed(world.ground, u.x, u.y, u.kind);
+    // Forest and mud slow everyone on foot, tanks most; a Charge speeds everyone up.
+    const charge = isCharging(world, u.owner) ? CHARGE_SPEED : 1;
+    let move = u.speed * dt * charge * groundSpeed(world.ground, u.x, u.y, u.kind);
     let dist = Math.hypot(u.tx - u.x, u.ty - u.y);
     // Round the road's corners without losing any of this step's movement.
     while (dist <= move && u.path?.length) {

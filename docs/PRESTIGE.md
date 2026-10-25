@@ -128,9 +128,11 @@ never the best play.
   Officer Corps (start with Adjutant levels).
 - **Commander abilities** (`src/sim/abilities.ts`), each unlocked once on the ABILITIES page:
   Air Strike (knock 10 troops off a base you don't own; can't capture or hit a shielded army;
-  45 s), Supply Drop (+15 troops to one of yours; 40 s), Rally (every base sends a quarter
-  of its troops to one of yours; 30 s). Campaign battles only, all recharging for the first
-  20 s. In battle they are buttons at the bottom right: tap one, then tap a base.
+  45 s), Supply Drop (+15 troops to one of yours; 40 s) and Charge (no target: for 10 s your
+  troops move 50% faster and hit 25% harder; 50 s). Campaign battles only, all recharging for
+  the first 20 s. In battle they are buttons at the bottom right: tap one, then tap a base
+  (Charge goes off at once). Charge replaced a Rally ability (every base sends troops to one)
+  that was too close to what dragging already does; saves that bought Rally have Charge.
 - **Insignia:** Lieutenant, Captain, Major, Colonel, Brigadier, Field Marshal, then stars.
 - **Checked with bots** (`npm run campaign -- newKid 4`): retreating after 8 battles pays
   about 0.3-0.6 Honor a battle, after 20 about 0.6-1, and pushing to the wall 0.7 rising to

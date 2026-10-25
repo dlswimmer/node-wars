@@ -76,7 +76,7 @@ export const NO_COLLEGE: CollegeLevels = {
   officerCorps: 0,
   airStrike: 0,
   supplyDrop: 0,
-  rally: 0,
+  charge: 0,
 };
 
 /** The commander abilities this War College has unlocked. */

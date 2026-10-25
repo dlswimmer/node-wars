@@ -135,3 +135,20 @@ describe('Tactical Retreat', () => {
     expect(loadSave().honor).toBe(2);
   });
 });
+
+describe('Charge replaced Rally', () => {
+  it('gives Charge to a War College that bought Rally', () => {
+    const save = migrate({
+      version: 4,
+      medals: 0,
+      medalsEarned: 0,
+      upgrades: {},
+      conquest: newConquest(5),
+      honor: 0,
+      college: { rally: 1, airStrike: 1 },
+      retreats: 1,
+    })!;
+    expect(save.college.charge).toBe(1);
+    expect(save.college.airStrike).toBe(1);
+  });
+});
