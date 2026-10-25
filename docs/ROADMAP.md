@@ -96,6 +96,10 @@ Full plan in [CONQUEST.md](CONQUEST.md). The bridge from single battles to the p
       map), shown on the world map and worth an extra medal
 - [x] More upgrades (Sharpshooters, Recruiters, Elite Guard, Thick Walls, Afterburners,
       Field Medics) on two Command Tent pages, each showing what you have now and next
+- [x] The Command Tent is an upgrade web: a centre node with a spoke per upgrade, one node per
+      level outward, lit gold as you buy (resets with each war)
+- [ ] The War College as an endless upgrade web (small passives, forks, notables, abilities;
+      costs rise with distance), replacing its list pages
 - [ ] Battles of about 5 minutes from 3 stars up (tougher middle garrisons, bigger maps, a
       little slower), tuned by bots; 1-2 stars stay quick
 - [x] Enemies get upgrades as regions get harder: a Threat level past five stars that keeps

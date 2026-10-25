@@ -17,13 +17,9 @@ export type UpgradeId =
   | 'fieldMedics'
   | 'adjutant';
 
-/** The Command Tent's two pages. */
-export type UpgradeTab = 'army' | 'bases';
-
 export interface UpgradeDef {
   id: UpgradeId;
   name: string;
-  tab: UpgradeTab;
   /** What this many levels add up to, in kid words ("+16% troop building"). */
   total: (levels: number) => string;
   /** Medal cost of each level (index 0 buys level 1); see UPGRADE_COSTS in economy.ts. */
@@ -33,63 +29,54 @@ export interface UpgradeDef {
 const pct = (n: number) => `+${Math.round(n)}%`;
 
 const DEFS: Omit<UpgradeDef, 'costs'>[] = [
-  { id: 'headStart', name: 'HEAD START', tab: 'army', total: (n) => `+${5 * n} troops in your HQ` },
+  { id: 'headStart', name: 'HEAD START', total: (n) => `+${5 * n} troops in your HQ` },
   {
     id: 'fastBuilders',
     name: 'FAST BUILDERS',
-    tab: 'army',
     total: (n) => `${pct(8 * n)} troop building`,
   },
-  { id: 'quickMarch', name: 'QUICK MARCH', tab: 'army', total: (n) => `${pct(6 * n)} troop speed` },
+  { id: 'quickMarch', name: 'QUICK MARCH', total: (n) => `${pct(6 * n)} troop speed` },
   {
     id: 'sharpshooters',
     name: 'SHARPSHOOTERS',
-    tab: 'army',
     total: (n) => `troops hit ${pct(5 * n)} harder`,
   },
   {
     id: 'recruiters',
     name: 'RECRUITERS',
-    tab: 'army',
     total: (n) => `+${2 * n} troops in each base you capture`,
   },
   {
     id: 'eliteGuard',
     name: 'ELITE GUARD',
-    tab: 'army',
     total: (n) => `your HQ holds +${15 * n} troops`,
   },
   {
     id: 'strongShield',
     name: 'STRONG SHIELD',
-    tab: 'bases',
     total: (n) => `+${5 * n} s opening shield`,
   },
   {
     id: 'thickWalls',
     name: 'THICK WALLS',
-    tab: 'bases',
     total: (n) => `your bases hold ${pct(10 * n)} more`,
   },
   {
     id: 'heavyTanks',
     name: 'HEAVY TANKS',
-    tab: 'bases',
     total: (n) => `tanks worth +${n} troop${n === 1 ? '' : 's'}`,
   },
   {
     id: 'afterburners',
     name: 'AFTERBURNERS',
-    tab: 'bases',
     total: (n) => `jets fly ${pct(15 * n)} faster`,
   },
   {
     id: 'fieldMedics',
     name: 'FIELD MEDICS',
-    tab: 'bases',
     total: (n) => `Hospitals save ${pct(8 * n)} more troops`,
   },
-  { id: 'adjutant', name: 'ADJUTANT', tab: 'bases', total: () => 'An AI officer that helps you' },
+  { id: 'adjutant', name: 'ADJUTANT', total: () => 'An AI officer that helps you' },
 ];
 
 export const UPGRADES: UpgradeDef[] = DEFS.map((u) => ({ ...u, costs: UPGRADE_COSTS[u.id] }));

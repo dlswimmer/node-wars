@@ -325,7 +325,7 @@ export class WorldMapScene extends Phaser.Scene {
         label: 'COMMAND TENT',
         color: 0x5a4a1f,
         labelSize: 26,
-        onClick: () => this.scene.start('tent'),
+        onClick: () => this.scene.start('web'),
       }),
     );
     this.ui(addMuteButton(this, w - 48, 44, 64));

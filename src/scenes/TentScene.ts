@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio';
-import { buyCollege, buyUpgrade, loadSave, promote, tacticalRetreat } from '../save';
+import { buyCollege, loadSave, promote, tacticalRetreat } from '../save';
 import {
   COLLEGE,
   RETREAT_MIN_STARS,
@@ -10,28 +10,14 @@ import {
   nextHonorCost,
   promotionProgress,
 } from '../sim/college';
-import { medalCount, medalSummary } from '../sim/economy';
-import {
-  ADJUTANT_BUYABLE,
-  ADJUTANT_LEVELS,
-  UPGRADES,
-  adjutantLevel,
-  canBuyAdjutant,
-  freeAdjutantLevels,
-  nextAdjutantMilestone,
-  nextCost,
-  type UpgradeTab,
-} from '../sim/upgrades';
+import { ADJUTANT_LEVELS, adjutantLevel, nextAdjutantMilestone } from '../sim/upgrades';
 import { COLORS, textStyle } from '../theme';
 import { drawMapGrid } from './drawing';
 import { MENU_DESIGN, fitDesign } from './MenuScene';
 import { addButton, addMuteButton } from './ui';
 
-/**
- * The Command Tent's pages: two of medal upgrades, then the War College's lasting upgrades and
- * commander abilities (both bought with Honor).
- */
-type TentTab = UpgradeTab | 'college' | 'abilities';
+/** The War College's pages: lasting upgrades, and commander abilities (both bought with Honor). */
+type TentTab = 'college' | 'abilities';
 
 /** Where the Tactical Retreat button sits; the "no" of its confirm takes the same spot. */
 const RETREAT = { x: 640, y: 562 };
@@ -42,7 +28,7 @@ const RETREAT = { x: 640, y: 562 };
  */
 export class TentScene extends Phaser.Scene {
   /** Which page is showing. */
-  private tab: TentTab = 'army';
+  private tab: TentTab = 'college';
   /** Asking "are you sure?" before a Tactical Retreat. */
   private confirming = false;
 
@@ -51,7 +37,7 @@ export class TentScene extends Phaser.Scene {
   }
 
   init(data: { tab?: TentTab; confirm?: boolean }) {
-    this.tab = data.tab ?? 'army';
+    this.tab = data.tab ?? 'college';
     this.confirming = !!data.confirm;
   }
 
@@ -73,36 +59,30 @@ export class TentScene extends Phaser.Scene {
   private page() {
     const save = loadSave();
     const cx = MENU_DESIGN.width / 2;
-    const college = this.tab === 'college' || this.tab === 'abilities';
-    this.add
-      .text(cx, 40, college ? 'WAR COLLEGE' : 'COMMAND TENT', textStyle(60, COLORS.accent))
-      .setOrigin(0.5);
-    const wallet = college
-      ? `${insignia(save.retreats)} · ${save.honor} Honor`
-      : `You have ${medalSummary(save.medals, save.medalsEarned)}`;
+    this.add.text(cx, 40, 'WAR COLLEGE', textStyle(60, COLORS.accent)).setOrigin(0.5);
+    const wallet = `${insignia(save.retreats)} · ${save.honor} Honor`;
     this.add.text(cx, 88, wallet, textStyle(28)).setOrigin(0.5);
 
-    // Pages, so every upgrade gets a readable row on a phone.
-    const tabs: { id: TentTab; label: string }[] = [
-      { id: 'army', label: 'ARMY' },
-      { id: 'bases', label: 'BASES & GEAR' },
+    // The Command Tent (its own web screen), then the War College's pages.
+    const tabs: { id: TentTab | 'tent'; label: string }[] = [
+      { id: 'tent', label: 'COMMAND TENT' },
       { id: 'college', label: 'WAR COLLEGE' },
       { id: 'abilities', label: 'ABILITIES' },
     ];
     tabs.forEach((t, i) => {
-      addButton(this, cx + (i - 1.5) * 240, 132, {
-        width: 228,
+      addButton(this, cx + (i - 1) * 250, 132, {
+        width: 236,
         height: 48,
         label: t.label,
         color: t.id === this.tab ? 0x2f5f8a : 0x2a3324,
-        labelSize: 26,
-        onClick: () => this.scene.restart({ tab: t.id }),
+        labelSize: 24,
+        onClick: () =>
+          t.id === 'tent' ? this.scene.start('web') : this.scene.restart({ tab: t.id }),
       });
     });
 
     if (this.tab === 'college') this.collegeRows();
-    else if (this.tab === 'abilities') this.abilityRows();
-    else this.tentRows(this.tab as UpgradeTab);
+    else this.abilityRows();
 
     addButton(this, 110, 562, {
       width: 180,
@@ -154,50 +134,6 @@ export class TentScene extends Phaser.Scene {
         }
       },
     });
-  }
-
-  private tentRows(tab: UpgradeTab) {
-    const save = loadSave();
-    UPGRADES.filter((u) => u.tab === tab).forEach((u, i) => {
-      if (u.id === 'adjutant') {
-        this.adjutantRow(i);
-        return;
-      }
-      const level = save.upgrades[u.id];
-      const max = u.costs.length;
-      const cost = nextCost(save.upgrades, u.id);
-      // What you have now and what the next level brings.
-      const detail = nowAndNext(u.total, level, max);
-      const price =
-        cost === null
-          ? null
-          : { label: medalCount(cost).toUpperCase(), affordable: save.medals >= cost };
-      this.row(i, 56, u.name, level, max, detail, price, () => buyUpgrade(u.id));
-    });
-  }
-
-  /**
-   * The Adjutant: duties learned for free from Honor milestones plus levels bought this war,
-   * which stack on top and always start at the cheapest price.
-   */
-  private adjutantRow(i: number) {
-    const save = loadSave();
-    const bought = save.upgrades.adjutant;
-    const level = Math.min(ADJUTANT_BUYABLE, adjutantLevel(bought, save.honorEarned));
-    const free = Math.min(ADJUTANT_BUYABLE, freeAdjutantLevels(save.honorEarned));
-    const room = canBuyAdjutant(bought, save.honorEarned);
-    const cost = room ? nextCost(save.upgrades, 'adjutant') : null;
-    const gift = free > 0 ? `  (${free} free from Honor)` : '';
-    const detail =
-      level >= ADJUTANT_BUYABLE
-        ? `All duties learned${gift}`
-        : `Next: ${ADJUTANT_LEVELS[level] ?? ''}${gift}`;
-    const price =
-      cost === null
-        ? null
-        : { label: medalCount(cost).toUpperCase(), affordable: save.medals >= cost };
-    const buy = () => buyUpgrade('adjutant');
-    this.row(i, 56, 'ADJUTANT', level, ADJUTANT_BUYABLE, detail, price, buy);
   }
 
   private collegeRows() {

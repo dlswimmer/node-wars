@@ -99,6 +99,11 @@ every push to `main` (CI runs lint, format, typecheck and tests first).
   Retreat resets a war; a Promotion (the next phase) will likely reset more, for bigger,
   longer-lasting rewards. Promotion needs 100 Honor earned in total, counting what the
   current war would pay (`PROMOTION_HONOR`); for now it only awards a Phase 2 badge.
+- **Upgrade webs, two of them** (the user, 2026-10-25): the Command Tent (medals, resets each
+  war) is a radial web (`src/sim/web.ts`, `src/scenes/WebScene.ts`): centre node, a spoke
+  per upgrade, a node per level. The War College (Honor, permanent) will become its own
+  endless web next. Two webs, not one, because they use different currencies and reset
+  differently. Kept separate on purpose; the user agreed.
 - **Retreating early must not pay.** Honor grows faster than progress (based on the hardest
   threat beaten and regions held), a retreat needs a minimum (e.g. a 3-star region beaten),
   and a bot test compares Honor per hour for "retreat after 5 battles", "after 15" and "push

@@ -6,6 +6,7 @@ import { HudScene } from './scenes/HudScene';
 import { MenuScene } from './scenes/MenuScene';
 import { SettingsScene } from './scenes/SettingsScene';
 import { TentScene } from './scenes/TentScene';
+import { WebScene } from './scenes/WebScene';
 import { WorldMapScene } from './scenes/WorldMapScene';
 import { COLORS } from './theme';
 
@@ -26,7 +27,7 @@ const game = new Phaser.Game({
     zoom: 1 / DPR,
   },
   input: { activePointers: 3 },
-  scene: [MenuScene, WorldMapScene, TentScene, SettingsScene, BattleScene, HudScene],
+  scene: [MenuScene, WorldMapScene, WebScene, TentScene, SettingsScene, BattleScene, HudScene],
 });
 
 function fitToScreen() {
