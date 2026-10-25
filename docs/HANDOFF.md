@@ -94,6 +94,11 @@ every push to `main` (CI runs lint, format, typecheck and tests first).
 - **Prestige target:** after a few Tactical Retreats, the 8-year-old should be able to beat 5
   stars and beyond in the first phase. Tune the War College with bots so the "new 8yo"
   profile wins 5-star regions after a handful of retreats.
+- **The game is an incremental at heart** (the user, 2026-10-25): players should often go back
+  to the beginning phases, each time with more abilities. Prestige is layered: a Tactical
+  Retreat resets a war; a Promotion (the next phase) will likely reset more, for bigger,
+  longer-lasting rewards. Promotion needs 100 Honor earned in total, counting what the
+  current war would pay (`PROMOTION_HONOR`); for now it only awards a Phase 2 badge.
 - **Retreating early must not pay.** Honor grows faster than progress (based on the hardest
   threat beaten and regions held), a retreat needs a minimum (e.g. a 3-star region beaten),
   and a bot test compares Honor per hour for "retreat after 5 battles", "after 15" and "push

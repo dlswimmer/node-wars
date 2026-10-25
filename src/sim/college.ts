@@ -1,5 +1,5 @@
 import { ABILITIES, type AbilityId } from './abilities';
-import { HONOR_COSTS } from './economy';
+import { HONOR_COSTS, PROMOTION_HONOR } from './economy';
 import type { ConquestState } from './worldmap';
 import { naturalStars, regionThreat } from './worldmap';
 
@@ -126,6 +126,29 @@ export function honorFor(state: ConquestState): number {
     points += (hard * hard) / 9;
   }
   return Math.floor(points);
+}
+
+/** Honor already spent on these War College levels. */
+export function honorSpent(levels: CollegeLevels): number {
+  let spent = 0;
+  for (const c of COLLEGE) {
+    for (let i = 0; i < levels[c.id]; i++) spent += c.costs[i] ?? 0;
+  }
+  return spent;
+}
+
+/**
+ * Progress toward a Promotion to the next phase: Honor banked in past wars plus what this war
+ * would pay right now (so the bar moves while you fight, not only after a retreat).
+ */
+export function promotionProgress(honorEarned: number, war: ConquestState) {
+  const pending = honorFor(war);
+  return {
+    banked: honorEarned,
+    pending,
+    goal: PROMOTION_HONOR,
+    ready: honorEarned + pending >= PROMOTION_HONOR,
+  };
 }
 
 /** Insignia by how many Tactical Retreats you have made: a rank that only goes up. */

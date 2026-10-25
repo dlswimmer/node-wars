@@ -9,7 +9,9 @@ import {
 import {
   NO_COLLEGE,
   honorFor,
+  honorSpent,
   nextHonorCost,
+  promotionProgress,
   type CollegeId,
   type CollegeLevels,
 } from './sim/college';
@@ -32,6 +34,10 @@ export interface SaveData {
   conquest: ConquestState;
   /** Honor to spend in the War College (only Tactical Retreats pay it). */
   honor: number;
+  /** Every Honor ever earned (spending doesn't lower it); counts toward a Promotion. */
+  honorEarned: number;
+  /** Highest phase the player has been promoted to (1 = still in the first). */
+  phase: number;
   /** War College levels: permanent, never reset. */
   college: CollegeLevels;
   /** Tactical Retreats made; sets your insignia. */
@@ -39,7 +45,10 @@ export interface SaveData {
 }
 
 /** Version 3 had whole medals but no prestige yet. */
-interface SaveV3 extends Omit<SaveData, 'version' | 'honor' | 'college' | 'retreats'> {
+interface SaveV3 extends Omit<
+  SaveData,
+  'version' | 'honor' | 'honorEarned' | 'phase' | 'college' | 'retreats'
+> {
   version: 3;
 }
 
@@ -76,7 +85,7 @@ function fresh(): SaveData {
 
 /** No Honor, no War College, no retreats yet. */
 function NO_PRESTIGE() {
-  return { honor: 0, college: { ...NO_COLLEGE }, retreats: 0 };
+  return { honor: 0, honorEarned: 0, phase: 1, college: { ...NO_COLLEGE }, retreats: 0 };
 }
 
 /** Medals from before whole medals, scaled to keep the same buying power. */
@@ -122,15 +131,20 @@ export function migrate(data: unknown): SaveData | null {
   }
   if ((d.version === 3 || d.version === 4) && d.conquest) {
     const v4 = d as Partial<SaveData>;
+    // Rally was swapped for Charge: anyone who bought Rally has Charge.
+    const college = { ...NO_COLLEGE, ...v4.college, charge: rallyToCharge(v4.college) };
+    const honor = Number(v4.honor) || 0;
     return {
       version: 4,
       medals: Number(d.medals) || 0,
       medalsEarned: Number(d.medalsEarned) || 0,
       upgrades: { ...NO_UPGRADES, ...d.upgrades },
       conquest: d.conquest,
-      honor: Number(v4.honor) || 0,
-      // Rally was swapped for Charge: anyone who bought Rally has Charge.
-      college: { ...NO_COLLEGE, ...v4.college, charge: rallyToCharge(v4.college) },
+      honor,
+      // Saves from before lifetime Honor count what is in hand plus what was spent.
+      honorEarned: Number(v4.honorEarned) || honor + honorSpent(college),
+      phase: Math.max(1, Number(v4.phase) || 1),
+      college,
       retreats: Number(v4.retreats) || 0,
     };
   }
@@ -252,6 +266,7 @@ export function tacticalRetreat(): number {
   while (seed === save.conquest.seed) seed = worldSeed();
   const startMedals = 5 * save.college.warChest;
   save.honor += honor;
+  save.honorEarned += honor;
   save.retreats += 1;
   save.medals = startMedals;
   save.medalsEarned = startMedals;
@@ -259,6 +274,18 @@ export function tacticalRetreat(): number {
   save.conquest = { ...newConquest(seed), starWins };
   persist();
   return honor;
+}
+
+/**
+ * Promotion: once Honor earned (plus this war's) reaches the goal, move up a phase. The next
+ * phase isn't built yet, so for now this records the Promotion (a badge) and the war goes on.
+ */
+export function promote(): boolean {
+  const save = loadSave();
+  if (save.phase >= 2 || !promotionProgress(save.honorEarned, save.conquest).ready) return false;
+  save.phase = 2;
+  persist();
+  return true;
 }
 
 /** Erase all campaign progress: medals, upgrades and the world. */

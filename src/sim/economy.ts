@@ -43,6 +43,14 @@ export const HONOR_COSTS: Record<CollegeId, number[]> = {
   charge: [12],
 };
 
+/**
+ * Honor needed for a Promotion to the next phase: every Honor earned in past wars plus what
+ * the current war would pay if you retreated now. Set low on purpose (a few days of play,
+ * about 3 wars for a new 8-year-old in bot runs): like an incremental game, players should
+ * cycle back through the early phases often, with more powers each time.
+ */
+export const PROMOTION_HONOR = 100;
+
 /** Command Tent prices: the cost of each level, in order. */
 export const UPGRADE_COSTS: Record<UpgradeId, number[]> = {
   headStart: [3, 6, 10, 15, 25],

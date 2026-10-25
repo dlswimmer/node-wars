@@ -133,6 +133,9 @@ never the best play.
   the first 20 s. In battle they are buttons at the bottom right: tap one, then tap a base
   (Charge goes off at once). Charge replaced a Rally ability (every base sends troops to one)
   that was too close to what dragging already does; saves that bought Rally have Charge.
+- **Promotion** (to the next phase): needs 100 Honor earned in total, counting what the current
+  war would pay right now (a gold bar on the War College page, banked solid and this war
+  lighter). Until Phase 2 exists it records a Phase 2 badge and the war goes on.
 - **Insignia:** Lieutenant, Captain, Major, Colonel, Brigadier, Field Marshal, then stars.
 - **Checked with bots** (`npm run campaign -- newKid 4`): retreating after 8 battles pays
   about 0.3-0.6 Honor a battle, after 20 about 0.6-1, and pushing to the wall 0.7 rising to

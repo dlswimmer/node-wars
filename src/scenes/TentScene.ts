@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio';
-import { buyCollege, buyUpgrade, loadSave, tacticalRetreat } from '../save';
+import { buyCollege, buyUpgrade, loadSave, promote, tacticalRetreat } from '../save';
 import {
   COLLEGE,
   RETREAT_MIN_STARS,
@@ -8,6 +8,7 @@ import {
   honorFor,
   insignia,
   nextHonorCost,
+  promotionProgress,
 } from '../sim/college';
 import { medalCount, medalSummary } from '../sim/economy';
 import { ADJUTANT_LEVELS, UPGRADES, nextCost, type UpgradeTab } from '../sim/upgrades';
@@ -175,8 +176,10 @@ export class TentScene extends Phaser.Scene {
       const price =
         cost === null ? null : { label: `${cost} HONOR`, affordable: save.honor >= cost };
       const detail = nowAndNext(c.total, level, max);
-      this.row(i, 48, c.name, level, max, detail, price, () => buyCollege(c.id));
+      this.row(i, 44, c.name, level, max, detail, price, () => buyCollege(c.id));
     });
+
+    this.promotionBar();
 
     // The Tactical Retreat: bank Honor for this war and start a new one.
     const ready = canRetreat(save.conquest);
@@ -194,6 +197,51 @@ export class TentScene extends Phaser.Scene {
         else sfx.failed();
       },
     });
+  }
+
+  /**
+   * Progress toward a Promotion: Honor banked from past wars (solid) plus what this war would
+   * pay now (lighter), toward the goal. Full, it becomes a PROMOTE button.
+   */
+  private promotionBar() {
+    const save = loadSave();
+    const cx = MENU_DESIGN.width / 2;
+    const y = 515;
+    if (save.phase >= 2) {
+      this.add
+        .text(cx, y, '★ PROMOTED! Phase 2 is coming soon.', textStyle(26, COLORS.accent))
+        .setOrigin(0.5);
+      return;
+    }
+    const p = promotionProgress(save.honorEarned, save.conquest);
+    if (p.ready) {
+      addButton(this, cx, y, {
+        width: 560,
+        height: 38,
+        label: '★ PROMOTE TO PHASE 2',
+        color: 0x8a6a1f,
+        labelSize: 28,
+        onClick: () => {
+          if (promote()) {
+            sfx.victory();
+            this.scene.restart({ tab: 'college' });
+          }
+        },
+      });
+      return;
+    }
+    const [w, h] = [560, 22];
+    const x0 = cx - w / 2;
+    const bar = this.add.graphics();
+    bar.fillStyle(0x000000, 0.55).fillRoundedRect(x0, y - h / 2 + 6, w, h, 8);
+    const banked = Math.min(1, p.banked / p.goal);
+    const total = Math.min(1, (p.banked + p.pending) / p.goal);
+    if (total > 0) bar.fillStyle(0xb08a2a, 0.6).fillRoundedRect(x0, y - h / 2 + 6, w * total, h, 8);
+    if (banked > 0) bar.fillStyle(0xf2c94c, 1).fillRoundedRect(x0, y - h / 2 + 6, w * banked, h, 8);
+    const thisWar = p.pending > 0 ? ` (+${p.pending} this war)` : '';
+    this.add
+      .text(cx, y - 8, `PROMOTION: ${p.banked}${thisWar} / ${p.goal} HONOR EARNED`, textStyle(20))
+      .setOrigin(0.5, 1);
   }
 
   /** Commander abilities: each unlocked once with Honor, then usable in campaign battles. */

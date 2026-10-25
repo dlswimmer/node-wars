@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addMedals,
   buyCollege,
+  promote,
   buyUpgrade,
   loadSave,
   migrate,
@@ -10,6 +11,7 @@ import {
   resetAll,
   tacticalRetreat,
 } from './save';
+import { PROMOTION_HONOR } from './sim/economy';
 import { NO_UPGRADES } from './sim/upgrades';
 import { START_ID, availableRegions, naturalStars, newConquest } from './sim/worldmap';
 
@@ -150,5 +152,44 @@ describe('Charge replaced Rally', () => {
     })!;
     expect(save.college.charge).toBe(1);
     expect(save.college.airStrike).toBe(1);
+  });
+});
+
+describe('Promotion', () => {
+  it('works out lifetime Honor for older saves from what is held and spent', () => {
+    const save = migrate({
+      version: 4,
+      medals: 0,
+      medalsEarned: 0,
+      upgrades: {},
+      conquest: newConquest(5),
+      honor: 4,
+      college: { veteranPay: 2, airStrike: 1 },
+      retreats: 2,
+    })!;
+    // 4 in hand, plus 3 + 6 on Veteran Pay and 8 on Air Strike.
+    expect(save.honorEarned).toBe(21);
+    expect(save.phase).toBe(1);
+  });
+
+  it('counts banked Honor plus what this war would pay, then promotes once', () => {
+    resetAll();
+    const save = loadSave();
+    expect(promote()).toBe(false);
+    save.honorEarned = PROMOTION_HONOR - 1;
+    expect(promote()).toBe(false);
+    save.honorEarned = PROMOTION_HONOR;
+    expect(promote()).toBe(true);
+    expect(loadSave().phase).toBe(2);
+    expect(promote()).toBe(false);
+  });
+
+  it('banks lifetime Honor on a Tactical Retreat, even after spending it', () => {
+    resetAll();
+    const save = loadSave();
+    save.honor = 10;
+    save.honorEarned = 10;
+    expect(buyCollege('warChest')).toBe(true);
+    expect(loadSave().honorEarned).toBe(10);
   });
 });
