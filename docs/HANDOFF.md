@@ -84,8 +84,13 @@ every push to `main` (CI runs lint, format, typecheck and tests first).
   about 10% longer. They are scenery patches (`features`), so the save is unchanged.
 - **Prestige direction** (the user, 2026-10-25): the campaign should get so hard a kid can't go
   on, then pay a deep currency for permanent upgrades. Plan: enemy upgrades that grow with a
-  Threat level as you conquer outward; a Promotion that resets the world, medals and Tent for
-  Honor based on how far you got; a War College of permanent upgrades bought with Honor.
+  Threat level as you conquer outward; a **Tactical Retreat** (the prestige) that resets the
+  world, medals and Tent for Honor based on how far you got; a War College of permanent
+  upgrades bought with Honor. **"Promotion" is reserved for moving up to the next phase**,
+  never for the prestige.
+- **Prestige target:** after a few Tactical Retreats, the 8-year-old should be able to beat 5
+  stars and beyond in the first phase. Tune the War College with bots so the "new 8yo"
+  profile wins 5-star regions after a handful of retreats.
 - **Active abilities are prestige unlocks** (air strike, supply drop, rally...), bought in
   the War College, not free in every battle.
 - **A fresh battle mechanic is wanted but undecided.** The user floated an army builder
