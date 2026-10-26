@@ -175,8 +175,9 @@ join seamlessly, so the front line flows from one into the next.
 ## Ideas from the kids (2026-10-26, not designed yet)
 
 - [ ] Armor (younger son): maybe an ability that puts a temporary shield over one base
-- [ ] Island maps (older son): areas cut off by water where taking an Airfield is the only
-      way forward, with no direct path to the enemy
+- [ ] Isolated areas (older son): pockets cut off by water (islands) or mountains, with no
+      direct path to the enemy; taking an Airfield is the way forward. Jets can't capture
+      today, so this needs a way across (e.g. Airfields that can airlift troops)
 - [ ] Three-way battles on the campaign map, not only in Quick Battle
 - [ ] Adjutant style: Careful / Balanced / Bold
 - [ ] A War College node for faster auto-battles (×3)

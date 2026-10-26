@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { GROUND_SPEED, blockedAt, groundSpeed, levelGround, levelRoutes, onBridge } from './paths';
+import {
+  CELL,
+  GROUND_SPEED,
+  blockedAt,
+  groundSpeed,
+  levelGround,
+  levelRoutes,
+  nearPolyline,
+  onBridge,
+} from './paths';
+import { insidePolygon } from './scenery';
+import { regionLevel } from './worldmap';
 import type { LevelDef, Point, Route } from './types';
 import { createWorld, sendTroops, step } from './world';
 
@@ -153,4 +164,27 @@ describe('forest and mud', () => {
     // It may never step in the mud if it walks round; if it does, it goes slower there.
     if (inMud > 0) expect(inMud).toBeLessThan(onGrass);
   });
+});
+
+describe('routes stay on the battlefield', () => {
+  it('never leave a campaign map’s outline, even around a river or ridge', () => {
+    // Seed 4242's region 0,-5 used to send troops 80 units off the map around a river's end.
+    for (const [seed, id] of [
+      [4242, '0,-5'],
+      [77, '0,0'],
+      [91, '1,-2'],
+    ] as const) {
+      const level = regionLevel(seed, id);
+      const outline = level.outline!;
+      const ring = [...outline, outline[0]!];
+      for (const row of levelRoutes(level)) {
+        for (const route of row) {
+          for (const p of route.points) {
+            const ok = insidePolygon(p, outline) || nearPolyline(p.x, p.y, ring, CELL * 1.5);
+            expect(ok).toBe(true);
+          }
+        }
+      }
+    }
+  }, 60_000);
 });

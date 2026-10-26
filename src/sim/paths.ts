@@ -142,6 +142,22 @@ function cellIsDry(level: LevelDef, x: number, y: number): boolean {
   return true;
 }
 
+/**
+ * Whether a point is on the battlefield: inside its outline or within a cell of the edge (so
+ * bases near the edge stay connected). A level without an outline is all battlefield.
+ */
+function insideOutline(level: LevelDef, x: number, y: number): boolean {
+  const poly = level.outline;
+  if (!poly || poly.length < 3) return true;
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i]!;
+    const b = poly[j]!;
+    if (a.y > y !== b.y > y && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+  }
+  return inside || nearPolyline(x, y, [...poly, poly[0]!], CELL);
+}
+
 /** Whether a point is water or rock troops can't walk on (counting a little bank around it). */
 export function blockedAt(
   level: LevelDef,
@@ -260,7 +276,10 @@ function findRoutes(level: LevelDef, walker: Walker): { table: Route[][]; ok: bo
   const open = new Uint8Array(cols * rows);
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      open[r * cols + c] = cellIsDry(level, x0 + c * CELL, y0 + r * CELL) ? 1 : 0;
+      const [x, y] = [x0 + c * CELL, y0 + r * CELL];
+      // Off the battlefield is closed too, so a detour around a river's end can't leave it.
+      const onMap = insideOutline(level, x + CELL / 2, y + CELL / 2);
+      open[r * cols + c] = onMap && cellIsDry(level, x, y) ? 1 : 0;
     }
   }
   const cellOf = (p: Point) => {
