@@ -106,6 +106,9 @@ every push to `main` (CI runs lint, format, typecheck and tests first).
   freely. Two webs, not one, because they use different currencies and reset differently.
   Kept separate on purpose; the user agreed. Old War College levels didn't map cleanly onto
   the web, so save version 5 refunds all Honor spent on them instead of guessing.
+- **Resizes keep the view** (2026-10-26): one iPad's Safari fired resize events mid-drag,
+  and the map and webs re-fit the camera on every one, so panning snapped back. Same-size
+  resizes are ignored in main.ts, and the map and webs keep their zoom and centre on resize.
 - **The Adjutant only knows what the player could see** (the user, 2026-10-25): bases,
   troops and troops already moving (shown as rings and incoming numbers), never the enemy
   AI's plans. If fog of war is added, the Adjutant and the Commander must obey it too.

@@ -32,7 +32,10 @@ const game = new Phaser.Game({
 
 function fitToScreen() {
   const size = hostSize();
-  game.scale.resize(size.width * DPR, size.height * DPR);
+  const [w, h] = [size.width * DPR, size.height * DPR];
+  // Some iPads fire resize events mid-drag without the size changing; ignore those.
+  if (w === game.scale.width && h === game.scale.height) return;
+  game.scale.resize(w, h);
 }
 window.addEventListener('resize', fitToScreen);
 window.addEventListener('orientationchange', () => setTimeout(fitToScreen, 200));

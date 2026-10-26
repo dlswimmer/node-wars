@@ -172,6 +172,15 @@ join seamlessly, so the front line flows from one into the next.
 - [ ] Holding a whole region or country gives big bonuses
 - [ ] Campaign story beats and unlockable generals
 
+## Ideas from the kids (2026-10-26, not designed yet)
+
+- [ ] Armor (younger son): maybe an ability that puts a temporary shield over one base
+- [ ] Island maps (older son): areas cut off by water where taking an Airfield is the only
+      way forward, with no direct path to the enemy
+- [ ] Three-way battles on the campaign map, not only in Quick Battle
+- [ ] Adjutant style: Careful / Balanced / Bold
+- [ ] A War College node for faster auto-battles (×3)
+
 ## Later ideas
 
 - [ ] Install to home screen as an app (PWA) with offline play

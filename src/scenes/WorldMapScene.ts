@@ -8,7 +8,7 @@ import { medalCount, medalSummary } from '../sim/economy';
 import { insignia } from '../sim/college';
 import { collegeEffects } from '../sim/collegeweb';
 import { regionMission } from '../sim/missions';
-import { ADJUTANT_BUYABLE, adjutantLevel, masteryNote, medalsFor } from '../sim/upgrades';
+import { masteryNote, medalsFor } from '../sim/upgrades';
 import {
   START_ID,
   availableRegions,
@@ -115,8 +115,10 @@ export class WorldMapScene extends Phaser.Scene {
     this.input.on('pointermove', this.onPointerMove, this);
     this.input.on('pointerup', this.onPointerUp, this);
     this.input.on('wheel', this.onWheel, this);
+    // A resize keeps what you're looking at (iPad Safari resizes as its toolbars come and go,
+    // which used to snap the view back mid-drag).
     const relayout = () => {
-      this.fitCamera();
+      this.fitCamera(true);
       this.buildUi();
     };
     this.scale.on('resize', relayout);
@@ -185,7 +187,7 @@ export class WorldMapScene extends Phaser.Scene {
     // A held region whose star level you've mastered says so, so you can see where the
     // Adjutant may auto-battle without opening each one.
     const stars = this.conquest.regions[id]?.stars ?? 0;
-    const tag = held && isMastered(stars) ? (canAutoBattle(id) ? 'AUTO-BATTLE' : 'MASTERED') : '';
+    const tag = held && isMastered(stars) ? 'MASTERED' : '';
     const nameY = held ? c.y - (tag ? 8 : 0) : c.y - 20;
     const name = this.world(
       this.add
@@ -198,7 +200,7 @@ export class WorldMapScene extends Phaser.Scene {
     if (held) {
       const badge = this.world(
         this.add
-          .text(c.x, c.y + 16, tag, textStyle(10, tag === 'MASTERED' ? '#a99ad0' : '#d8c8ff'))
+          .text(c.x, c.y + 16, tag, textStyle(10, '#d8c8ff'))
           .setOrigin(0.5)
           .setDepth(3),
       );
@@ -363,11 +365,9 @@ export class WorldMapScene extends Phaser.Scene {
     this.drawSelection();
   }
 
-  /** How close a star level is to auto-battling (mastery wins, and whether you have a Commander). */
+  /** How close a star level is to mastery (auto-battles there pay full). */
   private masteryLine(stars: number): string {
-    const { upgrades, honorEarned } = loadSave();
-    const commander = adjutantLevel(upgrades.adjutant, honorEarned) >= ADJUTANT_BUYABLE;
-    return masteryNote(stars, starWins(stars), commander);
+    return masteryNote(stars, starWins(stars));
   }
 
   /** Bottom panel for the selected region: what it is, its ground, what it pays, and FIGHT. */
@@ -384,7 +384,9 @@ export class WorldMapScene extends Phaser.Scene {
         : null;
     const panelW = Math.min(720, w - 24);
     // Held regions get one more line: how close you are to auto-battling them.
-    const mastery = held && progress ? this.masteryLine(progress.stars) : null;
+    // With a Commander every region can be auto-battled, so mastery matters everywhere.
+    const commander = progress && canAutoBattle(id);
+    const mastery = progress && (held || commander) ? this.masteryLine(progress.stars) : null;
     const panelH = (mission ? 176 : 140) + (mastery ? 34 : 0);
     const x0 = (w - panelW) / 2;
     const y0 = h - panelH - 12;
@@ -436,7 +438,7 @@ export class WorldMapScene extends Phaser.Scene {
       this.ui(
         this.add.text(textX, my, mastery, {
           ...textStyle(21, '#c8b0ff'),
-          wordWrap: { width: panelW - 250 },
+          wordWrap: { width: panelW - 44 },
         }),
       );
     }
@@ -447,7 +449,7 @@ export class WorldMapScene extends Phaser.Scene {
       this.scene.start('battle', data);
     };
     const buttonX = x0 + panelW - 110;
-    const auto = held && canAutoBattle(id);
+    const auto = canAutoBattle(id);
     this.ui(
       addButton(this, buttonX, y0 + (auto ? 42 : panelH / 2), {
         width: 190,
@@ -512,8 +514,13 @@ export class WorldMapScene extends Phaser.Scene {
     return { zoom: readable, x: c.x, y: c.y + 20 };
   }
 
-  private fitCamera() {
+  private fitCamera(keepView = false) {
     const cam = this.cameras.main;
+    const was = {
+      zoom: cam.zoom,
+      x: cam.scrollX + cam.width / 2,
+      y: cam.scrollY + cam.height / 2,
+    };
     cam.setSize(this.scale.width, this.scale.height);
     const all = [
       ...this.conquest.held,
@@ -529,6 +536,10 @@ export class WorldMapScene extends Phaser.Scene {
       cam.height / this.box.height,
       this.maxZoom * 0.9,
     );
+    if (keepView) {
+      this.setView(was.zoom, was.x, was.y);
+      return;
+    }
     const view = this.fitView();
     this.setView(view.zoom, view.x, view.y);
   }

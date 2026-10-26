@@ -11,9 +11,16 @@ export function winMedals(stars: number): number {
   return stars;
 }
 
-/** An auto-battle by the Adjutant pays less: half the stars, rounded down, but at least 1. */
+/**
+ * Share of a win's medals an auto-battle pays. A little less than fighting yourself, but not
+ * so much that handing battles to the Commander (which also runs them at x2) feels like a
+ * step back (the user: half was too harsh).
+ */
+export const AUTO_PAY = 0.75;
+
+/** An auto-battle by the Adjutant pays three quarters of a win (fractions are kept). */
 export function autoBattleMedals(stars: number): number {
-  return Math.max(1, Math.floor(stars / 2));
+  return stars * AUTO_PAY;
 }
 
 /** Bonus medals for completing a region's mission on top of winning it. */

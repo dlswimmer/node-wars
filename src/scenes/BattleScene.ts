@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio';
-import { addMedals, loadSave, recordRegionBattle } from '../save';
+import { addMedals, isMastered, loadSave, recordRegionBattle } from '../save';
 import {
   createAdjutant,
   isWaiting,
@@ -1342,12 +1342,16 @@ Drag from a BLUE base!`,
     if (this.mode === 'campaign') {
       this.missionDone = !!this.mission && missionComplete(this.mission, this.world, won);
       const bonus = collegeEffects(loadSave().college).medals;
-      this.reward = medalsFor(this.stars, won, this.auto, this.threat, bonus);
+      const full = medalsFor(this.stars, won, false, this.threat, bonus);
+      // Auto-battles pay AUTO_PAY, or full at a star level you've mastered.
+      const autoPay = isMastered(this.stars)
+        ? full
+        : medalsFor(this.stars, won, true, this.threat, bonus);
+      this.reward = this.auto ? autoPay : full;
       if (this.takenOverAt !== null) {
         // Full pay for the part you fought, auto-battle pay for the Commander's part.
-        const full = medalsFor(this.stars, won, false, this.threat, bonus);
         const played = this.takenOverAt / Math.max(1, this.world.time);
-        this.reward = takeOverMedals(full, this.reward, played);
+        this.reward = takeOverMedals(full, autoPay, played);
       }
       if (this.missionDone) this.reward += this.mission!.mission.medals;
       if (this.reward > 0) addMedals(this.reward);

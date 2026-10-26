@@ -156,8 +156,12 @@ never the best play.
 - **Commander can take over** a campaign battle you started yourself (the user asked for
   this): COMMANDER, TAKE OVER on the left, tapped twice. From then on it's an auto-battle (no
   mission, no mastery win, no taking it back). Pay: full medals for the share of the battle
-  you fought, auto-battle pay (half) for the rest.
+  you fought, auto-battle pay for the rest.
 - **Auto-battles run at ×2** (`AUTO_SPEED`): more sim steps per frame, same rules.
+- **Auto-battle pay is 75%** (`AUTO_PAY`; the user found half made auto-battling feel like a
+  step back), or **full at a star level you've mastered** (5 wins of your own). With a
+  Commander, every region you can attack has an AUTO-BATTLE button, new ones included;
+  mastered held regions say MASTERED on the map.
 - **The Commander fights with the enemy's brain.** Running a battle, it uses the enemy AI at
   the region's own rank (the user: "AI to AI with no upgrades should be 50/50"), plus its
   Gunner and call-outs. `npm run commander`: with no upgrades it wins about half of 4★

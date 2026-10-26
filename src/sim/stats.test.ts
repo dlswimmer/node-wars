@@ -38,14 +38,12 @@ describe('the Stats page', () => {
 describe('mastery', () => {
   it('shows mastered star levels and progress on the rest', () => {
     const rows = playerStats(NO_UPGRADES, NO_COLLEGE_EFFECTS, 0, [0, 9, 5, 2, 0, 0]);
-    expect(row(rows, 'Mastered (auto-battle)').total).toBe('1★ 2★  ·  3★ 2/5');
+    expect(row(rows, 'Mastered (full auto pay)').total).toBe('1★ 2★  ·  3★ 2/5');
   });
 
-  it('tells a held region how many more wins it needs to auto-battle', () => {
-    expect(masteryNote(3, 2, true)).toBe('AUTO-BATTLE: win 3 more ★★★ fights yourself (2/5)');
-    expect(masteryNote(3, 4, true)).toContain('win 1 more ★★★ fight yourself');
-    expect(masteryNote(3, 5, true)).toBe('★★★ mastered: AUTO-BATTLE is ready');
-    expect(masteryNote(3, 5, false)).toContain('COMMANDER');
+  it('tells a region how many more wins master its star level', () => {
+    expect(masteryNote(3, 2)).toBe('MASTERY 2/5: 3 more ★★★ wins of your own for full auto pay');
+    expect(masteryNote(3, 5)).toBe('★★★ mastered: auto-battles pay full medals');
   });
 });
 

@@ -132,8 +132,10 @@ export class WebScene extends Phaser.Scene {
     this.input.on('pointermove', this.onPointerMove, this);
     this.input.on('pointerup', this.onPointerUp, this);
     this.input.on('wheel', this.onWheel, this);
+    // A resize keeps what you're looking at (iPad Safari resizes as its toolbars come and go,
+    // which used to snap the view back mid-drag).
     const relayout = () => {
-      this.fitCamera();
+      this.fitCamera(true);
       this.buildUi();
     };
     this.scale.on('resize', relayout);
@@ -509,12 +511,23 @@ export class WebScene extends Phaser.Scene {
   }
 
   /** Show as much of the web as fits while keeping nodes big enough to tap. */
-  private fitCamera() {
+  private fitCamera(keepView = false) {
     const cam = this.cameras.main;
+    const was = {
+      zoom: cam.zoom,
+      x: cam.scrollX + cam.width / 2,
+      y: cam.scrollY + cam.height / 2,
+    };
     cam.setSize(this.scale.width, this.scale.height);
     const tappable = (MIN_NODE_CSS * DPR) / NODE_RADIUS;
     this.maxZoom = Math.max(tappable * 3, 2 * DPR);
     this.minZoom = Math.min(cam.width, cam.height) / (this.extent * 2.2);
+    if (keepView) {
+      cam.setZoom(Phaser.Math.Clamp(was.zoom, this.minZoom, this.maxZoom));
+      cam.centerOn(was.x, was.y);
+      this.clampCamera();
+      return;
+    }
     const fit = Math.min(cam.width, cam.height * 0.7) / (this.extent * 2);
     cam.setZoom(Phaser.Math.Clamp(Math.max(fit, tappable), this.minZoom, this.maxZoom));
     // A little below centre, so the top bar covers less of the web.

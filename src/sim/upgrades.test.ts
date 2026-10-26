@@ -22,14 +22,16 @@ describe('medals', () => {
   it('pay one whole medal per star, nothing for a loss, and less for auto-battles', () => {
     expect([1, 2, 3, 4, 5].map((stars) => medalsFor(stars, true))).toEqual([1, 2, 3, 4, 5]);
     expect(medalsFor(4, false)).toBe(0);
-    expect([1, 2, 3, 4, 5].map((stars) => medalsFor(stars, true, true))).toEqual([1, 1, 1, 2, 2]);
+    expect([1, 2, 3, 4, 5].map((stars) => medalsFor(stars, true, true))).toEqual([
+      0.75, 1.5, 2.25, 3, 3.75,
+    ]);
   });
 
-  it('are always whole numbers, and so is every price and unlock', () => {
+  it('cost whole numbers, as does every unlock and a win you fight yourself', () => {
     const all = [
       ...Object.values(UPGRADE_COSTS).flat(),
       ...STAR_UNLOCK_MEDALS,
-      ...[1, 2, 3, 4, 5].flatMap((s) => [medalsFor(s, true), medalsFor(s, true, true)]),
+      ...[1, 2, 3, 4, 5].map((s) => medalsFor(s, true)),
     ];
     for (const n of all) expect(Number.isInteger(n)).toBe(true);
   });

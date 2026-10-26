@@ -238,9 +238,9 @@ export function isMastered(stars: number): boolean {
 /** The Adjutant may auto-battle a region you hold, once you've mastered its star level. */
 export function canAutoBattle(region: string): boolean {
   const { conquest, upgrades, honorEarned } = loadSave();
-  const stars = conquest.regions[region]?.stars ?? 0;
+  const progress = conquest.regions[region];
   const commander = adjutantLevel(upgrades.adjutant, honorEarned) >= ADJUTANT_BUYABLE;
-  return commander && conquest.held.includes(region) && isMastered(stars);
+  return commander && !!progress && starsUnlocked(progress.stars);
 }
 
 /** Whether you've earned enough medals to attack a region with this many stars. */

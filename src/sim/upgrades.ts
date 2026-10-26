@@ -156,22 +156,20 @@ export function takeOverMedals(full: number, auto: number, played: number): numb
   return exactMedals(full * p + auto * (1 - p));
 }
 
-/** Wins you need yourself at a star level before the Adjutant may auto-battle it. */
+/**
+ * Wins you need yourself at a star level to master it: auto-battles there then pay full
+ * medals instead of AUTO_PAY. Mastery is per star level and never resets.
+ */
 export const MASTERY_WINS = 5;
 
-/**
- * One line on a held region's panel about auto-battling it: how many more wins of your own
- * at its star level, or what's still missing. Mastery is per star level and never resets.
- */
-export function masteryNote(stars: number, wins: number, commander: boolean): string {
-  const label = `${'★'.repeat(stars)}`;
+/** One line on a region's panel about mastering its star level. */
+export function masteryNote(stars: number, wins: number): string {
+  const label = '★'.repeat(stars);
   if (wins < MASTERY_WINS) {
     const more = MASTERY_WINS - wins;
-    return `AUTO-BATTLE: win ${more} more ${label} fight${more === 1 ? '' : 's'} yourself (${wins}/${MASTERY_WINS})`;
+    return `MASTERY ${wins}/${MASTERY_WINS}: ${more} more ${label} wins of your own for full auto pay`;
   }
-  return commander
-    ? `${label} mastered: AUTO-BATTLE is ready`
-    : `${label} mastered: a COMMANDER Adjutant can auto-battle it`;
+  return `${label} mastered: auto-battles pay full medals`;
 }
 /**
  * Medals for a campaign battle: a region pays for its stars plus its Threat, times the War

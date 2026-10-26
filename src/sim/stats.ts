@@ -96,7 +96,7 @@ export function playerStats(
       wide: true,
     },
     {
-      label: 'Mastered (auto-battle)',
+      label: 'Mastered (full auto pay)',
       tent: NONE,
       college: NONE,
       total: mastery(starWins),
