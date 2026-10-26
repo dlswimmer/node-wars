@@ -12,13 +12,13 @@ export function winMedals(stars: number): number {
 }
 
 /**
- * Share of a win's medals an auto-battle pays. A little less than fighting yourself, but not
- * so much that handing battles to the Commander (which also runs them at x2) feels like a
- * step back (the user: half was too harsh).
+ * Share of a win's medals an auto-battle pays at a star level you haven't mastered yet; at a
+ * mastered one it pays full (the user's choice: half until mastered, so mastery is worth
+ * chasing, and the x2 speed makes up for it).
  */
-export const AUTO_PAY = 0.75;
+export const AUTO_PAY = 0.5;
 
-/** An auto-battle by the Adjutant pays three quarters of a win (fractions are kept). */
+/** An auto-battle by the Adjutant pays AUTO_PAY of a win (fractions are kept). */
 export function autoBattleMedals(stars: number): number {
   return stars * AUTO_PAY;
 }

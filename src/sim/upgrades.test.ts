@@ -23,7 +23,7 @@ describe('medals', () => {
     expect([1, 2, 3, 4, 5].map((stars) => medalsFor(stars, true))).toEqual([1, 2, 3, 4, 5]);
     expect(medalsFor(4, false)).toBe(0);
     expect([1, 2, 3, 4, 5].map((stars) => medalsFor(stars, true, true))).toEqual([
-      0.75, 1.5, 2.25, 3, 3.75,
+      0.5, 1, 1.5, 2, 2.5,
     ]);
   });
 

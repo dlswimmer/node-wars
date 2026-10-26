@@ -264,7 +264,9 @@ export class HudScene extends Phaser.Scene {
     if (!can) return;
     const armed = this.time.now < this.takeOverArmedUntil;
     const label = this.takeOverButton.list[1] as Phaser.GameObjects.Text;
-    label.setText(armed ? 'TAP AGAIN: ¾ PAY FROM NOW' : 'COMMANDER, TAKE OVER');
+    const pay =
+      this.battle.autoPayShare() >= 1 ? 'TAP AGAIN: FULL PAY' : 'TAP AGAIN: ½ PAY FROM NOW';
+    label.setText(armed ? pay : 'COMMANDER, TAKE OVER');
     this.takeOverButton.setPosition(20 + 150, top + 28);
   }
 

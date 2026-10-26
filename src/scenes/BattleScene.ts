@@ -19,6 +19,7 @@ import {
   takeOverMedals,
 } from '../sim/upgrades';
 import { collegeEffects } from '../sim/collegeweb';
+import { AUTO_PAY } from '../sim/economy';
 import { DPR, cssToWorld } from '../display';
 import { createAi, updateAi, type AiState } from '../sim/ai';
 import {
@@ -445,6 +446,11 @@ export class BattleScene extends Phaser.Scene {
   /** What the Adjutant just did, newest last (for the HUD's call-out). */
   adjutantReports(): readonly AdjutantReport[] {
     return this.adjutant && (this.adjutantOn || this.auto) ? this.adjutant.reports : [];
+  }
+
+  /** Share of a win the Commander's part of this battle pays: full once its stars are mastered. */
+  autoPayShare(): number {
+    return isMastered(this.stars) ? 1 : AUTO_PAY;
   }
 
   /** A Commander Adjutant can finish a campaign battle you started yourself. */

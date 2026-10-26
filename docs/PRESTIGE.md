@@ -158,8 +158,10 @@ never the best play.
   mission, no mastery win, no taking it back). Pay: full medals for the share of the battle
   you fought, auto-battle pay for the rest.
 - **Auto-battles run at ×2** (`AUTO_SPEED`): more sim steps per frame, same rules.
-- **Auto-battle pay is 75%** (`AUTO_PAY`; the user found half made auto-battling feel like a
-  step back), or **full at a star level you've mastered** (5 wins of your own). With a
+- **Auto-battle pay is 50% until mastered** (`AUTO_PAY`), **full at a star level you've
+  mastered** (5 wins of your own, not counting auto-battles or taken-over battles). A flat
+  half everywhere felt like a step back; with mastery paying full, half before it makes
+  mastery worth chasing (the user's call, 2026-10-26; it was 75% briefly). With a
   Commander, every region you can attack has an AUTO-BATTLE button, new ones included;
   mastered held regions say MASTERED on the map.
 - **The Commander fights with the enemy's brain.** Running a battle, it uses the enemy AI at
