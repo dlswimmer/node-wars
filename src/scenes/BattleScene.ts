@@ -78,6 +78,7 @@ import {
 import { COLORS, FACTION_COLORS, textStyle } from '../theme';
 import { drawBase, drawCapacityRing, drawHospitalRange, drawMapGrid, drawTerrain } from './drawing';
 import type { HudScene } from './HudScene';
+import { fightDone, theaterRun } from './theaterRun';
 import { UNIT_TEXTURE, ensureUnitTextures } from './unitTextures';
 
 const MAX_DT = 0.1;
@@ -103,7 +104,7 @@ const OUTCOME_STYLE: Record<AttackOutcome, { color: number; word: string }> = {
   shielded: { color: COLORS.shield, word: 'SHIELDED' },
 };
 
-export type BattleMode = 'quick' | 'campaign';
+export type BattleMode = 'quick' | 'campaign' | 'theater';
 
 export interface BattleData {
   difficulty?: DifficultyId;
@@ -117,6 +118,8 @@ export interface BattleData {
   region?: string;
   /** Quick Battle: three armies, everyone against everyone. */
   ffa?: boolean;
+  /** Theater (prototype): the zone's map with both armies' troops already set. */
+  theaterLevel?: LevelDef;
 }
 
 type Gesture = 'none' | 'drag' | 'pan' | 'pinch';
@@ -161,6 +164,8 @@ export class BattleScene extends Phaser.Scene {
   private adjutantOn = true;
   /** World time the Commander took over a battle you started, or null. */
   private takenOverAt: number | null = null;
+  /** Theater prototype: the zone's battle map, or null outside the Theater. */
+  private theaterLevel: LevelDef | null = null;
 
   /** One AI for every army but yours. */
   ais: AiState[] = [];
@@ -239,7 +244,8 @@ export class BattleScene extends Phaser.Scene {
     this.mode = data.mode ?? 'quick';
     this.auto = this.mode === 'campaign' && !!data.auto;
     this.ffa = this.mode === 'quick' && !!data.ffa;
-    this.firstBattle = isFirstBattle() && !this.auto;
+    this.theaterLevel = this.mode === 'theater' ? (data.theaterLevel ?? null) : null;
+    this.firstBattle = isFirstBattle() && !this.auto && !this.theaterLevel;
     this.map = data.map ?? (isFirstBattle() && !this.ffa ? 0 : randomMapSeed());
     this.region = this.mode === 'campaign' ? (data.region ?? null) : null;
     this.threat = this.region ? regionThreat(loadSave().conquest.seed, this.region) : 0;
@@ -251,13 +257,15 @@ export class BattleScene extends Phaser.Scene {
 
   create() {
     const save = loadSave();
-    this.level = this.region
-      ? regionLevel(save.conquest.seed, this.region)
-      : this.ffa
-        ? generateFreeForAll(this.map)
-        : this.map === 0
-          ? LEVELS[0]!
-          : generateLevel(this.map);
+    this.level = this.theaterLevel
+      ? this.theaterLevel
+      : this.region
+        ? regionLevel(save.conquest.seed, this.region)
+        : this.ffa
+          ? generateFreeForAll(this.map)
+          : this.map === 0
+            ? LEVELS[0]!
+            : generateLevel(this.map);
     // A region's mission (not for auto-battles, which the Adjutant fights).
     this.mission = null;
     this.missionDone = false;
@@ -489,7 +497,11 @@ export class BattleScene extends Phaser.Scene {
   }
 
   toMenu() {
-    if (this.mode === 'campaign') {
+    if (this.mode === 'theater') {
+      // Leaving a Theater fight before it ends is a retreat: the attack fails.
+      if (!this.gameOver) this.reportToTheater(false);
+      this.scene.start('theater', { resume: true });
+    } else if (this.mode === 'campaign') {
       this.scene.start('worldmap', { focus: this.region, revealed: this.revealed });
     } else {
       this.scene.start('menu', { page: 'quick' });
@@ -1330,8 +1342,19 @@ Drag from a BLUE base!`,
     return threats;
   }
 
+  /** Tell the Theater how its fight went: who won and what's left of each army. */
+  private reportToTheater(won: boolean) {
+    const left = (army: 'player' | 'enemy') =>
+      Math.round(
+        this.world.bases.filter((b) => b.owner === army).reduce((n, b) => n + b.troops, 0) +
+          this.world.units.filter((u) => u.owner === army).reduce((n, u) => n + u.power, 0),
+      );
+    fightDone(theaterRun(), { won, survivors: left('player'), enemyLeft: left('enemy') });
+  }
+
   private endBattle() {
     this.gameOver = true;
+    if (this.mode === 'theater') this.reportToTheater(this.world.winner === 'player');
     markBattlePlayed();
     this.cancelGesture();
     this.armed.clear();

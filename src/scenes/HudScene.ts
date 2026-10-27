@@ -464,7 +464,12 @@ ${goal}`;
       }),
       addButton(this, 0, 0, {
         ...opts,
-        label: this.battle.mode === 'campaign' ? 'WORLD MAP' : 'CHANGE RANK',
+        label:
+          this.battle.mode === 'campaign'
+            ? 'WORLD MAP'
+            : this.battle.mode === 'theater'
+              ? 'THEATER'
+              : 'CHANGE RANK',
         onClick: () => this.battle.toMenu(),
       }),
     ];
@@ -549,15 +554,28 @@ ${goal}`;
         onClick: () => this.battle.toMenu(),
       };
       const [first, second] = onward ? [leave, again] : [again, leave];
-      parts.push(
-        addButton(this, spots[0][0], spots[0][1], {
-          width: buttonW,
-          height: 96,
-          color: 0x2f6b3a,
-          ...first,
-        }),
-        addButton(this, spots[1][0], spots[1][1], { width: buttonW, height: 96, ...second }),
-      );
+      if (this.battle.mode === 'theater') {
+        // A Theater fight counts once: straight back to the front.
+        parts.push(
+          addButton(this, v.width / 2, spots[0][1], {
+            width: buttonW,
+            height: 96,
+            color: 0x2f6b3a,
+            label: 'BACK TO THEATER',
+            onClick: () => this.battle.toMenu(),
+          }),
+        );
+      } else {
+        parts.push(
+          addButton(this, spots[0][0], spots[0][1], {
+            width: buttonW,
+            height: 96,
+            color: 0x2f6b3a,
+            ...first,
+          }),
+          addButton(this, spots[1][0], spots[1][1], { width: buttonW, height: 96, ...second }),
+        );
+      }
     }
     this.endScreen = this.add.container(0, 0, parts).setDepth(120);
     if (animate) {

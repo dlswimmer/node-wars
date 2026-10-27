@@ -166,6 +166,15 @@ export class MenuScene extends Phaser.Scene {
       labelSize: 32,
       onClick: () => this.go('home'),
     });
+    // Phase 2 prototype, to try out.
+    addButton(this, MENU_DESIGN.width - 130, 540, {
+      width: 240,
+      height: 70,
+      label: 'THEATER (TEST)',
+      color: 0x4a2f7a,
+      labelSize: 26,
+      onClick: () => this.scene.start('theater'),
+    });
   }
 }
 
