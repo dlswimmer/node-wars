@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  RALLY,
   THEATER_ZONES,
   buyUpgrade,
+  frontPower,
+  rally,
+  zonePower,
   newTheater,
   pushStrength,
   pushTargets,
@@ -76,6 +80,28 @@ describe('the real-time Theater', () => {
     expect(home.levels.build).toBe(1);
     expect(buyUpgrade(s, 'player', homeOf(s, 'enemy').id, 'build')).toBe(false);
   });
+
+  it('rallies a zone for a while, at a price, and zones behind the front feed it', () => {
+    const s = newTheater(SEED);
+    s.enemyThink = Infinity;
+    const home = homeOf(s, 'player');
+    expect(rally(s, 'player', home.id)).toBe(false);
+    s.supply.player = 100;
+    const before = zonePower(s, home);
+    expect(rally(s, 'player', home.id)).toBe(true);
+    expect(zonePower(s, home)).toBeCloseTo(before * RALLY.power);
+    expect(s.supply.player).toBe(100 - RALLY.cost);
+    run(s, RALLY.seconds + 1);
+    expect(zonePower(s, home)).toBeCloseTo(before);
+    // Once the neighbours are yours, home sits behind the front and feeds it.
+    run(s, 200);
+    const front = Object.values(s.zones).find(
+      (z) => z.owner === 'player' && z.neighbours.includes(home.id) && pushTargets(s, z).length > 0,
+    );
+    if (front && pushTargets(s, home).length === 0) {
+      expect(frontPower(s, front)).toBeGreaterThan(zonePower(s, front));
+    }
+  }, 30_000);
 
   it('plays itself out to a winner, and upgrades decide it', () => {
     const idle = newTheater(SEED);

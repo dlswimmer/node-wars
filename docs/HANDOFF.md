@@ -112,7 +112,9 @@ every push to `main` (CI runs lint, format, typecheck and tests first).
   step back in looks). Second version (2026-10-28, the user's design): real time; every
   owned zone pushes into its neighbours by itself, filling them dot by dot with its colour
   (wearing the other side's away first); full = captured; supply buys BUILD / ENHANCE /
-  FORTIFY per zone; momentum (each zone owned strengthens all pushes) breaks stalemates. Idle
+  FORTIFY per zone, and RALLY (30 supply: 2.5x for 12 s, any time) is the supply sink; zones
+  behind the front feed half their power to it (supply lines). Momentum plus these broke a
+  6-vs-6 stalemate the user hit (no bot stalemates over 6 maps). Idle
   loses in about 2 minutes; building up the front wins in 4-6.
 - **Resizes keep the view** (2026-10-26): one iPad's Safari fired resize events mid-drag,
   and the map and webs re-fit the camera on every one, so panning snapped back. Same-size

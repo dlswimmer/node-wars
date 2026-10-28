@@ -27,6 +27,8 @@ export interface Zone {
   /** Who captured it last (filled it all the way); kept until its share runs out. */
   owner: Side | null;
   levels: Record<Upgrade, number>;
+  /** World time a RALLY here ends (pushes from it are much stronger until then). */
+  rallyUntil: number;
 }
 
 export interface Push {
@@ -66,6 +68,13 @@ export const UPGRADE_COST: Record<Upgrade, number[]> = {
 };
 /** What each level does: barracks and enhancements strengthen pushes, forts weaken pushes in. */
 export const LEVEL_EFFECT = { build: 0.35, enhance: 0.3, fortify: 0.5 };
+/**
+ * RALLY: spend supply to make one zone push much harder for a while. Always buyable, so
+ * supply never piles up uselessly, and a well-timed rally breaks a stalemate.
+ */
+export const RALLY = { cost: 30, seconds: 12, power: 2.5 };
+/** Zones behind the front feed this share of their push to the front zones next to them. */
+export const SUPPLY_LINE = 0.5;
 const ENEMY_THINK = 4;
 
 export function newTheater(seed: number): TheaterState {
@@ -88,6 +97,7 @@ export function newTheater(seed: number): TheaterState {
       share: { player: 0, enemy: 0 },
       owner: null,
       levels: { build: 0, enhance: 0, fortify: 0 },
+      rallyUntil: 0,
     };
   }
   const byX = [...ids].sort((a, b) => zones[a]!.centre.x - zones[b]!.centre.x);
@@ -129,6 +139,35 @@ export function pushTargets(state: TheaterState, zone: Zone): string[] {
   return zone.neighbours.filter((n) => state.zones[n]!.share[zone.owner!] < 1);
 }
 
+/** A zone's own pushing power: its barracks, enhancements and any rally going on. */
+export function zonePower(state: TheaterState, zone: Zone): number {
+  const rally = state.time < zone.rallyUntil ? RALLY.power : 1;
+  return (
+    PUSH_RATE *
+    (1 + LEVEL_EFFECT.build * zone.levels.build) *
+    (1 + LEVEL_EFFECT.enhance * zone.levels.enhance) *
+    rally
+  );
+}
+
+/**
+ * A front zone's power plus what the zones behind it send forward: a zone with nothing to
+ * push into feeds part of its power, shared between the front zones it touches.
+ */
+export function frontPower(state: TheaterState, zone: Zone): number {
+  let power = zonePower(state, zone);
+  for (const id of zone.neighbours) {
+    const n = state.zones[id]!;
+    if (n.owner !== zone.owner || pushTargets(state, n).length > 0) continue;
+    const fronts = n.neighbours.filter((m) => {
+      const z = state.zones[m]!;
+      return z.owner === n.owner && pushTargets(state, z).length > 0;
+    }).length;
+    power += (SUPPLY_LINE * zonePower(state, n)) / Math.max(1, fronts);
+  }
+  return power;
+}
+
 /**
  * How hard a push hits per second, before randomness. A zone pushing several ways splits
  * its strength evenly, so a zone's total push is the same whatever the map's shape.
@@ -138,11 +177,7 @@ export function pushStrength(state: TheaterState, push: Push): number {
   const to = state.zones[push.to]!;
   const ways = Math.max(1, pushTargets(state, from).length);
   const owned = Object.values(state.zones).filter((z) => z.owner === push.side).length;
-  const attack =
-    (PUSH_RATE / ways) *
-    (1 + MOMENTUM * owned) *
-    (1 + LEVEL_EFFECT.build * from.levels.build) *
-    (1 + LEVEL_EFFECT.enhance * from.levels.enhance);
+  const attack = (frontPower(state, from) / ways) * (1 + MOMENTUM * owned);
   // Forts only defend a zone the other side owns.
   const fort = to.owner === other(push.side) ? to.levels.fortify : 0;
   return attack / (1 + LEVEL_EFFECT.fortify * fort);
@@ -150,6 +185,16 @@ export function pushStrength(state: TheaterState, push: Push): number {
 
 export function upgradeCost(zone: Zone, kind: Upgrade): number | null {
   return UPGRADE_COST[kind][zone.levels[kind]] ?? null;
+}
+
+/** Start a RALLY in one of your zones. */
+export function rally(state: TheaterState, side: Side, zoneId: string): boolean {
+  const z = state.zones[zoneId];
+  if (!z || z.owner !== side || state.winner || state.time < z.rallyUntil) return false;
+  if (state.supply[side] < RALLY.cost) return false;
+  state.supply[side] -= RALLY.cost;
+  z.rallyUntil = state.time + RALLY.seconds;
+  return true;
 }
 
 export function buyUpgrade(
@@ -246,4 +291,6 @@ function enemyMoves(state: TheaterState): void {
     if (buyUpgrade(state, 'enemy', z.id, 'build') || buyUpgrade(state, 'enemy', z.id, 'enhance'))
       return;
   }
+  // Nothing left worth buying: rally the front zone with the most to push into.
+  if (front && state.supply.enemy >= RALLY.cost * 2) rally(state, 'enemy', front.id);
 }

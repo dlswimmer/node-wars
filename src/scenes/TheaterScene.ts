@@ -5,8 +5,10 @@ import { createRng } from '../sim/rng';
 import { insidePolygon } from '../sim/scenery';
 import {
   MAX_LEVEL,
+  RALLY,
   buyUpgrade,
   newTheater,
+  rally,
   updateTheater,
   upgradeCost,
   type Side,
@@ -196,6 +198,12 @@ export class TheaterScene extends Phaser.Scene {
     for (const z of Object.values(this.state.zones)) {
       g.lineStyle(3 / zoom, 0x101510, 1).strokePoints(z.polygon, true);
     }
+    // A rallying zone glows, pulsing in its side's colour.
+    const pulse = 0.55 + 0.45 * Math.sin(this.state.time * 8);
+    for (const z of Object.values(this.state.zones)) {
+      if (!z.owner || this.state.time >= z.rallyUntil) continue;
+      g.lineStyle(10 / zoom, 0xffe08a, pulse).strokePoints(z.polygon, true);
+    }
     if (this.selected) {
       g.lineStyle(6 / zoom, 0xffffff, 1).strokePoints(
         this.state.zones[this.selected]!.polygon,
@@ -309,6 +317,8 @@ export class TheaterScene extends Phaser.Scene {
       z?.id,
       z && JSON.stringify(z.levels),
       z && UPGRADES.map((u) => s.supply.player >= (upgradeCost(z, u.kind) ?? Infinity)).join(),
+      z && s.supply.player >= RALLY.cost,
+      z && Math.max(0, Math.ceil(z.rallyUntil - s.time)),
       s.log.at(-1),
     ].join('|');
     if (key === this.panelKey) return;
@@ -335,23 +345,25 @@ export class TheaterScene extends Phaser.Scene {
         this.add.text(
           x0 + 20,
           y0 + 56,
-          'Tap one of your zones to BUILD, ENHANCE or FORTIFY it with supply. Take the enemy ★.',
+          'Tap one of your zones to spend supply: BUILD, ENHANCE, FORTIFY, or RALLY it for a burst. Take the enemy ★.',
           { ...textStyle(20), wordWrap: { width: panelW - 40 } },
         ),
       );
       return;
     }
     this.ui(this.add.text(x0 + 20, y0 + 12, z.name.toUpperCase(), textStyle(26)));
+    // Four buttons across: the three upgrades, then RALLY.
+    const slot = (panelW - 50) / 4;
+    const bx = (i: number) => x0 + 25 + (i + 0.5) * slot;
+    const by = y0 + 76;
     UPGRADES.forEach((u, i) => {
       const level = z.levels[u.kind];
       const cost = upgradeCost(z, u.kind);
-      const bx = x0 + 120 + i * ((panelW - 160) / 3) + 40;
-      const by = y0 + 76;
       const pips = '■'.repeat(level) + '□'.repeat(MAX_LEVEL - level);
       const can = cost !== null && s.supply.player >= cost;
       this.ui(
-        addButton(this, bx, by, {
-          width: (panelW - 200) / 3,
+        addButton(this, bx(i), by, {
+          width: slot - 12,
           height: 64,
           label: cost === null ? `${u.label} ${pips}` : `${u.label} · ${cost}`,
           sublabel: cost === null ? 'MAXED' : pips,
@@ -364,6 +376,22 @@ export class TheaterScene extends Phaser.Scene {
         }),
       );
     });
+    const left = Math.ceil(z.rallyUntil - s.time);
+    const canRally = left <= 0 && s.supply.player >= RALLY.cost;
+    this.ui(
+      addButton(this, bx(3), by, {
+        width: slot - 12,
+        height: 64,
+        label: left > 0 ? 'RALLYING!' : `RALLY · ${RALLY.cost}`,
+        sublabel: left > 0 ? `${left} s left` : `${RALLY.power}× for ${RALLY.seconds} s`,
+        color: left > 0 ? 0xb8902a : canRally ? 0x8a4a1f : 0x3a3020,
+        labelSize: 22,
+        onClick: () => {
+          if (rally(s, 'player', z.id)) sfx.capture();
+          else sfx.failed();
+        },
+      }),
+    );
     this.ui(
       this.add
         .text(x0 + panelW - 20, y0 + 16, 'tap again to close', textStyle(16, COLORS.textDim))
