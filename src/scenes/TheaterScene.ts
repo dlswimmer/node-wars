@@ -21,6 +21,8 @@ import { COLORS, FACTION_COLORS, textStyle } from '../theme';
 import { addButton } from './ui';
 
 const UI_DESIGN = { width: 1000, height: 560 };
+/** Pointer travel (CSS px) before a press counts as a drag rather than a tap. */
+const TAP_SLOP_CSS = 14;
 const BACKGROUND = 0x0f150c;
 const SIDE_COLOR: Record<Side, number> = {
   player: FACTION_COLORS.player,
@@ -29,9 +31,9 @@ const SIDE_COLOR: Record<Side, number> = {
 /** Dots per zone: the zone fills dot by dot as a side takes it. */
 const DOTS = 220;
 const UPGRADES: { kind: Upgrade; label: string; what: string }[] = [
-  { kind: 'build', label: 'BUILD', what: 'barracks: stronger pushes, more supply' },
-  { kind: 'enhance', label: 'ENHANCE', what: 'pushes from here hit harder' },
-  { kind: 'fortify', label: 'FORTIFY', what: 'enemy pushes in are weaker' },
+  { kind: 'build', label: 'BUILD', what: 'stronger + supply' },
+  { kind: 'enhance', label: 'ENHANCE', what: 'pushes hit harder' },
+  { kind: 'fortify', label: 'FORTIFY', what: 'defends this zone' },
 ];
 
 interface Dot {
@@ -53,6 +55,9 @@ export class TheaterScene extends Phaser.Scene {
   private uiCam!: Phaser.Cameras.Scene2D.Camera;
   private state!: TheaterState;
   private dots = new Map<string, Dot[]>();
+  /** Shared borders between zones, and each zone's fill order per side (see fillOrder). */
+  private borders = new Map<string, Point[]>();
+  private orders = new Map<string, { sig: string; order: number[] }>();
   private gfx!: Phaser.GameObjects.Graphics;
   private labels: Phaser.GameObjects.Text[] = [];
   private uiObjects: Phaser.GameObjects.GameObject[] = [];
@@ -60,6 +65,18 @@ export class TheaterScene extends Phaser.Scene {
   private selected: string | null = null;
   /** What the panel last showed, so it is only rebuilt when something changes. */
   private panelKey = '';
+  // Pan and pinch, like the world map.
+  private gesture: 'none' | 'pan' | 'pinch' = 'none';
+  private moved = false;
+  private downScreen = { x: 0, y: 0 };
+  private lastScreen = { x: 0, y: 0 };
+  private pinch = { distance: 1, zoom: 1, worldX: 0, worldY: 0 };
+  private minZoom = 0.1;
+  private maxZoom = 1;
+  /** The front's bounds, which the camera's centre stays inside. */
+  private bounds = { x0: 0, x1: 0, y0: 0, y1: 0 };
+  /** Zoom the labels were last sized for. */
+  private labelZoom = 0;
 
   constructor() {
     super('theater');
@@ -77,11 +94,16 @@ export class TheaterScene extends Phaser.Scene {
     this.uiCam = this.cameras.add(0, 0, this.scale.width, this.scale.height).setOrigin(0, 0);
     this.gfx = this.add.graphics();
     this.uiCam.ignore(this.gfx);
-    this.layout();
-    this.input.on('pointerup', (p: Phaser.Input.Pointer, over: unknown[]) => {
-      if (over.length === 0) this.tap(this.cameras.main.getWorldPoint(p.x, p.y));
+    this.gesture = 'none';
+    this.layout(false);
+    this.input.on('pointerdown', this.onPointerDown, this);
+    this.input.on('pointermove', this.onPointerMove, this);
+    this.input.on('pointerup', this.onPointerUp, this);
+    this.input.on('wheel', (p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => {
+      this.zoomAt(this.cameras.main.zoom * (dy > 0 ? 0.8 : 1.25), p.x, p.y);
     });
-    const relayout = () => this.layout();
+    // A resize keeps the view (iPad Safari resizes as its toolbars come and go).
+    const relayout = () => this.layout(true);
     this.scale.on('resize', relayout);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off('resize', relayout));
   }
@@ -91,6 +113,8 @@ export class TheaterScene extends Phaser.Scene {
     updateTheater(this.state, Math.min(deltaMs / 1000, 0.1));
     if (this.state.log.join('|') !== before) sfx.capture();
     if (this.selected && this.state.zones[this.selected]!.owner !== 'player') this.selected = null;
+    // Labels are sized for the zoom; resize them once a pinch or wheel changes it.
+    if (Math.abs(this.cameras.main.zoom - this.labelZoom) > 1e-6) this.buildLabels();
     this.drawZones();
     this.supplyText.setText(`SUPPLY ${Math.floor(this.state.supply.player)}`);
     this.refreshPanel();
@@ -99,6 +123,8 @@ export class TheaterScene extends Phaser.Scene {
   /** Scatter each zone's dots inside its outline (the same every time for a zone). */
   private makeDots() {
     this.dots.clear();
+    this.borders.clear();
+    this.orders.clear();
     for (const z of Object.values(this.state.zones)) {
       const rng = createRng(this.state.seed ^ hash(z.id));
       const xs = z.polygon.map((p) => p.x);
@@ -113,8 +139,8 @@ export class TheaterScene extends Phaser.Scene {
     }
   }
 
-  private layout() {
-    this.fitCamera();
+  private layout(keepView: boolean) {
+    this.fitCamera(keepView);
     this.buildLabels();
     this.panelKey = '';
     this.buildUi();
@@ -126,9 +152,10 @@ export class TheaterScene extends Phaser.Scene {
     return Phaser.Math.Clamp(fit, 0.55, 1.3) * DPR;
   }
 
-  /** Fit every zone between the top bar and the bottom panel. */
-  private fitCamera() {
+  /** Fit every zone between the top bar and the bottom panel (or keep the current view). */
+  private fitCamera(keepView = false) {
     const cam = this.cameras.main;
+    const was = { zoom: cam.zoom, x: cam.scrollX + cam.width / 2, y: cam.scrollY + cam.height / 2 };
     cam.setSize(this.scale.width, this.scale.height);
     const pts = Object.values(this.state.zones).flatMap((z) => z.polygon);
     const xs = pts.map((p) => p.x);
@@ -141,6 +168,16 @@ export class TheaterScene extends Phaser.Scene {
       (cam.width - 40 * DPR) / (x1 - x0),
       (cam.height - top - bottom) / (y1 - y0),
     );
+    this.bounds = { x0, x1, y0, y1 };
+    // Zoom out to see the whole front, in until a zone fills about half the screen.
+    this.minZoom = zoom * 0.85;
+    this.maxZoom = Math.max(zoom * 4, zoom);
+    if (keepView) {
+      cam.setZoom(Phaser.Math.Clamp(was.zoom, this.minZoom, this.maxZoom));
+      cam.centerOn(was.x, was.y);
+      this.clampCamera();
+      return;
+    }
     cam.setZoom(zoom);
     const midY = (top + cam.height - bottom) / 2;
     cam.centerOn((x0 + x1) / 2, (y0 + y1) / 2 - (midY - cam.height / 2) / zoom);
@@ -149,14 +186,48 @@ export class TheaterScene extends Phaser.Scene {
   // ----- The front -------------------------------------------------------------------------
 
   /** Where a side's colour comes into a zone from: the middle of its zones pushing in. */
-  private sourceOf(zone: Zone, side: Side): Point | null {
-    const from = this.state.pushes.filter((p) => p.side === side && p.to === zone.id);
-    if (from.length === 0) return null;
-    const pts = from.map((p) => this.state.zones[p.from]!.centre);
-    return {
-      x: pts.reduce((s, p) => s + p.x, 0) / pts.length,
-      y: pts.reduce((s, p) => s + p.y, 0) / pts.length,
-    };
+  /** The border two zones share (the points of `to`'s outline that `from`'s also has). */
+  private border(from: string, to: string): Point[] {
+    const key = `${from}>${to}`;
+    let pts = this.borders.get(key);
+    if (!pts) {
+      const a = this.state.zones[from]!;
+      const b = this.state.zones[to]!;
+      pts = b.polygon.filter((q) => a.polygon.some((r) => Math.hypot(q.x - r.x, q.y - r.y) < 2));
+      if (pts.length === 0) pts = [a.centre];
+      this.borders.set(key, pts);
+    }
+    return pts;
+  }
+
+  /**
+   * The order a side's colour fills a zone's dots: nearest the borders it pushes in across
+   * first, with a little raggedness, so a front line moves in from those edges. Kept while
+   * that side has no push into the zone, so the dots don't jump about.
+   */
+  private fillOrder(z: Zone, side: Side): number[] {
+    const key = `${z.id}|${side}`;
+    const from = this.state.pushes
+      .filter((p) => p.side === side && p.to === z.id)
+      .map((p) => p.from)
+      .sort();
+    const cached = this.orders.get(key);
+    const sig = from.join(',');
+    if (cached && (from.length === 0 || cached.sig === sig)) return cached.order;
+    const edge = from.length > 0 ? from.flatMap((f) => this.border(f, z.id)) : [z.centre];
+    const dots = this.dots.get(z.id)!;
+    const xs = z.polygon.map((q) => q.x);
+    const spread = (Math.max(...xs) - Math.min(...xs)) * 0.12;
+    const order = dots
+      .map((d, i) => {
+        let near = Infinity;
+        for (const q of edge) near = Math.min(near, Math.hypot(d.x - q.x, d.y - q.y));
+        return { i, key: near + d.jitter * spread };
+      })
+      .sort((a, b) => a.key - b.key)
+      .map((o) => o.i);
+    this.orders.set(key, { sig, order });
+    return order;
   }
 
   private drawZones() {
@@ -213,26 +284,23 @@ export class TheaterScene extends Phaser.Scene {
   }
 
   /**
-   * Colour a zone's dots: each side's share, starting from the side it pushes in from, with
-   * a ragged edge. The rest stay grey.
+   * Colour a zone's dots: each side's share, growing in from the borders it pushes across.
+   * The rest stay grey.
    */
   private drawDots(g: Phaser.GameObjects.Graphics, z: Zone, r: number) {
     const dots = this.dots.get(z.id)!;
     const n = dots.length;
     const taken = new Uint8Array(n);
     for (const side of ['player', 'enemy'] as const) {
-      const count = Math.round(z.share[side] * n);
+      let count = Math.round(z.share[side] * n);
       if (count === 0) continue;
-      const from = this.sourceOf(z, side) ?? z.centre;
-      const spread = 220;
-      const order = dots
-        .map((d, i) => ({ i, key: Math.hypot(d.x - from.x, d.y - from.y) + d.jitter * spread }))
-        .filter((o) => !taken[o.i])
-        .sort((a, b) => a.key - b.key);
       g.fillStyle(SIDE_COLOR[side], 1);
-      for (const o of order.slice(0, count)) {
-        taken[o.i] = 1;
-        g.fillRect(dots[o.i]!.x - r, dots[o.i]!.y - r, r * 2, r * 2);
+      for (const i of this.fillOrder(z, side)) {
+        if (count === 0) break;
+        if (taken[i]) continue;
+        taken[i] = 1;
+        count--;
+        g.fillRect(dots[i]!.x - r, dots[i]!.y - r, r * 2, r * 2);
       }
     }
     g.fillStyle(0x6b7360, 0.7);
@@ -246,6 +314,7 @@ export class TheaterScene extends Phaser.Scene {
     for (const l of this.labels) l.destroy();
     this.labels = [];
     const zoom = this.cameras.main.zoom;
+    this.labelZoom = zoom;
     for (const z of Object.values(this.state.zones)) {
       const xs = z.polygon.map((p) => p.x);
       const widthCss = ((Math.max(...xs) - Math.min(...xs)) * zoom) / DPR;
@@ -259,6 +328,119 @@ export class TheaterScene extends Phaser.Scene {
       this.uiCam.ignore(label);
       this.labels.push(label);
     }
+  }
+
+  // ----- Pan, pinch and tap ----------------------------------------------------------------
+
+  private toWorld(screenX: number, screenY: number): Point {
+    const cam = this.cameras.main;
+    return {
+      x: (screenX - cam.width / 2) / cam.zoom + cam.width / 2 + cam.scrollX,
+      y: (screenY - cam.height / 2) / cam.zoom + cam.height / 2 + cam.scrollY,
+    };
+  }
+
+  /** Zoom so the map point under a screen point stays put. */
+  private zoomAt(zoom: number, screenX: number, screenY: number, world?: Point): number {
+    const cam = this.cameras.main;
+    const at = world ?? this.toWorld(screenX, screenY);
+    const z = Phaser.Math.Clamp(zoom, this.minZoom, this.maxZoom);
+    cam.setZoom(z);
+    cam.scrollX = at.x - (screenX - cam.width / 2) / z - cam.width / 2;
+    cam.scrollY = at.y - (screenY - cam.height / 2) / z - cam.height / 2;
+    this.clampCamera();
+    return z;
+  }
+
+  /** Keep the middle of the screen over the front. */
+  private clampCamera() {
+    const cam = this.cameras.main;
+    const b = this.bounds;
+    const cx = Phaser.Math.Clamp(cam.scrollX + cam.width / 2, b.x0, b.x1);
+    const cy = Phaser.Math.Clamp(cam.scrollY + cam.height / 2, b.y0, b.y1);
+    cam.scrollX = cx - cam.width / 2;
+    cam.scrollY = cy - cam.height / 2;
+  }
+
+  private activeTouches() {
+    return [this.input.pointer1, this.input.pointer2, this.input.pointer3].filter(
+      (p): p is Phaser.Input.Pointer => !!p && p.isDown,
+    );
+  }
+
+  private onPointerDown(p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) {
+    const touches = this.activeTouches();
+    if (touches.length >= 2) {
+      this.gesture = 'pinch';
+      this.resetPinch(touches[0]!, touches[1]!);
+      return;
+    }
+    // Presses on buttons and the panel belong to the UI.
+    if (over.length > 0) {
+      this.gesture = 'none';
+      return;
+    }
+    this.gesture = 'pan';
+    this.moved = false;
+    this.downScreen = { x: p.x, y: p.y };
+    this.lastScreen = { x: p.x, y: p.y };
+  }
+
+  private onPointerMove(p: Phaser.Input.Pointer) {
+    if (this.gesture === 'pinch') {
+      this.updatePinch();
+      return;
+    }
+    if (this.gesture !== 'pan') return;
+    if (Math.hypot(p.x - this.downScreen.x, p.y - this.downScreen.y) > TAP_SLOP_CSS * DPR) {
+      this.moved = true;
+    }
+    if (this.moved) {
+      const cam = this.cameras.main;
+      cam.scrollX -= (p.x - this.lastScreen.x) / cam.zoom;
+      cam.scrollY -= (p.y - this.lastScreen.y) / cam.zoom;
+      this.clampCamera();
+    }
+    this.lastScreen = { x: p.x, y: p.y };
+  }
+
+  private onPointerUp(p: Phaser.Input.Pointer) {
+    if (this.gesture === 'pinch') {
+      const left = this.activeTouches();
+      if (left.length === 1) {
+        this.gesture = 'pan';
+        this.moved = true;
+        this.lastScreen = { x: left[0]!.x, y: left[0]!.y };
+      } else if (left.length === 0) {
+        this.gesture = 'none';
+      }
+      return;
+    }
+    const tapped = this.gesture === 'pan' && !this.moved && !p.wasCanceled;
+    this.gesture = 'none';
+    if (tapped) this.tap(this.toWorld(p.x, p.y));
+  }
+
+  private resetPinch(a: Phaser.Input.Pointer, b: Phaser.Input.Pointer) {
+    const mid = this.toWorld((a.x + b.x) / 2, (a.y + b.y) / 2);
+    this.pinch = {
+      distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+      zoom: this.cameras.main.zoom,
+      worldX: mid.x,
+      worldY: mid.y,
+    };
+  }
+
+  private updatePinch() {
+    const touches = this.activeTouches();
+    if (touches.length < 2) return;
+    const [a, b] = [touches[0]!, touches[1]!];
+    const wanted = this.pinch.zoom * (Math.hypot(a.x - b.x, a.y - b.y) / this.pinch.distance);
+    const got = this.zoomAt(wanted, (a.x + b.x) / 2, (a.y + b.y) / 2, {
+      x: this.pinch.worldX,
+      y: this.pinch.worldY,
+    });
+    if (Math.abs(got - wanted) > 1e-6) this.resetPinch(a, b);
   }
 
   private tap(w: Point) {
@@ -365,8 +547,8 @@ export class TheaterScene extends Phaser.Scene {
         addButton(this, bx(i), by, {
           width: slot - 12,
           height: 64,
-          label: cost === null ? `${u.label} ${pips}` : `${u.label} · ${cost}`,
-          sublabel: cost === null ? 'MAXED' : pips,
+          label: cost === null ? `${u.label} ${pips} MAX` : `${u.label} ${pips} · ${cost}`,
+          sublabel: u.what,
           color: cost === null ? 0x3a3a3a : can ? 0x2f6b3a : 0x3a3020,
           labelSize: 22,
           onClick: () => {
@@ -383,7 +565,7 @@ export class TheaterScene extends Phaser.Scene {
         width: slot - 12,
         height: 64,
         label: left > 0 ? 'RALLYING!' : `RALLY · ${RALLY.cost}`,
-        sublabel: left > 0 ? `${left} s left` : `${RALLY.power}× for ${RALLY.seconds} s`,
+        sublabel: left > 0 ? `${left} s left` : `${RALLY.power}× pushes, ${RALLY.seconds} s`,
         color: left > 0 ? 0xb8902a : canRally ? 0x8a4a1f : 0x3a3020,
         labelSize: 22,
         onClick: () => {
