@@ -1,196 +1,122 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio';
 import { DPR, cssSize } from '../display';
+import { createRng } from '../sim/rng';
 import { insidePolygon } from '../sim/scenery';
 import {
-  MIN_ATTACK,
-  attackSize,
-  battleLevel,
-  targetsFrom,
-  theaterRank,
-  type Order,
+  MAX_LEVEL,
+  buyUpgrade,
+  newTheater,
+  updateTheater,
+  upgradeCost,
+  type Side,
+  type TheaterState,
+  type Upgrade,
   type Zone,
 } from '../sim/theater';
 import type { Point } from '../sim/types';
 import { COLORS, FACTION_COLORS, textStyle } from '../theme';
-import type { BattleData } from './BattleScene';
-import { newTheaterRun, nextFight, startRound, theaterRun, type TheaterRun } from './theaterRun';
 import { addButton } from './ui';
 
 const UI_DESIGN = { width: 1000, height: 560 };
 const BACKGROUND = 0x0f150c;
-const FILL: Record<Zone['owner'], number> = {
+const SIDE_COLOR: Record<Side, number> = {
   player: FACTION_COLORS.player,
   enemy: FACTION_COLORS.enemy,
-  neutral: 0x6b7360,
 };
+/** Dots per zone: the zone fills dot by dot as a side takes it. */
+const DOTS = 220;
+const UPGRADES: { kind: Upgrade; label: string; what: string }[] = [
+  { kind: 'build', label: 'BUILD', what: 'barracks: stronger pushes, more supply' },
+  { kind: 'enhance', label: 'ENHANCE', what: 'pushes from here hit harder' },
+  { kind: 'fortify', label: 'FORTIFY', what: 'enemy pushes in are weaker' },
+];
+
+interface Dot {
+  x: number;
+  y: number;
+  /** Randomness in the order dots change colour, so the front edge is ragged. */
+  jitter: number;
+}
+
+/** The front stays while the app is open (a prototype: not saved). */
+let theater: TheaterState | null = null;
 
 /**
- * Theater (Phase 2 prototype): the front as a map of zones. Tap one of your zones, then a
- * neighbour, to order an attack (one per general). Each order is fought by your general
- * (AUTO) or by you (I'LL FIGHT). GO sends them all, then the enemy answers.
+ * Theater (Phase 2 prototype): the front in real time. Every zone you own pushes into its
+ * neighbours by itself; you can see each zone fill with colour, dot by dot, from the side
+ * pushing in. Spend supply on the zones that matter: build, enhance, fortify.
  */
 export class TheaterScene extends Phaser.Scene {
   private uiCam!: Phaser.Cameras.Scene2D.Camera;
-  private run!: TheaterRun;
-  private mapObjects: Phaser.GameObjects.GameObject[] = [];
+  private state!: TheaterState;
+  private dots = new Map<string, Dot[]>();
+  private gfx!: Phaser.GameObjects.Graphics;
+  private labels: Phaser.GameObjects.Text[] = [];
   private uiObjects: Phaser.GameObjects.GameObject[] = [];
+  private supplyText!: Phaser.GameObjects.Text;
   private selected: string | null = null;
-
-  /** Back from a fight you played: carry on with the round. */
-  private resuming = false;
+  /** What the panel last showed, so it is only rebuilt when something changes. */
+  private panelKey = '';
 
   constructor() {
     super('theater');
   }
 
-  init(data: { resume?: boolean }) {
-    this.resuming = !!data.resume;
-    // Phaser keeps a scene's last data when started without any; use it once.
-    this.sys.settings.data = {};
-  }
-
   create() {
-    this.run = theaterRun();
+    theater ??= newTheater(1 + Math.floor(Math.random() * 999_999));
+    this.state = theater;
     this.selected = null;
-    this.mapObjects = [];
+    this.panelKey = '';
     this.uiObjects = [];
+    this.labels = [];
+    this.makeDots();
     this.cameras.main.setBackgroundColor(BACKGROUND);
     this.uiCam = this.cameras.add(0, 0, this.scale.width, this.scale.height).setOrigin(0, 0);
-    this.redraw();
+    this.gfx = this.add.graphics();
+    this.uiCam.ignore(this.gfx);
+    this.layout();
     this.input.on('pointerup', (p: Phaser.Input.Pointer, over: unknown[]) => {
       if (over.length === 0) this.tap(this.cameras.main.getWorldPoint(p.x, p.y));
     });
-    const relayout = () => this.redraw();
+    const relayout = () => this.layout();
     this.scale.on('resize', relayout);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off('resize', relayout));
-    if (this.resuming) this.resume();
   }
 
-  private map<T extends Phaser.GameObjects.GameObject>(obj: T): T {
-    this.uiCam.ignore(obj);
-    this.mapObjects.push(obj);
-    return obj;
+  update(_time: number, deltaMs: number) {
+    const before = this.state.log.join('|');
+    updateTheater(this.state, Math.min(deltaMs / 1000, 0.1));
+    if (this.state.log.join('|') !== before) sfx.capture();
+    if (this.selected && this.state.zones[this.selected]!.owner !== 'player') this.selected = null;
+    this.drawZones();
+    this.supplyText.setText(`SUPPLY ${Math.floor(this.state.supply.player)}`);
+    this.refreshPanel();
   }
 
-  private ui<T extends Phaser.GameObjects.GameObject>(obj: T): T {
-    this.cameras.main.ignore(obj);
-    this.uiObjects.push(obj);
-    return obj;
+  /** Scatter each zone's dots inside its outline (the same every time for a zone). */
+  private makeDots() {
+    this.dots.clear();
+    for (const z of Object.values(this.state.zones)) {
+      const rng = createRng(this.state.seed ^ hash(z.id));
+      const xs = z.polygon.map((p) => p.x);
+      const ys = z.polygon.map((p) => p.y);
+      const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+      const dots: Dot[] = [];
+      for (let tries = 0; dots.length < DOTS && tries < DOTS * 20; tries++) {
+        const p = { x: x0 + rng() * (x1 - x0), y: y0 + rng() * (y1 - y0) };
+        if (insidePolygon(p, z.polygon)) dots.push({ ...p, jitter: rng() });
+      }
+      this.dots.set(z.id, dots);
+    }
   }
 
-  private redraw() {
-    for (const o of [...this.mapObjects, ...this.uiObjects]) o.destroy();
-    this.mapObjects = [];
-    this.uiObjects = [];
+  private layout() {
     this.fitCamera();
-    this.drawMap();
+    this.buildLabels();
+    this.panelKey = '';
     this.buildUi();
   }
-
-  // ----- Map -------------------------------------------------------------------------------
-
-  private zones(): Zone[] {
-    return Object.values(this.run.state.zones);
-  }
-
-  /** Fit every zone between the top bar and the bottom panel. */
-  private fitCamera() {
-    const cam = this.cameras.main;
-    cam.setSize(this.scale.width, this.scale.height);
-    const pts = this.zones().flatMap((z) => z.polygon);
-    const xs = pts.map((p) => p.x);
-    const ys = pts.map((p) => p.y);
-    const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-    const uiZoom = this.uiZoom();
-    const top = 132 * uiZoom;
-    const bottom = 150 * uiZoom;
-    const room = { w: cam.width - 40 * DPR, h: cam.height - top - bottom };
-    const zoom = Math.min(room.w / (x1 - x0), room.h / (y1 - y0));
-    cam.setZoom(zoom);
-    // Centre the map in the space between the bars.
-    const midY = (top + (cam.height - bottom)) / 2;
-    cam.centerOn((x0 + x1) / 2, (y0 + y1) / 2 - (midY - cam.height / 2) / zoom);
-  }
-
-  private drawMap() {
-    const g = this.map(this.add.graphics());
-    const sel = this.selected ? this.run.state.zones[this.selected] : null;
-    const targets = new Set(sel ? targetsFrom(this.run.state, sel.id) : []);
-    const ordered = new Set(this.run.orders.map((o) => o.from));
-    const zoom = this.cameras.main.zoom;
-    for (const z of this.zones()) {
-      g.fillStyle(FILL[z.owner], z.owner === 'neutral' ? 0.55 : 0.8).fillPoints(z.polygon, true);
-      g.lineStyle(3 / zoom, 0x1b2416, 1).strokePoints(z.polygon, true);
-    }
-    // Where you can attack from the selected zone, then the selection on top.
-    for (const id of targets) {
-      g.lineStyle(6 / zoom, 0x9dff9d, 1).strokePoints(this.run.state.zones[id]!.polygon, true);
-    }
-    if (sel) g.lineStyle(7 / zoom, 0xffffff, 1).strokePoints(sel.polygon, true);
-    // Orders as arrows from zone to zone.
-    for (const o of this.run.orders) {
-      const a = this.run.state.zones[o.from]!.centre;
-      const b = this.run.state.zones[o.to]!.centre;
-      g.lineStyle(8 / zoom, o.auto ? 0xc9b3ff : 0xf2c94c, 1).lineBetween(a.x, a.y, b.x, b.y);
-      g.fillStyle(o.auto ? 0xc9b3ff : 0xf2c94c, 1).fillCircle(b.x, b.y, 14 / zoom);
-    }
-    for (const z of this.zones()) {
-      const s = 1 / zoom;
-      // On a small screen zones are small: drop the names and fit the troop count inside.
-      const xs = z.polygon.map((p) => p.x);
-      const widthCss = ((Math.max(...xs) - Math.min(...xs)) * zoom) / DPR;
-      const roomy = widthCss >= 85;
-      if (roomy) {
-        const name = z.name.toUpperCase().replace(' ', '\n');
-        this.map(
-          this.add
-            .text(z.centre.x, z.centre.y - 22 * s, name, { ...textStyle(13), align: 'center' })
-            .setScale(s * DPR)
-            .setOrigin(0.5)
-            .setLineSpacing(-3),
-        );
-      }
-      const label = `${z.home ? '★' : ''}${z.troops}${ordered.has(z.id) ? '*' : ''}`;
-      const size = Phaser.Math.Clamp(Math.round(widthCss / 3.4), 14, 24);
-      this.map(
-        this.add
-          .text(z.centre.x, z.centre.y + (roomy ? 14 * s : 0), label, textStyle(size))
-          .setScale(s * DPR)
-          .setOrigin(0.5),
-      );
-    }
-  }
-
-  private tap(w: Point) {
-    const s = this.run.state;
-    if (s.winner) return;
-    const hit = this.zones().find((z) => insidePolygon(w, z.polygon));
-    if (!hit) {
-      this.selected = null;
-    } else if (this.selected && targetsFrom(s, this.selected).includes(hit.id)) {
-      this.addOrder(this.selected, hit.id);
-      this.selected = null;
-    } else if (hit.owner === 'player' && hit.troops >= MIN_ATTACK) {
-      this.selected = this.run.orders.some((o) => o.from === hit.id) ? null : hit.id;
-      sfx.click();
-    } else {
-      this.selected = null;
-    }
-    this.redraw();
-  }
-
-  private addOrder(from: string, to: string) {
-    if (this.run.orders.length >= this.run.state.generals) {
-      sfx.failed();
-      return;
-    }
-    const troops = attackSize(this.run.state.zones[from]!);
-    this.run.orders.push({ from, to, troops, auto: true });
-    sfx.capture();
-  }
-
-  // ----- UI --------------------------------------------------------------------------------
 
   private uiZoom(): number {
     const { width, height } = cssSize(this);
@@ -198,13 +124,156 @@ export class TheaterScene extends Phaser.Scene {
     return Phaser.Math.Clamp(fit, 0.55, 1.3) * DPR;
   }
 
+  /** Fit every zone between the top bar and the bottom panel. */
+  private fitCamera() {
+    const cam = this.cameras.main;
+    cam.setSize(this.scale.width, this.scale.height);
+    const pts = Object.values(this.state.zones).flatMap((z) => z.polygon);
+    const xs = pts.map((p) => p.x);
+    const ys = pts.map((p) => p.y);
+    const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+    const ui = this.uiZoom();
+    const top = 96 * ui;
+    const bottom = 132 * ui;
+    const zoom = Math.min(
+      (cam.width - 40 * DPR) / (x1 - x0),
+      (cam.height - top - bottom) / (y1 - y0),
+    );
+    cam.setZoom(zoom);
+    const midY = (top + cam.height - bottom) / 2;
+    cam.centerOn((x0 + x1) / 2, (y0 + y1) / 2 - (midY - cam.height / 2) / zoom);
+  }
+
+  // ----- The front -------------------------------------------------------------------------
+
+  /** Where a side's colour comes into a zone from: the middle of its zones pushing in. */
+  private sourceOf(zone: Zone, side: Side): Point | null {
+    const from = this.state.pushes.filter((p) => p.side === side && p.to === zone.id);
+    if (from.length === 0) return null;
+    const pts = from.map((p) => this.state.zones[p.from]!.centre);
+    return {
+      x: pts.reduce((s, p) => s + p.x, 0) / pts.length,
+      y: pts.reduce((s, p) => s + p.y, 0) / pts.length,
+    };
+  }
+
+  private drawZones() {
+    const g = this.gfx.clear();
+    const zoom = this.cameras.main.zoom;
+    // Dots about 5 CSS px across, drawn as squares (circles cost too much to redraw each frame).
+    const dotR = (3 * DPR) / zoom;
+    for (const z of Object.values(this.state.zones)) {
+      const tint = z.owner ? SIDE_COLOR[z.owner] : 0x3a4232;
+      g.fillStyle(tint, z.owner ? 0.35 : 0.6).fillPoints(z.polygon, true);
+      this.drawDots(g, z, Math.max(dotR, 0));
+    }
+    // Pushes: a soft arrow from each pushing zone toward the zone it pushes into.
+    for (const p of this.state.pushes) {
+      const a = this.state.zones[p.from]!.centre;
+      const b = this.state.zones[p.to]!.centre;
+      const [mx, my] = [a.x + (b.x - a.x) * 0.62, a.y + (b.y - a.y) * 0.62];
+      const ang = Math.atan2(b.y - a.y, b.x - a.x);
+      const [sx, sy] = [a.x + (b.x - a.x) * 0.38, a.y + (b.y - a.y) * 0.38];
+      // A dark outline first, so the arrow shows over a zone full of its own colour.
+      for (const [color, grow] of [
+        [0x000000, 2.2],
+        [SIDE_COLOR[p.side], 0],
+      ] as const) {
+        // Sized to the zones (not the screen), so the arrows fit a small map on a phone.
+        const len = Math.hypot(b.x - a.x, b.y - a.y);
+        const s = len * (0.09 + grow * 0.012);
+        g.lineStyle(len * (0.025 + grow * 0.012), color, 1).lineBetween(sx, sy, mx, my);
+        g.fillStyle(color, 1).fillTriangle(
+          mx + Math.cos(ang) * s,
+          my + Math.sin(ang) * s,
+          mx + Math.cos(ang + 2.4) * s,
+          my + Math.sin(ang + 2.4) * s,
+          mx + Math.cos(ang - 2.4) * s,
+          my + Math.sin(ang - 2.4) * s,
+        );
+      }
+    }
+    for (const z of Object.values(this.state.zones)) {
+      g.lineStyle(3 / zoom, 0x101510, 1).strokePoints(z.polygon, true);
+    }
+    if (this.selected) {
+      g.lineStyle(6 / zoom, 0xffffff, 1).strokePoints(
+        this.state.zones[this.selected]!.polygon,
+        true,
+      );
+    }
+  }
+
+  /**
+   * Colour a zone's dots: each side's share, starting from the side it pushes in from, with
+   * a ragged edge. The rest stay grey.
+   */
+  private drawDots(g: Phaser.GameObjects.Graphics, z: Zone, r: number) {
+    const dots = this.dots.get(z.id)!;
+    const n = dots.length;
+    const taken = new Uint8Array(n);
+    for (const side of ['player', 'enemy'] as const) {
+      const count = Math.round(z.share[side] * n);
+      if (count === 0) continue;
+      const from = this.sourceOf(z, side) ?? z.centre;
+      const spread = 220;
+      const order = dots
+        .map((d, i) => ({ i, key: Math.hypot(d.x - from.x, d.y - from.y) + d.jitter * spread }))
+        .filter((o) => !taken[o.i])
+        .sort((a, b) => a.key - b.key);
+      g.fillStyle(SIDE_COLOR[side], 1);
+      for (const o of order.slice(0, count)) {
+        taken[o.i] = 1;
+        g.fillRect(dots[o.i]!.x - r, dots[o.i]!.y - r, r * 2, r * 2);
+      }
+    }
+    g.fillStyle(0x6b7360, 0.7);
+    const q = r * 0.75;
+    for (let i = 0; i < n; i++)
+      if (!taken[i]) g.fillRect(dots[i]!.x - q, dots[i]!.y - q, q * 2, q * 2);
+  }
+
+  /** Zone names (when there's room) and homes. */
+  private buildLabels() {
+    for (const l of this.labels) l.destroy();
+    this.labels = [];
+    const zoom = this.cameras.main.zoom;
+    for (const z of Object.values(this.state.zones)) {
+      const xs = z.polygon.map((p) => p.x);
+      const widthCss = ((Math.max(...xs) - Math.min(...xs)) * zoom) / DPR;
+      const text = `${z.home ? '★ ' : ''}${widthCss >= 85 ? z.name.toUpperCase().replace(' ', '\n') : ''}`;
+      if (!text.trim()) continue;
+      const label = this.add
+        .text(z.centre.x, z.centre.y, text, { ...textStyle(14), align: 'center' })
+        .setScale(DPR / zoom)
+        .setOrigin(0.5)
+        .setDepth(5);
+      this.uiCam.ignore(label);
+      this.labels.push(label);
+    }
+  }
+
+  private tap(w: Point) {
+    if (this.state.winner) return;
+    const hit = Object.values(this.state.zones).find((z) => insidePolygon(w, z.polygon));
+    this.selected = hit && hit.owner === 'player' && hit.id !== this.selected ? hit.id : null;
+    if (this.selected) sfx.click();
+  }
+
+  // ----- UI --------------------------------------------------------------------------------
+
+  private ui<T extends Phaser.GameObjects.GameObject>(obj: T): T {
+    this.cameras.main.ignore(obj);
+    this.uiObjects.push(obj);
+    return obj;
+  }
+
   private buildUi() {
+    for (const o of this.uiObjects) o.destroy();
+    this.uiObjects = [];
     const zoom = this.uiZoom();
     this.uiCam.setSize(this.scale.width, this.scale.height).setZoom(zoom);
     const w = this.scale.width / zoom;
-    const h = this.scale.height / zoom;
-    const s = this.run.state;
-
     this.ui(this.add.rectangle(0, 0, w, 96, 0x000000, 0.5).setOrigin(0));
     this.ui(
       addButton(this, 90, 48, {
@@ -215,22 +284,8 @@ export class TheaterScene extends Phaser.Scene {
         onClick: () => this.scene.start('menu', { page: 'quick' }),
       }),
     );
-    this.ui(
-      this.add
-        .text(w / 2, 28, `THEATER · ROUND ${s.round}`, textStyle(36, COLORS.accent))
-        .setOrigin(0.5),
-    );
-    const left = s.generals - this.run.orders.length;
-    this.ui(
-      this.add
-        .text(
-          w / 2,
-          66,
-          `${left} general${left === 1 ? '' : 's'} free · tap your zone, then a neighbour`,
-          textStyle(20),
-        )
-        .setOrigin(0.5),
-    );
+    this.ui(this.add.text(w / 2, 28, 'THEATER', textStyle(36, COLORS.accent)).setOrigin(0.5));
+    this.supplyText = this.ui(this.add.text(w / 2, 66, '', textStyle(22)).setOrigin(0.5));
     this.ui(
       addButton(this, w - 100, 48, {
         width: 170,
@@ -238,80 +293,86 @@ export class TheaterScene extends Phaser.Scene {
         label: 'NEW',
         labelSize: 28,
         onClick: () => {
-          newTheaterRun();
+          theater = null;
           this.scene.restart();
         },
       }),
     );
-    if (s.winner) this.endPanel(w, h);
-    else this.ordersPanel(w, h);
   }
 
-  /** This round's orders (AUTO / I'LL FIGHT, remove), last round's news, and GO. */
-  private ordersPanel(w: number, h: number) {
+  /** Rebuild the bottom panel only when what it shows has changed. */
+  private refreshPanel() {
+    const s = this.state;
+    const z = this.selected ? s.zones[this.selected]! : null;
+    const key = [
+      s.winner,
+      z?.id,
+      z && JSON.stringify(z.levels),
+      z && UPGRADES.map((u) => s.supply.player >= (upgradeCost(z, u.kind) ?? Infinity)).join(),
+      s.log.at(-1),
+    ].join('|');
+    if (key === this.panelKey) return;
+    this.panelKey = key;
+    this.buildUi();
+    const zoom = this.uiZoom();
+    const w = this.scale.width / zoom;
+    const h = this.scale.height / zoom;
+    if (s.winner) {
+      this.endPanel(w, h);
+      return;
+    }
     const panelW = Math.min(900, w - 24);
-    const panelH = 140;
+    const panelH = 120;
     const x0 = (w - panelW) / 2;
     const y0 = h - panelH - 8;
     const bg = this.ui(this.add.graphics());
     bg.fillStyle(0x000000, 0.75).fillRoundedRect(x0, y0, panelW, panelH, 14);
     this.ui(this.add.zone(x0, y0, panelW, panelH).setOrigin(0).setInteractive());
-    const zones = this.run.state.zones;
-    if (this.run.orders.length === 0) {
-      const news = this.run.state.log.length
-        ? this.run.state.log.join('\n')
-        : 'Take the enemy home (★ on the right). Your generals fight AUTO battles; or fight one yourself.';
+    if (!z) {
+      const news = s.log.at(-1) ?? 'Your zones push into their neighbours by themselves.';
+      this.ui(this.add.text(x0 + 20, y0 + 16, news, textStyle(24, COLORS.accent)));
       this.ui(
-        this.add.text(x0 + 20, y0 + 14, news, {
-          ...textStyle(20),
-          wordWrap: { width: panelW - 260 },
-        }),
+        this.add.text(
+          x0 + 20,
+          y0 + 56,
+          'Tap one of your zones to BUILD, ENHANCE or FORTIFY it with supply. Take the enemy ★.',
+          { ...textStyle(20), wordWrap: { width: panelW - 40 } },
+        ),
       );
+      return;
     }
-    this.run.orders.forEach((o, i) => {
-      const y = y0 + 34 + i * 62;
-      const line = `${zones[o.from]!.name} → ${zones[o.to]!.name} · ${o.troops} troops`;
-      this.ui(this.add.text(x0 + 20, y - 14, line, textStyle(20)));
+    this.ui(this.add.text(x0 + 20, y0 + 12, z.name.toUpperCase(), textStyle(26)));
+    UPGRADES.forEach((u, i) => {
+      const level = z.levels[u.kind];
+      const cost = upgradeCost(z, u.kind);
+      const bx = x0 + 120 + i * ((panelW - 160) / 3) + 40;
+      const by = y0 + 76;
+      const pips = '■'.repeat(level) + '□'.repeat(MAX_LEVEL - level);
+      const can = cost !== null && s.supply.player >= cost;
       this.ui(
-        addButton(this, x0 + panelW - 420, y, {
-          width: 190,
-          height: 52,
-          label: o.auto ? 'GENERAL' : "I'LL FIGHT",
-          color: o.auto ? 0x4a2f7a : 0x7a5a1f,
+        addButton(this, bx, by, {
+          width: (panelW - 200) / 3,
+          height: 64,
+          label: cost === null ? `${u.label} ${pips}` : `${u.label} · ${cost}`,
+          sublabel: cost === null ? 'MAXED' : pips,
+          color: cost === null ? 0x3a3a3a : can ? 0x2f6b3a : 0x3a3020,
           labelSize: 22,
           onClick: () => {
-            o.auto = !o.auto;
-            this.redraw();
-          },
-        }),
-      );
-      this.ui(
-        addButton(this, x0 + panelW - 290, y, {
-          width: 52,
-          height: 52,
-          label: '✕',
-          labelSize: 24,
-          onClick: () => {
-            this.run.orders.splice(i, 1);
-            this.redraw();
+            if (buyUpgrade(s, 'player', z.id, u.kind)) sfx.capture();
+            else sfx.failed();
           },
         }),
       );
     });
     this.ui(
-      addButton(this, x0 + panelW - 110, y0 + panelH / 2, {
-        width: 190,
-        height: 100,
-        label: 'GO!',
-        color: 0x2f6b3a,
-        labelSize: 44,
-        onClick: () => this.go(),
-      }),
+      this.add
+        .text(x0 + panelW - 20, y0 + 16, 'tap again to close', textStyle(16, COLORS.textDim))
+        .setOrigin(1, 0),
     );
   }
 
   private endPanel(w: number, h: number) {
-    const won = this.run.state.winner === 'player';
+    const won = this.state.winner === 'player';
     this.ui(this.add.rectangle(0, 0, w, h, 0x000000, 0.55).setOrigin(0).setInteractive());
     this.ui(
       this.add
@@ -323,10 +384,9 @@ export class TheaterScene extends Phaser.Scene {
         )
         .setOrigin(0.5),
     );
+    const minutes = Math.round(this.state.time / 60);
     this.ui(
-      this.add
-        .text(w / 2, h / 2 + 4, `in ${this.run.state.round} rounds`, textStyle(28))
-        .setOrigin(0.5),
+      this.add.text(w / 2, h / 2 + 4, `in about ${minutes} min`, textStyle(28)).setOrigin(0.5),
     );
     this.ui(
       addButton(this, w / 2, h / 2 + 90, {
@@ -336,36 +396,16 @@ export class TheaterScene extends Phaser.Scene {
         color: 0x2f6b3a,
         labelSize: 34,
         onClick: () => {
-          newTheaterRun();
+          theater = null;
           this.scene.restart();
         },
       }),
     );
   }
+}
 
-  /** Send the orders; play your own fights one by one, then the enemy answers. */
-  private go() {
-    sfx.click();
-    const fight = startRound(this.run);
-    if (fight) this.playFight(fight);
-    else this.redraw();
-  }
-
-  private playFight(o: Order) {
-    const s = this.run.state;
-    const target = s.zones[o.to]!;
-    const data: BattleData = {
-      mode: 'theater',
-      difficulty: theaterRank(s, target.owner).id,
-      theaterLevel: battleLevel(s, o.to, o.troops, target.troops),
-    };
-    this.scene.start('battle', data);
-  }
-
-  /** Back from a fight you played: on to the next one, or show the round's results. */
-  resume() {
-    const next = nextFight(this.run);
-    if (next) this.playFight(next);
-    else this.redraw();
-  }
+function hash(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
 }

@@ -106,12 +106,14 @@ every push to `main` (CI runs lint, format, typecheck and tests first).
   freely. Two webs, not one, because they use different currencies and reset differently.
   Kept separate on purpose; the user agreed. Old War College levels didn't map cleanly onto
   the web, so save version 5 refunds all Honor spent on them instead of guessing.
-- **Phase 2 prototype: the Theater** (2026-10-27, Quick Battle > THEATER (TEST)): a front of
-  12 zones played in rounds (`src/sim/theater.ts`, `TheaterScene`, `theaterRun.ts`, not
-  saved). Order attacks from your zones (one per general, 2 generals); each is fought by your
-  general (the Commander brain, instantly) or by you (a Phase 1 battle on that zone's map with
-  the garrisons as HQ troops). Then the enemy attacks and garrisons grow. Built to see whether
-  "controlling an area" is fun before designing Phase 2 properly.
+- **Phase 2 prototype: the Theater** (Quick Battle > THEATER (TEST), `src/sim/theater.ts`,
+  `TheaterScene`, not saved). First version (2026-10-27) was turn-based rounds with generals
+  auto-resolving battles and optional drop-in fights: the user disliked it (no control, a
+  step back in looks). Second version (2026-10-28, the user's design): real time; every
+  owned zone pushes into its neighbours by itself, filling them dot by dot with its colour
+  (wearing the other side's away first); full = captured; supply buys BUILD / ENHANCE /
+  FORTIFY per zone; momentum (each zone owned strengthens all pushes) breaks stalemates. Idle
+  loses in about 2 minutes; building up the front wins in 4-6.
 - **Resizes keep the view** (2026-10-26): one iPad's Safari fired resize events mid-drag,
   and the map and webs re-fit the camera on every one, so panning snapped back. Same-size
   resizes are ignored in main.ts, and the map and webs keep their zoom and centre on resize.
